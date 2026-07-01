@@ -8,16 +8,16 @@ import '../constants/api_constants.dart';
 import '../user_home.dart';
 
 class OTPPage extends StatefulWidget {
-  final String phone;
-  final String fullName;
   final String email;
+  final String fullName;
+  final String phone;
   final String password;
 
   const OTPPage({
     super.key,
-    required this.phone,
-    required this.fullName,
     required this.email,
+    required this.fullName,
+    required this.phone,
     required this.password,
   });
 
@@ -78,87 +78,93 @@ class _OTPPageState extends State<OTPPage> {
   }
 
   void _verifyOTP() async {
-  if (_isLoading) return;
+    if (_isLoading) return;
 
-  String otp = '';
-  for (var controller in _controllers) {
-    otp += controller.text;
-  }
+    String otp = '';
+    for (var controller in _controllers) {
+      otp += controller.text;
+    }
 
-  if (otp.length != _otpLength) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please enter complete OTP'),
-        backgroundColor: Colors.orange,
-      ),
-    );
-    return;
-  }
+    if (otp.length != _otpLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter complete OTP'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
-  setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
 
-  try {
-    final data = {
-      'phone': widget.phone,
-      'otp': otp,
-    };
-
-    print('📤 Verifying OTP: $data');
-    final verifyResponse = await ApiService.post(ApiConstants.verifyOTP, data);
-    print('📥 Verify Response: $verifyResponse');
-
-    if (verifyResponse['success'] == true && verifyResponse['verified'] == true) {
-      print('✅ OTP Verified! Registering user...');
-
-      final registerData = {
-        'fullName': widget.fullName,
+    try {
+      final data = {
         'email': widget.email,
-        'phone': widget.phone,
-        'password': widget.password,
+        'otp': otp,
       };
 
-      print('📤 Registering user: $registerData');
-      final registerResponse = await ApiService.post(ApiConstants.register, registerData);
-      print('📥 Register Response: $registerResponse');
+      print('📤 Verifying OTP for email: ${widget.email}');
+      final verifyResponse = await ApiService.post(ApiConstants.verifyOTP, data);
+      print('📥 Verify Response: $verifyResponse');
 
-      if (registerResponse['success'] == true || registerResponse['token'] != null) {
-        // Save token
-        await ApiService.saveToken(registerResponse['token']);
-        
-        // Save user data
-        await ApiService.saveUserData({
-          '_id': registerResponse['_id'],
-          'fullName': registerResponse['fullName'],
-          'email': registerResponse['email'],
-          'phone': registerResponse['phone'],
-        });
-        
-        print('✅ Token and user data saved!');
+      if (verifyResponse['success'] == true && verifyResponse['verified'] == true) {
+        print('✅ OTP Verified! Registering user...');
 
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const UserHome()),
+        final registerData = {
+          'fullName': widget.fullName,
+          'email': widget.email,
+          'phone': widget.phone,
+          'password': widget.password,
+        };
+
+        print('📤 Registering user: $registerData');
+        final registerResponse = await ApiService.post(ApiConstants.register, registerData);
+        print('📥 Register Response: $registerResponse');
+
+        if (registerResponse['success'] == true || registerResponse['token'] != null) {
+          await ApiService.saveToken(registerResponse['token']);
+          await ApiService.saveUserData({
+            '_id': registerResponse['_id'],
+            'fullName': registerResponse['fullName'],
+            'email': registerResponse['email'],
+            'phone': registerResponse['phone'],
+          });
+          
+          print('✅ Token and user data saved!');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Registration successful! Welcome to SeaSoul!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
           );
+
+          if (mounted) {
+            await Future.delayed(const Duration(milliseconds: 500));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const UserHome()),
+            );
+          }
+        } else {
+          throw Exception(registerResponse['message'] ?? 'Registration failed');
         }
       } else {
-        throw Exception(registerResponse['message'] ?? 'Registration failed');
+        throw Exception(verifyResponse['message'] ?? 'OTP verification failed');
       }
-    } else {
-      throw Exception(verifyResponse['message'] ?? 'OTP verification failed');
+    } catch (e) {
+      print('❌ Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  } catch (e) {
-    print('❌ Error: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error: ${e.toString()}'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
   }
-}
 
   void _resendOTP() async {
     if (!_canResend || _isLoading) return;
@@ -166,16 +172,22 @@ class _OTPPageState extends State<OTPPage> {
     setState(() => _isLoading = true);
 
     try {
-      final data = {'phone': widget.phone};
-      await ApiService.post(ApiConstants.sendOTP, data);
+      final data = {'email': widget.email};
+      await ApiService.post(ApiConstants.resendOTP, data);
 
       _startTimer();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP resent successfully'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('✅ OTP resent successfully to your email'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -280,7 +292,7 @@ class _OTPPageState extends State<OTPPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Verify Phone',
+                      'Verify Email',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.montserrat(
                         fontSize: 24,
@@ -301,7 +313,7 @@ class _OTPPageState extends State<OTPPage> {
                           children: [
                             const TextSpan(text: "We've sent a code to "),
                             TextSpan(
-                              text: widget.phone,
+                              text: widget.email,
                               style: const TextStyle(
                                 color: Color(0xFFC3F5FF),
                                 fontWeight: FontWeight.w500,

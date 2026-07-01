@@ -50,77 +50,86 @@ class _signupState extends State<signup> {
   }
 
   void _sendOTP() async {
-    if (_isLoading) return;
+  if (_isLoading) return;
 
-    final fullName = _fullNameController.text.trim();
-    final email = _emailController.text.trim();
-    final phone = _phoneController.text.trim();
-    final password = _passwordController.text.trim();
+  final fullName = _fullNameController.text.trim();
+  final email = _emailController.text.trim();
+  final phone = _phoneController.text.trim();
+  final password = _passwordController.text.trim();
 
-    if (fullName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (!_termsAccepted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please accept Terms & Conditions'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final data = {'phone': phone};
-      final response = await ApiService.post(ApiConstants.sendOTP, data);
-
-      print('📱 API Response: $response');
-      print('🔑 OTP from API: ${response['otp']}');
-
-      if (response['otp'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Your OTP is: ${response['otp']}'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 10),
-          ),
-        );
-      }
-
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OTPPage(
-              phone: phone,
-              fullName: fullName,
-              email: email,
-              password: password,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      print('❌ Error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+  if (fullName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please fill all fields'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
   }
+
+  // Email validation
+  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please enter a valid email address'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  if (!_termsAccepted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please accept Terms & Conditions'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+    return;
+  }
+
+  setState(() => _isLoading = true);
+
+  try {
+    final data = {'email': email};
+    final response = await ApiService.post(ApiConstants.sendOTP, data);
+
+    print('📱 API Response: $response');
+
+    // Show success message (no OTP shown)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ OTP has been sent to your email address'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 3),
+      ),
+    );
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OTPPage(
+            email: email,
+            fullName: fullName,
+            phone: phone,
+            password: password,
+          ),
+        ),
+      );
+    }
+  } catch (e) {
+    print('❌ Error: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
+  }
+}
 
   @override
   Widget build(BuildContext context) {

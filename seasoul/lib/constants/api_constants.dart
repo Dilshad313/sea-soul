@@ -13,4 +13,5 @@ class ApiConstants {
   static String get login => '$baseUrl/api/auth/login';
   static String get sendOTP => '$baseUrl/api/auth/send-otp';
   static String get verifyOTP => '$baseUrl/api/auth/verify-otp';
+  static String get resendOTP => '$baseUrl/api/auth/resend-otp';
 }
