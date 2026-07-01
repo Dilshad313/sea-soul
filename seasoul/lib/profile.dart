@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../login.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -11,6 +13,10 @@ class ProfilePage extends StatefulWidget {
 
 class profile extends State<ProfilePage> {
   bool _isBiometricLoginEnabled = true;
+  bool _isLoggingOut = false;
+  
+  Map<String, dynamic>? _userData;
+  bool _isLoading = true;
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -21,7 +27,124 @@ class profile extends State<ProfilePage> {
   static const Color errorColor = Color(0xFFBA1A1A);
 
   @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final userData = await ApiService.getUserData();
+    setState(() {
+      _userData = userData;
+      _isLoading = false;
+    });
+  }
+
+  void _logout() async {
+    if (_isLoggingOut) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Logout',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: deepNavy,
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(
+            fontSize: 16,
+            color: outline,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: outline,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _performLogout();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: errorColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: const Text(
+              'Logout',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performLogout() async {
+    setState(() {
+      _isLoggingOut = true;
+    });
+
+    try {
+      await ApiService.deleteToken();
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const login()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      print('❌ Error during logout: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error during logout: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoggingOut = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final String userName = _userData?['fullName'] ?? 'User';
+    final String userEmail = _userData?['email'] ?? 'user@email.com';
+    final String userPhone = _userData?['phone'] ?? '+91 0000000000';
+
     return Container(
       color: sandWhite,
       child: SafeArea(
@@ -31,7 +154,7 @@ class profile extends State<ProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildProfileHeaderSection(),
+              _buildProfileHeaderSection(userName, userEmail, userPhone),
               const SizedBox(height: 32),
 
               _buildBentoSection(
@@ -143,7 +266,7 @@ class profile extends State<ProfilePage> {
     );
   }
 
-  Widget _buildProfileHeaderSection() {
+  Widget _buildProfileHeaderSection(String name, String email, String phone) {
     return Column(
       children: [
         Stack(
@@ -190,12 +313,30 @@ class profile extends State<ProfilePage> {
           ],
         ),
         const SizedBox(height: 14),
-        const Text(
-          'Alex Johnson',
-          style: TextStyle(
+        Text(
+          name,
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: deepNavy,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          email,
+          style: TextStyle(
+            fontSize: 14,
+            color: outline,
+            fontFamily: 'Inter',
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          phone,
+          style: TextStyle(
+            fontSize: 14,
+            color: outline,
+            fontFamily: 'Inter',
           ),
         ),
         const SizedBox(height: 6),
@@ -330,11 +471,20 @@ class profile extends State<ProfilePage> {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: () {},
-        icon: const Icon(Icons.logout, color: errorColor, size: 18),
-        label: const Text(
-          'Logout',
-          style: TextStyle(
+        onPressed: _isLoggingOut ? null : _logout,
+        icon: _isLoggingOut
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: errorColor,
+                ),
+              )
+            : const Icon(Icons.logout, color: errorColor, size: 18),
+        label: Text(
+          _isLoggingOut ? 'Logging out...' : 'Logout',
+          style: const TextStyle(
             color: errorColor,
             fontSize: 16,
             fontWeight: FontWeight.bold,
