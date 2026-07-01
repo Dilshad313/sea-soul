@@ -175,6 +175,13 @@ class _OTPPageState extends State<OTPPage> {
       final data = {'email': widget.email};
       await ApiService.post(ApiConstants.resendOTP, data);
 
+      // Clear all OTP fields
+      for (var controller in _controllers) {
+        controller.clear();
+      }
+      // Focus on first field
+      _focusNodes[0].requestFocus();
+
       _startTimer();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -191,6 +198,22 @@ class _OTPPageState extends State<OTPPage> {
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _handleOtpChange(String value, int index) {
+    if (value.isNotEmpty) {
+      // Move to next field if current field has value
+      if (index < _otpLength - 1) {
+        _focusNodes[index + 1].requestFocus();
+      } else {
+        _focusNodes[index].unfocus();
+      }
+    } else {
+      // Move to previous field if current field is empty (backspace)
+      if (index > 0) {
+        _focusNodes[index - 1].requestFocus();
+      }
     }
   }
 
@@ -457,17 +480,7 @@ class _OTPPageState extends State<OTPPage> {
               ),
             ),
             onChanged: (value) {
-              if (value.isNotEmpty) {
-                if (index < _otpLength - 1) {
-                  _focusNodes[index + 1].requestFocus();
-                } else {
-                  _focusNodes[index].unfocus();
-                }
-              } else {
-                if (index > 0) {
-                  _focusNodes[index - 1].requestFocus();
-                }
-              }
+              _handleOtpChange(value, index);
             },
           ),
         ),
