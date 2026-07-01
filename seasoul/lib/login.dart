@@ -1,7 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:seasoul/otp.dart';
+import '../services/api_service.dart';
+import '../constants/api_constants.dart';
+import '../user_home.dart';
+import '../signup.dart';
 
 class login extends StatefulWidget {
   const login({super.key});
@@ -48,19 +51,59 @@ class _loginState extends State<login> {
       _isSuccess = false;
     });
 
-    await Future.delayed(const Duration(milliseconds: 1500));
+    final identifier = _identifierController.text.trim();
+    final password = _passwordController.text.trim();
 
-    setState(() {
-      _isLoading = false;
-      _isSuccess = true;
-    });
+    if (identifier.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter email/phone and password'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _isLoading = false);
+      return;
+    }
 
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (mounted) {
-      setState(() => _isSuccess = false);
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const otp()),
+    try {
+      final data = {
+        'identifier': identifier,
+        'password': password,
+      };
+
+      final response = await ApiService.post(ApiConstants.login, data);
+
+      await ApiService.saveToken(response['token']);
+      
+      await ApiService.saveUserData({
+        '_id': response['_id'],
+        'fullName': response['fullName'],
+        'email': response['email'],
+        'phone': response['phone'],
+      });
+
+      setState(() {
+        _isSuccess = true;
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const UserHome()),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _isSuccess = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login Failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -102,7 +145,6 @@ class _loginState extends State<login> {
               ),
             ),
           ),
-
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(
@@ -132,8 +174,6 @@ class _loginState extends State<login> {
                     ),
                   ),
                   const SizedBox(height: 40),
-
-                  // Central Glassmorphic Form Wrapper Card
                   AnimatedScale(
                     scale: (_isIdentifierFocused || _isPasswordFocused)
                         ? 1.01
@@ -176,7 +216,6 @@ class _loginState extends State<login> {
                                 ),
                               ),
                               const SizedBox(height: 32),
-
                               _buildFormLabel('Email or Phone', colorOutline),
                               const SizedBox(height: 8),
                               _buildInputField(
@@ -189,7 +228,6 @@ class _loginState extends State<login> {
                                 activeTint: colorPrimaryContainer,
                               ),
                               const SizedBox(height: 24),
-
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -220,13 +258,11 @@ class _loginState extends State<login> {
                                 activeTint: colorPrimaryContainer,
                               ),
                               const SizedBox(height: 32),
-
                               _buildSubmitButton(
                                 colorPrimaryContainer,
                                 colorSecondary,
                               ),
                               const SizedBox(height: 32),
-
                               Row(
                                 children: [
                                   Expanded(
@@ -260,7 +296,6 @@ class _loginState extends State<login> {
                                 ],
                               ),
                               const SizedBox(height: 32),
-
                               Row(
                                 children: [
                                   Expanded(
@@ -289,7 +324,6 @@ class _loginState extends State<login> {
                                 ],
                               ),
                               const SizedBox(height: 32),
-
                               Center(
                                 child: RichText(
                                   text: TextSpan(
@@ -298,13 +332,25 @@ class _loginState extends State<login> {
                                       color: colorOnSurfaceVariant,
                                     ),
                                     children: [
-                                       TextSpan(text: 'New to SeaSoul? '),
-                                      TextSpan(
-                                        text: 'Register',
-                                        style: const TextStyle(
-                                          color: colorPrimaryContainer,
-                                          fontWeight: FontWeight.w600,
-                                          decoration: TextDecoration.underline,
+                                      const TextSpan(text: 'New to SeaSoul? '),
+                                      WidgetSpan(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            Navigator.pushReplacement(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => const signup(),
+                                              ),
+                                            );
+                                          },
+                                          child: const Text(
+                                            'Register',
+                                            style: TextStyle(
+                                              color: colorPrimaryContainer,
+                                              fontWeight: FontWeight.w600,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -317,7 +363,6 @@ class _loginState extends State<login> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 48),
                   Container(
                     constraints: const BoxConstraints(maxWidth: 960),
@@ -440,7 +485,7 @@ class _loginState extends State<login> {
             borderRadius: BorderRadius.circular(99),
           ),
         ),
-        onPressed: _handleLogin,
+        onPressed: _isLoading ? null : _handleLogin,
         child: _isLoading
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,

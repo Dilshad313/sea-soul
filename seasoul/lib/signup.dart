@@ -1,8 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:seasoul/login.dart';
-import 'package:seasoul/otp.dart';
+import '../services/api_service.dart';
+import '../constants/api_constants.dart';
+import '../otp.dart';
+import '../login.dart';
 
 class signup extends StatefulWidget {
   const signup({super.key});
@@ -18,6 +20,7 @@ class _signupState extends State<signup> {
   final _passwordController = TextEditingController();
 
   bool _termsAccepted = false;
+  bool _isLoading = false;
 
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
@@ -44,6 +47,79 @@ class _signupState extends State<signup> {
     _phoneFocus.dispose();
     _passwordFocus.dispose();
     super.dispose();
+  }
+
+  void _sendOTP() async {
+    if (_isLoading) return;
+
+    final fullName = _fullNameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (fullName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!_termsAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please accept Terms & Conditions'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final data = {'phone': phone};
+      final response = await ApiService.post(ApiConstants.sendOTP, data);
+
+      print('📱 API Response: $response');
+      print('🔑 OTP from API: ${response['otp']}');
+
+      if (response['otp'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Your OTP is: ${response['otp']}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 10),
+          ),
+        );
+      }
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OTPPage(
+              phone: phone,
+              fullName: fullName,
+              email: email,
+              password: password,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -82,7 +158,6 @@ class _signupState extends State<signup> {
               ),
             ),
           ),
-
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(
@@ -113,7 +188,6 @@ class _signupState extends State<signup> {
                       ),
                     ),
                     const SizedBox(height: 32),
-
                     ClipRRect(
                       borderRadius: BorderRadius.circular(32),
                       child: BackdropFilter(
@@ -149,7 +223,6 @@ class _signupState extends State<signup> {
                                 ),
                               ),
                               const SizedBox(height: 32),
-
                               _buildInputField(
                                 label: 'FULL NAME',
                                 icon: Icons.person_outline,
@@ -167,7 +240,6 @@ class _signupState extends State<signup> {
                                 keyboardType: TextInputType.emailAddress,
                               ),
                               const SizedBox(height: 24),
-
                               LayoutBuilder(
                                 builder: (context, constraints) {
                                   if (constraints.maxWidth > 400) {
@@ -179,7 +251,7 @@ class _signupState extends State<signup> {
                                           child: _buildInputField(
                                             label: 'PHONE NUMBER',
                                             icon: Icons.call_outlined,
-                                            hint: '+1 (555) 000-0000',
+                                            hint: '+91 9876543210',
                                             controller: _phoneController,
                                             focusNode: _phoneFocus,
                                             keyboardType: TextInputType.phone,
@@ -204,7 +276,7 @@ class _signupState extends State<signup> {
                                         _buildInputField(
                                           label: 'PHONE NUMBER',
                                           icon: Icons.call_outlined,
-                                          hint: '+1 (555) 000-0000',
+                                          hint: '+91 9876543210',
                                           controller: _phoneController,
                                           focusNode: _phoneFocus,
                                           keyboardType: TextInputType.phone,
@@ -224,7 +296,6 @@ class _signupState extends State<signup> {
                                 },
                               ),
                               const SizedBox(height: 24),
-
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -285,7 +356,6 @@ class _signupState extends State<signup> {
                                 ],
                               ),
                               const SizedBox(height: 32),
-
                               Container(
                                 width: double.infinity,
                                 height: 56,
@@ -315,36 +385,38 @@ class _signupState extends State<signup> {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => otp(),
-                                      ),
-                                    );
-                                  },
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'Continue',
-                                        style: GoogleFonts.montserrat(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF001F24),
+                                  onPressed: _isLoading ? null : _sendOTP,
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Color(0xFF001F24),
+                                          ),
+                                        )
+                                      : Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              'Continue',
+                                              style: GoogleFonts.montserrat(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w700,
+                                                color: const Color(0xFF001F24),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Icon(
+                                              Icons.arrow_forward_rounded,
+                                              color: Color(0xFF001F24),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Icon(
-                                        Icons.arrow_forward_rounded,
-                                        color: Color(0xFF001F24),
-                                      ),
-                                    ],
-                                  ),
                                 ),
                               ),
                               const SizedBox(height: 32),
-
                               Container(
                                 padding: const EdgeInsets.only(top: 24),
                                 decoration: BoxDecoration(
@@ -369,7 +441,7 @@ class _signupState extends State<signup> {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (context) => login(),
+                                            builder: (context) => const login(),
                                           ),
                                         );
                                       },
@@ -391,7 +463,6 @@ class _signupState extends State<signup> {
                       ),
                     ),
                     const SizedBox(height: 32),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
