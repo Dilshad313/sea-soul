@@ -1,0 +1,540 @@
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:seasoul/login.dart';
+import 'package:seasoul/otp.dart';
+
+class signup extends StatefulWidget {
+  const signup({super.key});
+
+  @override
+  State<signup> createState() => _signupState();
+}
+
+class _signupState extends State<signup> {
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  bool _termsAccepted = false;
+
+  final FocusNode _nameFocus = FocusNode();
+  final FocusNode _emailFocus = FocusNode();
+  final FocusNode _phoneFocus = FocusNode();
+  final FocusNode _passwordFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameFocus.addListener(() => setState(() {}));
+    _emailFocus.addListener(() => setState(() {}));
+    _phoneFocus.addListener(() => setState(() {}));
+    _passwordFocus.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    _nameFocus.dispose();
+    _emailFocus.dispose();
+    _phoneFocus.dispose();
+    _passwordFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const colorBackground = Color(0xFF0D1516);
+    const colorPrimaryContainer = Color(0xFF00E5FF);
+    const colorOutline = Color(0xFF849396);
+    const colorOnSurface = Color(0xFFDCE4E5);
+    const colorOnSurfaceVariant = Color(0xFFBAC9CC);
+    const colorInputBg = Color(0xFF05080B);
+
+    return Scaffold(
+      backgroundColor: colorBackground,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF0D1516), Color(0xFF05080B)],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Opacity(
+              opacity: 0.1,
+              child: CustomPaint(
+                size: Size(MediaQuery.of(context).size.width, 240),
+                painter: WavePainter(),
+              ),
+            ),
+          ),
+
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 40.0,
+              ),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.sailing_rounded,
+                      size: 48,
+                      color: colorPrimaryContainer,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'SeaSoul Holidays',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.montserrat(
+                        textStyle: const TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          color: colorPrimaryContainer,
+                          letterSpacing: -0.02,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(32),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                        child: Container(
+                          padding: const EdgeInsets.all(32.0),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.03),
+                            borderRadius: BorderRadius.circular(32),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.1),
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Create Account',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorOnSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Embark on your journey to the pristine islands of Lakshadweep.',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  color: colorOnSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+
+                              _buildInputField(
+                                label: 'FULL NAME',
+                                icon: Icons.person_outline,
+                                hint: 'Enter your full name',
+                                controller: _fullNameController,
+                                focusNode: _nameFocus,
+                              ),
+                              const SizedBox(height: 24),
+                              _buildInputField(
+                                label: 'EMAIL ADDRESS',
+                                icon: Icons.mail_outline,
+                                hint: 'email@seasoul.com',
+                                controller: _emailController,
+                                focusNode: _emailFocus,
+                                keyboardType: TextInputType.emailAddress,
+                              ),
+                              const SizedBox(height: 24),
+
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  if (constraints.maxWidth > 400) {
+                                    return Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: _buildInputField(
+                                            label: 'PHONE NUMBER',
+                                            icon: Icons.call_outlined,
+                                            hint: '+1 (555) 000-0000',
+                                            controller: _phoneController,
+                                            focusNode: _phoneFocus,
+                                            keyboardType: TextInputType.phone,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 24),
+                                        Expanded(
+                                          child: _buildInputField(
+                                            label: 'PASSWORD',
+                                            icon: Icons.lock_outline,
+                                            hint: '••••••••',
+                                            controller: _passwordController,
+                                            focusNode: _passwordFocus,
+                                            obscureText: true,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  } else {
+                                    return Column(
+                                      children: [
+                                        _buildInputField(
+                                          label: 'PHONE NUMBER',
+                                          icon: Icons.call_outlined,
+                                          hint: '+1 (555) 000-0000',
+                                          controller: _phoneController,
+                                          focusNode: _phoneFocus,
+                                          keyboardType: TextInputType.phone,
+                                        ),
+                                        const SizedBox(height: 24),
+                                        _buildInputField(
+                                          label: 'PASSWORD',
+                                          icon: Icons.lock_outline,
+                                          hint: '••••••••',
+                                          controller: _passwordController,
+                                          focusNode: _passwordFocus,
+                                          obscureText: true,
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 24),
+
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Theme(
+                                    data: ThemeData(
+                                      unselectedWidgetColor: Colors.white
+                                          .withOpacity(0.2),
+                                    ),
+                                    child: Checkbox(
+                                      value: _termsAccepted,
+                                      activeColor: const Color(0xFF00E5FF),
+                                      checkColor: const Color(0xFF0D1516),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      onChanged: (val) {
+                                        setState(() {
+                                          _termsAccepted = val ?? false;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 12.0),
+                                      child: RichText(
+                                        text: TextSpan(
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 14,
+                                            color: colorOnSurfaceVariant,
+                                            height: 1.4,
+                                          ),
+                                          children: const [
+                                            TextSpan(text: 'I agree to the '),
+                                            TextSpan(
+                                              text: 'Terms & Conditions',
+                                              style: TextStyle(
+                                                color: colorPrimaryContainer,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                            TextSpan(text: ' and '),
+                                            TextSpan(
+                                              text: 'Privacy Policy',
+                                              style: TextStyle(
+                                                color: colorPrimaryContainer,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                            TextSpan(text: '.'),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 32),
+
+                              Container(
+                                width: double.infinity,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF00E5FF),
+                                      Color(0xFF00A694),
+                                    ],
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFF00E5FF,
+                                      ).withOpacity(0.2),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => otp(),
+                                      ),
+                                    );
+                                  },
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'Continue',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF001F24),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Icon(
+                                        Icons.arrow_forward_rounded,
+                                        color: Color(0xFF001F24),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+
+                              Container(
+                                padding: const EdgeInsets.only(top: 24),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: Colors.white.withOpacity(0.05),
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Already have an account?',
+                                      style: GoogleFonts.montserrat(
+                                        color: colorOnSurfaceVariant,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => login(),
+                                          ),
+                                        );
+                                      },
+                                      child: Text(
+                                        'Sign In',
+                                        style: GoogleFonts.montserrat(
+                                          color: colorPrimaryContainer,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildTrustBadge(
+                          Icons.gpp_good_outlined,
+                          'Secure Booking',
+                          colorOutline,
+                        ),
+                        const SizedBox(width: 40),
+                        _buildTrustBadge(
+                          Icons.support_agent_outlined,
+                          '24/7 Concierge',
+                          colorOutline,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputField({
+    required String label,
+    required IconData icon,
+    required String hint,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    bool obscureText = false,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    final isFocused = focusNode.hasFocus;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.montserrat(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF849396),
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          style: GoogleFonts.montserrat(
+            color: const Color(0xFFDCE4E5),
+            fontSize: 16,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: GoogleFonts.montserrat(
+              color: Colors.white24,
+              fontSize: 16,
+            ),
+            prefixIcon: Icon(
+              icon,
+              color: isFocused
+                  ? const Color(0xFF00E5FF)
+                  : const Color(0xFF849396),
+            ),
+            filled: true,
+            fillColor: const Color(0xFF05080B),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 18,
+              horizontal: 16,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFF59DBC7),
+                width: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrustBadge(IconData icon, String label, Color color) {
+    return Opacity(
+      opacity: 0.4,
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.white),
+          const SizedBox(width: 8),
+          Text(
+            label.toUpperCase(),
+            style: GoogleFonts.montserrat(
+              fontSize: 12,
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class WavePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF00E5FF).withOpacity(0.3)
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(0, size.height * 0.5)
+      ..quadraticBezierTo(
+        size.width * 0.25,
+        size.height * 0.7,
+        size.width * 0.5,
+        size.height * 0.5,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.75,
+        size.height * 0.3,
+        size.width,
+        size.height * 0.6,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}

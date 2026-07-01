@@ -1,0 +1,352 @@
+import 'dart:async';
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:seasoul/signup.dart';
+import 'package:seasoul/user_home.dart';
+
+
+class otp extends StatefulWidget {
+  const otp({super.key});
+
+  @override
+  State<otp> createState() => _otpState();
+}
+
+class _otpState extends State<otp> {
+  final int _otpLength = 4;
+  late List<FocusNode> _focusNodes;
+  late List<TextEditingController> _controllers;
+
+  Timer? _countdownTimer;
+  int _secondsLeft = 59;
+  bool _canResend = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNodes = List.generate(_otpLength, (index) => FocusNode());
+    _controllers = List.generate(
+      _otpLength,
+      (index) => TextEditingController(),
+    );
+    _startTimer();
+  }
+
+  void _startTimer() {
+    setState(() {
+      _secondsLeft = 59;
+      _canResend = false;
+    });
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsLeft == 0) {
+        setState(() {
+          _countdownTimer?.cancel();
+          _canResend = true;
+        });
+      } else {
+        setState(() {
+          _secondsLeft--;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const colorBackground = Color(0xFF0D1516);
+    const colorPrimaryContainer = Color(0xFF00E5FF);
+    const colorOnPrimaryFixed = Color(0xFF001F24);
+    const colorOnSurface = Color(0xFFDCE4E5);
+    const colorOnSurfaceVariant = Color(0xFFBAC9CC);
+    const colorOutline = Color(0xFF849396);
+    const colorOutlineVariant = Color(0xFF3B494C);
+
+    return Scaffold(
+      backgroundColor: colorBackground,
+      body: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(child: Container(color: colorBackground)),
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.2,
+              child: Image.network(
+                'https://lh3.googleusercontent.com/aida-public/AB6AXuAIx0yomZ86ZvhZIuGwPhZH7msLm2aTLXqAsTiLsIzfo5QugjjV-qQz2yT18iOP7ttYlZnO9MVO2YtMha3I7p0fQ-Z1QtkkWfAcxy_z1VFaiO25e4xkfHRwE4dwtlMNQeFKFc_CIXv9oveAVD5Zg3JOL078YrJHLxObFhswT5uY9731bEdq2CaOY_8vJ4Ll4tX0DTWpgqrYdxcYkIOqSJVOvTcOrcXq_ZpnRXdSSqDKxPeHUqbr4AL9HuNtHUCGwgfsrPKnzjfqgtk',
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          Positioned(
+            top: -200,
+            right: -200,
+            width: MediaQuery.of(context).size.width * 1.2,
+            height: MediaQuery.of(context).size.width * 1.2,
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      colorPrimaryContainer.withOpacity(0.15),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 35,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: 16.0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          color: colorPrimaryContainer,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'SeaSoul',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: colorPrimaryContainer,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: colorOnSurface),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.05),
+                        side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const signup(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Verify Phone',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        color: colorOnSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 100),
+                      child: RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          style: GoogleFonts.montserrat(
+                            fontSize: 16,
+                            color: colorOnSurfaceVariant,
+                          ),
+                          children: [
+                            const TextSpan(text: "We've sent a code to "),
+                            TextSpan(
+                              text: "+91 XXXXX XXXXX",
+                              style: const TextStyle(
+                                color: Color(0xFFC3F5FF),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(
+                        _otpLength,
+                        (index) => _buildOtpField(index, colorPrimaryContainer),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Column(
+                      children: [
+                        Text(
+                          "Didn't receive the code?",
+                          style: GoogleFonts.montserrat(
+                            fontSize: 14,
+                            color: colorOutline,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _canResend ? _startTimer : null,
+                          child: Text(
+                            _canResend
+                                ? 'Resend Code'
+                                : 'Resend in 00:${_secondsLeft.toString().padLeft(2, '0')}',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _canResend
+                                  ? const Color(0xFF59DBC7)
+                                  : colorOutline.withOpacity(0.5),
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    Container(
+                      height: 58,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorPrimaryContainer.withOpacity(0.15),
+                            blurRadius: 40,
+                            offset: const Offset(0, 20),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorPrimaryContainer,
+                          foregroundColor: colorOnPrimaryFixed,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          // NOW UserHome is defined and accessible
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const UserHome(),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Verify & Proceed',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOtpField(int index, Color activeAccent) {
+    return SizedBox(
+      width: 72,
+      height: 88,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: TextField(
+            controller: _controllers[index],
+            focusNode: _focusNodes[index],
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            maxLength: 1,
+            maxLines: 1,
+            showCursor: false,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: GoogleFonts.montserrat(
+              fontSize: 36,
+              fontWeight: FontWeight.w700,
+              color: activeAccent,
+            ),
+            decoration: InputDecoration(
+              counterText: "",
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.05),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFF00E5FF),
+                  width: 1.5,
+                ),
+              ),
+            ),
+            onChanged: (value) {
+              if (value.isNotEmpty) {
+                if (index < _otpLength - 1) {
+                  _focusNodes[index + 1].requestFocus();
+                } else {
+                  _focusNodes[index].unfocus();
+                }
+              } else {
+                if (index > 0) {
+                  _focusNodes[index - 1].requestFocus();
+                }
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
