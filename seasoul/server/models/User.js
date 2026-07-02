@@ -25,11 +25,31 @@ const UserSchema = new mongoose.Schema(
       required: true,
       minlength: 6,
     },
+    profileImage: {
+      type: String,
+      default: 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png',
+    },
+    bio: {
+      type: String,
+      default: '',
+      maxlength: 500,
+    },
+    location: {
+      type: String,
+      default: '',
+    },
+    resetPasswordOTP: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
-// Pre-save hook to hash password
 UserSchema.pre('save', async function() {
   if (!this.isModified('password')) {
     return;
@@ -38,7 +58,6 @@ UserSchema.pre('save', async function() {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Compare password method
 UserSchema.methods.comparePassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
