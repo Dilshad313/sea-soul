@@ -21,4 +21,11 @@ class ApiConstants {
   static String get profile => '$baseUrl/api/profile';
   static String get uploadProfileImage => '$baseUrl/api/profile/upload-image';
   static String get deleteProfileImage => '$baseUrl/api/profile/image';
+  
+  // Product APIs
+  static String get products => '$baseUrl/api/products';
+  static String get featuredProducts => '$baseUrl/api/products/featured';
+  static String get trendingProducts => '$baseUrl/api/products/trending';
+  static String productById(String id) => '$baseUrl/api/products/$id';
+  static String productsByCategory(String category) => '$baseUrl/api/products/category/$category';
 }

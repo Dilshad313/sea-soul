@@ -26,6 +26,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api', require('./routes/profileRoutes'));
 
+app.use('/api', require('./routes/productRoutes'));
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('❌ Global Error:', err);
