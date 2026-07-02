@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../constants/api_constants.dart';
 import '../user_home.dart';
 import '../signup.dart';
+import '../forgot_password.dart';
 
 class login extends StatefulWidget {
   const login({super.key});
@@ -45,68 +46,73 @@ class _loginState extends State<login> {
   }
 
   void _handleLogin() async {
-    if (_isLoading) return;
-    setState(() {
-      _isLoading = true;
-      _isSuccess = false;
+  if (_isLoading) return;
+  setState(() {
+    _isLoading = true;
+    _isSuccess = false;
+  });
+
+  final identifier = _identifierController.text.trim();
+  final password = _passwordController.text.trim();
+
+  if (identifier.isEmpty || password.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please enter email/phone and password'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    setState(() => _isLoading = false);
+    return;
+  }
+
+  try {
+    final data = {
+      'identifier': identifier,
+      'password': password,
+    };
+
+    final response = await ApiService.post(ApiConstants.login, data);
+
+    // Save token
+    await ApiService.saveToken(response['token']);
+    
+    // Save complete user data
+    await ApiService.saveUserData({
+      '_id': response['_id'],
+      'fullName': response['fullName'],
+      'email': response['email'],
+      'phone': response['phone'],
+      'profileImage': response['profileImage'] ?? 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png',
+      'bio': response['bio'] ?? '',
+      'location': response['location'] ?? '',
     });
 
-    final identifier = _identifierController.text.trim();
-    final password = _passwordController.text.trim();
+    setState(() {
+      _isSuccess = true;
+      _isLoading = false;
+    });
 
-    if (identifier.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter email/phone and password'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    try {
-      final data = {
-        'identifier': identifier,
-        'password': password,
-      };
-
-      final response = await ApiService.post(ApiConstants.login, data);
-
-      await ApiService.saveToken(response['token']);
-      
-      await ApiService.saveUserData({
-        '_id': response['_id'],
-        'fullName': response['fullName'],
-        'email': response['email'],
-        'phone': response['phone'],
-      });
-
-      setState(() {
-        _isSuccess = true;
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const UserHome()),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _isSuccess = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Login Failed: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
+    if (mounted) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const UserHome()),
       );
     }
+  } catch (e) {
+    setState(() {
+      _isLoading = false;
+      _isSuccess = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Login Failed: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -234,13 +240,24 @@ class _loginState extends State<login> {
                                 children: [
                                   _buildFormLabel('Password', colorOutline),
                                   GestureDetector(
-                                    onTap: () {},
-                                    child: Text(
-                                      'Forgot Password?',
-                                      style: GoogleFonts.montserrat(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: colorPrimaryContainer,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const ForgotPasswordPage(),
+                                        ),
+                                      );
+                                    },
+                                    child: MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      child: Text(
+                                        'Forgot Password?',
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: colorPrimaryContainer,
+                                          decoration: TextDecoration.underline,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -325,35 +342,36 @@ class _loginState extends State<login> {
                               ),
                               const SizedBox(height: 32),
                               Center(
-                                child: RichText(
-                                  text: TextSpan(
-                                    style: GoogleFonts.montserrat(
-                                      fontSize: 14,
-                                      color: colorOnSurfaceVariant,
-                                    ),
-                                    children: [
-                                      const TextSpan(text: 'New to SeaSoul? '),
-                                      WidgetSpan(
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            Navigator.pushReplacement(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => const signup(),
-                                              ),
-                                            );
-                                          },
-                                          child: const Text(
-                                            'Register',
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const signup(),
+                                        ),
+                                      );
+                                    },
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: GoogleFonts.montserrat(
+                                          fontSize: 14,
+                                          color: colorOnSurfaceVariant,
+                                        ),
+                                        children: const [
+                                          TextSpan(text: 'New to SeaSoul? '),
+                                          TextSpan(
+                                            text: 'Register',
                                             style: TextStyle(
                                               color: colorPrimaryContainer,
                                               fontWeight: FontWeight.w600,
                                               decoration: TextDecoration.underline,
                                             ),
                                           ),
-                                        ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),

@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../login.dart';
+import '../edit_profile.dart';
+import '../change_password.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -14,9 +16,8 @@ class ProfilePage extends StatefulWidget {
 class profile extends State<ProfilePage> {
   bool _isBiometricLoginEnabled = true;
   bool _isLoggingOut = false;
-  
-  Map<String, dynamic>? _userData;
   bool _isLoading = true;
+  Map<String, dynamic>? _userData;
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -33,11 +34,17 @@ class profile extends State<ProfilePage> {
   }
 
   Future<void> _loadUserData() async {
-    final userData = await ApiService.getUserData();
-    setState(() {
-      _userData = userData;
-      _isLoading = false;
-    });
+    setState(() => _isLoading = true);
+    try {
+      final userData = await ApiService.getUserData();
+      setState(() {
+        _userData = userData;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      print('Error loading user data: $e');
+    }
   }
 
   void _logout() async {
@@ -144,6 +151,21 @@ class profile extends State<ProfilePage> {
     final String userName = _userData?['fullName'] ?? 'User';
     final String userEmail = _userData?['email'] ?? 'user@email.com';
     final String userPhone = _userData?['phone'] ?? '+91 0000000000';
+    final String userBio = _userData?['bio'] ?? '';
+    final String userLocation = _userData?['location'] ?? '';
+    final String profileImage = _userData?['profileImage'] ?? 
+        'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
+
+    if (_isLoading) {
+      return Container(
+        color: sandWhite,
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: oceanBlue,
+          ),
+        ),
+      );
+    }
 
     return Container(
       color: sandWhite,
@@ -154,7 +176,14 @@ class profile extends State<ProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildProfileHeaderSection(userName, userEmail, userPhone),
+              _buildProfileHeaderSection(
+                userName, 
+                userEmail, 
+                userPhone, 
+                userBio, 
+                userLocation,
+                profileImage,
+              ),
               const SizedBox(height: 32),
 
               _buildBentoSection(
@@ -162,7 +191,19 @@ class profile extends State<ProfilePage> {
                 iconColor: oceanBlue,
                 title: 'Personal Information',
                 items: [
-                  _buildListActionRow(label: 'Edit Profile'),
+                  _buildListActionRow(
+                    label: 'Edit Profile',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProfilePage(
+                            userData: _userData ?? {},
+                          ),
+                        ),
+                      ).then((_) => _loadUserData());
+                    },
+                  ),
                   _buildListActionRow(label: 'Saved Travelers'),
                 ],
               ),
@@ -203,7 +244,17 @@ class profile extends State<ProfilePage> {
                 iconColor: sunsetOrange,
                 title: 'Security',
                 items: [
-                  _buildListActionRow(label: 'Change Password'),
+                  _buildListActionRow(
+                    label: 'Change Password',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ChangePasswordPage(),
+                        ),
+                      );
+                    },
+                  ),
                   _buildListActionRow(
                     label: 'Biometric Login',
                     hasChevron: false,
@@ -266,7 +317,14 @@ class profile extends State<ProfilePage> {
     );
   }
 
-  Widget _buildProfileHeaderSection(String name, String email, String phone) {
+  Widget _buildProfileHeaderSection(
+    String name,
+    String email,
+    String phone,
+    String bio,
+    String location,
+    String profileImage,
+  ) {
     return Column(
       children: [
         Stack(
@@ -286,11 +344,12 @@ class profile extends State<ProfilePage> {
                   ),
                 ],
                 border: Border.all(color: Colors.white, width: 4),
-                image: const DecorationImage(
-                  image: NetworkImage(
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuB21Ns2GgGECkZFkGlKa0z4kwMPsNR8U3-52cfVLZq0JM4R_075CbbukPbjd8ffMxiqMRN_LP22M9Tvw88iEQ0v-KibFhujIz1AiBXdHERG8tOjRhsK1OsnF9V2C0ARO2dZ-8ssBm_rpbRJo3qBObQOzlRdKVBsLLTCDzV5QM_iipA11Sy_8uqkHXF9fZywtHuiel1FGe5m3h4xX895qIfSwvLQC0abULjweSOBnGyIT6QiIQLzpXo8CkWljejQqbFGaY7bKUmodvI',
-                  ),
+                image: DecorationImage(
+                  image: NetworkImage(profileImage),
                   fit: BoxFit.cover,
+                  onError: (exception, stackTrace) {
+                    // If image fails to load, show default
+                  },
                 ),
               ),
             ),
@@ -339,6 +398,40 @@ class profile extends State<ProfilePage> {
             fontFamily: 'Inter',
           ),
         ),
+        if (location.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            location,
+            style: TextStyle(
+              fontSize: 14,
+              color: outline,
+              fontFamily: 'Inter',
+            ),
+          ),
+        ],
+        if (bio.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: oceanBlue.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: oceanBlue.withOpacity(0.1),
+              ),
+            ),
+            child: Text(
+              bio,
+              style: TextStyle(
+                fontSize: 13,
+                color: outline,
+                fontFamily: 'Inter',
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
         const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -432,9 +525,10 @@ class profile extends State<ProfilePage> {
     required String label,
     bool hasChevron = true,
     Widget? trailingWidget,
+    VoidCallback? onTap,
   }) {
     return GestureDetector(
-      onTap: () {},
+      onTap: onTap ?? () {},
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4.0),

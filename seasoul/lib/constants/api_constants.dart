@@ -14,4 +14,11 @@ class ApiConstants {
   static String get sendOTP => '$baseUrl/api/auth/send-otp';
   static String get verifyOTP => '$baseUrl/api/auth/verify-otp';
   static String get resendOTP => '$baseUrl/api/auth/resend-otp';
+  static String get forgotPassword => '$baseUrl/api/auth/forgot-password';
+  static String get resetPassword => '$baseUrl/api/auth/reset-password';
+  static String get changePassword => '$baseUrl/api/auth/change-password';
+  
+  static String get profile => '$baseUrl/api/profile';
+  static String get uploadProfileImage => '$baseUrl/api/profile/upload-image';
+  static String get deleteProfileImage => '$baseUrl/api/profile/image';
 }
