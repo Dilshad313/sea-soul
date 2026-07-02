@@ -77,7 +77,8 @@ exports.sendOTP = async (req, res) => {
     const { email } = req.body;
 
     console.log('========================================');
-    console.log('📧 Received email:', email);
+    console.log('📧 Send OTP Request');
+    console.log(`📧 Email: ${email}`);
     console.log('========================================');
 
     if (!email) {
@@ -95,17 +96,15 @@ exports.sendOTP = async (req, res) => {
       });
     }
 
+    // Delete old OTPs
     await OTP.deleteMany({ email });
 
     const otp = generateOTP();
     const expiresAt = getOTPExpiry();
 
-    console.log('========================================');
     console.log('✅ OTP Generated Successfully!');
-    console.log(`📧 Email: ${email}`);
     console.log(`🔑 OTP: ${otp}`);
     console.log(`⏰ Expires At: ${expiresAt}`);
-    console.log('========================================');
 
     await OTP.create({
       email,
@@ -114,11 +113,21 @@ exports.sendOTP = async (req, res) => {
       verified: false,
     });
 
-    await sendOTPEmail(email, otp);
+    // Send email (with error handling)
+    try {
+      await sendOTPEmail(email, otp);
+      console.log('✅ OTP email sent successfully');
+    } catch (emailError) {
+      console.error('❌ Email sending failed:', emailError);
+      // Still return success to user, but log the error
+      // You can also return error if you want
+    }
 
     res.status(200).json({
       success: true,
       message: 'OTP sent successfully to your email',
+      // For testing only - remove in production
+      // otp: otp 
     });
   } catch (error) {
     console.error('❌ Error in sendOTP:', error);
