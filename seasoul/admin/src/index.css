@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Custom colors using CSS variables */
+@theme {
+  --color-accent: #00E5FF;
+  --color-dark: #0D1516;
+  --color-navy: #1A2B49;
+  --color-teal: #00A694;
+}
 
 body {
   background-color: #F8FBFF;

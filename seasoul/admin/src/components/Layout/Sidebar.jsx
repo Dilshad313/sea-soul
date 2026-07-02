@@ -23,9 +23,9 @@ export default function Sidebar() {
   const { logout } = useAuth();
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-navy text-white p-4">
+    <aside className="fixed left-0 top-0 h-full w-64 bg-[#1A2B49] text-white p-4">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-accent">🌊 SeaSoul</h1>
+        <h1 className="text-2xl font-bold text-[#00E5FF]">🌊 SeaSoul</h1>
         <p className="text-gray-400 text-sm">Admin Panel</p>
       </div>
 
@@ -37,7 +37,7 @@ export default function Sidebar() {
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
                 isActive 
-                  ? 'bg-white/10 text-accent' 
+                  ? 'bg-white/10 text-[#00E5FF]' 
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`
             }
