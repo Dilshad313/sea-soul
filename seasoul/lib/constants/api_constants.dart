@@ -3,9 +3,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 class ApiConstants {
   static String get baseUrl {
     if (kIsWeb) {
+      // For web, use localhost
       return 'http://localhost:5000';
     } else {
-      return 'http://10.0.2.1:5000';
+      // For Android emulator
+      return 'http://10.0.2.2:5000';
+      // For physical device, use your computer's IP
+      // return 'http://192.168.1.100:5000';
     }
   }
 

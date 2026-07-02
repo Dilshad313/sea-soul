@@ -366,6 +366,11 @@ exports.login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
 
+    console.log('========================================');
+    console.log('🔐 Login Request');
+    console.log(`📧 Identifier: ${identifier}`);
+    console.log('========================================');
+
     if (!identifier || !password) {
       return res.status(400).json({
         success: false,
@@ -373,11 +378,13 @@ exports.login = async (req, res) => {
       });
     }
 
+    // Find user by email OR phone
     const user = await User.findOne({
       $or: [{ email: identifier }, { phone: identifier }],
     });
 
     if (!user) {
+      console.log('❌ User not found');
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -386,6 +393,7 @@ exports.login = async (req, res) => {
 
     const isPasswordMatch = await user.comparePassword(password);
     if (!isPasswordMatch) {
+      console.log('❌ Password mismatch');
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -393,6 +401,9 @@ exports.login = async (req, res) => {
     }
 
     const token = generateToken(user._id);
+
+    console.log('✅ Login successful!');
+    console.log(`👤 User: ${user.fullName} (${user.email})`);
 
     res.status(200).json({
       success: true,

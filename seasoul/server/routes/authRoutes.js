@@ -10,6 +10,11 @@ const {
 const { sendOTP, verifyOTP, resendOTP } = require('../controllers/otpController');
 const { protect } = require('../middleware/authMiddleware');
 
+// Add a test route to check if API is working
+router.get('/test', (req, res) => {
+  res.json({ success: true, message: 'Auth API is working!' });
+});
+
 router.post('/register', register);
 router.post('/login', login);
 

@@ -9,40 +9,36 @@ connectDB();
 
 const app = express();
 
+// ==================== CORS Configuration ====================
+// Allow all origins for development
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: true, // Allow any origin
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
 }));
+
+// No need for explicit OPTIONS handler with this configuration
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files for uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Routes
+// API Routes
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api', require('./routes/productRoutes'));
 app.use('/api', require('./routes/profileRoutes'));
 
-app.use('/api', require('./routes/productRoutes'));
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('❌ Global Error:', err);
-  res.status(500).json({
-    success: false,
-    message: err.message || 'Something went wrong'
-  });
-});
+// Admin API Routes (for React Admin)
+app.use('/api/admin', require('./routes/adminRoutes'));
 
 app.get('/', (req, res) => {
   res.send('SeaSoul API is running...');
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`http://localhost:${PORT}`);
+  console.log(`Admin API: http://localhost:${PORT}/api/admin`);
+  console.log(`React Admin: http://localhost:5173`);
+  console.log(`Flutter Web: http://localhost:60254`);
 });
