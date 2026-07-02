@@ -7,8 +7,8 @@ export default function Header() {
           <button className="text-gray-400 hover:text-gray-600">
             🔔
           </button>
-          <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-            <span className="text-accent font-bold">A</span>
+          <div className="w-10 h-10 rounded-full bg-[#00E5FF]/20 flex items-center justify-center">
+            <span className="text-[#00E5FF] font-bold">A</span>
           </div>
         </div>
       </div>

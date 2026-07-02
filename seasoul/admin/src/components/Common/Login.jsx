@@ -25,10 +25,10 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-dark to-navy p-4">
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-[#0D1516] p-4">
+      <div className="bg-[#1A2B49]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-accent">🌊 SeaSoul</h1>
+          <h1 className="text-4xl font-bold text-[#00E5FF]">🌊 SeaSoul</h1>
           <p className="text-gray-400 mt-2">Admin Panel</p>
         </div>
 
@@ -45,7 +45,7 @@ export default function Login() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:border-accent focus:outline-none text-white placeholder-gray-500"
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:border-[#00E5FF] focus:outline-none text-white placeholder-gray-500"
               placeholder="admin@seasoul.com"
               required
             />
@@ -57,7 +57,7 @@ export default function Login() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:border-accent focus:outline-none text-white placeholder-gray-500"
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:border-[#00E5FF] focus:outline-none text-white placeholder-gray-500"
               placeholder="••••••••"
               required
             />
@@ -66,7 +66,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-accent to-teal-400 text-dark font-bold rounded-xl hover:opacity-90 transition disabled:opacity-50"
+            className="w-full py-3 bg-[#00E5FF] text-[#0D1516] font-bold rounded-xl hover:opacity-90 transition disabled:opacity-50"
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>
