@@ -2,15 +2,20 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Product = require('../models/Product');
+const Activity = require('../models/Activity');
+const { isAdmin } = require('../middleware/adminMiddleware');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const upload = require('../middleware/upload');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// ==================== Admin Login (Only .env credentials) ====================
+// ==================== Admin Login ====================
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -20,7 +25,6 @@ router.post('/login', async (req, res) => {
 
     console.log('🔐 Admin Login Attempt');
     console.log('📧 Provided Email:', email);
-    console.log('📧 Admin Email from .env:', adminEmail);
 
     if (!email || !password) {
       return res.status(400).json({ 
@@ -29,16 +33,8 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    if (email !== adminEmail) {
-      console.log('❌ Email mismatch');
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials' 
-      });
-    }
-
-    if (password !== adminPassword) {
-      console.log('❌ Password mismatch');
+    if (email !== adminEmail || password !== adminPassword) {
+      console.log('❌ Invalid credentials');
       return res.status(401).json({ 
         success: false, 
         message: 'Invalid credentials' 
@@ -88,49 +84,62 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ==================== Admin Auth Middleware ====================
-const isAdmin = async (req, res, next) => {
-  let token;
+// ==================== Admin Auth Middleware (Already in adminMiddleware.js) ====================
+// We'll use the existing isAdmin from adminMiddleware.js
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
-
-  if (!token) {
-    return res.status(401).json({ 
-      success: false, 
-      message: 'Not authorized, no token' 
-    });
-  }
-
+// ==================== IMAGE UPLOAD ROUTE ====================
+// ✅ Add this new route - Image upload
+router.post('/upload', isAdmin, upload.single('image'), async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-password');
-    
-    if (!user) {
-      return res.status(401).json({ 
+    console.log('📤 Upload request received');
+    console.log('📤 File:', req.file);
+
+    if (!req.file) {
+      return res.status(400).json({ 
         success: false, 
-        message: 'User not found' 
+        message: 'No image file provided' 
       });
     }
-    
-    req.user = user;
-    next();
+
+    // File is already saved locally by multer
+    // Return the file URL
+    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const imageUrl = `${baseUrl}/uploads/${path.basename(req.file.path)}`;
+
+    console.log('✅ Image uploaded successfully:', imageUrl);
+
+    res.json({
+      success: true,
+      url: imageUrl,
+      message: 'Image uploaded successfully'
+    });
+
   } catch (error) {
-    console.error('❌ Token verification error:', error);
-    return res.status(401).json({ 
+    console.error('❌ Upload error:', error);
+    
+    // Clean up local file if exists
+    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (err) {
+        console.log('⚠️ Could not delete local file:', err.message);
+      }
+    }
+
+    res.status(500).json({ 
       success: false, 
-      message: 'Not authorized, token failed' 
+      message: error.message || 'Upload failed' 
     });
   }
-};
+});
 
 // ==================== Dashboard Stats ====================
 router.get('/stats', isAdmin, async (req, res) => {
   try {
     const products = await Product.countDocuments();
     const users = await User.countDocuments();
-    res.json({ products, bookings: 0, users, revenue: 0 });
+    const activities = await Activity.countDocuments();
+    res.json({ products, bookings: 0, users, revenue: 0, activities });
   } catch (error) {
     console.error('❌ Stats error:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -198,6 +207,71 @@ router.delete('/products/:id', isAdmin, async (req, res) => {
     res.json({ success: true, message: 'Product deleted' });
   } catch (error) {
     console.error('❌ Product delete error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ==================== Activities Management ====================
+router.get('/activities', isAdmin, async (req, res) => {
+  try {
+    const activities = await Activity.find().sort({ createdAt: -1 });
+    res.json({ success: true, activities });
+  } catch (error) {
+    console.error('❌ Activities fetch error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/activities/:id', isAdmin, async (req, res) => {
+  try {
+    const activity = await Activity.findById(req.params.id);
+    if (!activity) {
+      return res.status(404).json({ success: false, message: 'Activity not found' });
+    }
+    res.json({ success: true, activity });
+  } catch (error) {
+    console.error('❌ Activity fetch error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/activities', isAdmin, async (req, res) => {
+  try {
+    const activity = new Activity(req.body);
+    await activity.save();
+    res.status(201).json({ success: true, activity });
+  } catch (error) {
+    console.error('❌ Activity creation error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.put('/activities/:id', isAdmin, async (req, res) => {
+  try {
+    const activity = await Activity.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!activity) {
+      return res.status(404).json({ success: false, message: 'Activity not found' });
+    }
+    res.json({ success: true, activity });
+  } catch (error) {
+    console.error('❌ Activity update error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.delete('/activities/:id', isAdmin, async (req, res) => {
+  try {
+    const activity = await Activity.findByIdAndDelete(req.params.id);
+    if (!activity) {
+      return res.status(404).json({ success: false, message: 'Activity not found' });
+    }
+    res.json({ success: true, message: 'Activity deleted' });
+  } catch (error) {
+    console.error('❌ Activity delete error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

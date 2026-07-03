@@ -289,6 +289,51 @@ class _UserHomeState extends State<UserHome> {
   }
 
   Widget _buildHeroSection() {
+    // Check if featured products are empty
+    if (_isLoadingFeatured) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_featuredProducts.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            const Text(
+              'No featured products available',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _loadFeaturedProducts,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Now safe to access _featuredProducts[0]
+    final featuredProduct = _featuredProducts[0];
+    final images = featuredProduct['images'] ?? [];
+    final imageUrl = images.isNotEmpty ? images[0] : 
+        'https://via.placeholder.com/400x300';
+
     return Column(
       children: [
         Row(
@@ -316,175 +361,167 @@ class _UserHomeState extends State<UserHome> {
           ],
         ),
         const SizedBox(height: 12),
-        if (_isLoadingFeatured)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20.0),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else if (_featuredProducts.isNotEmpty)
-          AspectRatio(
-            aspectRatio: 4 / 5,
-            child: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ProductDetailsPage(
-                      productId: _featuredProducts[0]['_id'],
-                    ),
-                  ),
-                );
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(32),
-                  image: DecorationImage(
-                    image: NetworkImage(_featuredProducts[0]['images'][0]),
-                    fit: BoxFit.cover,
+        AspectRatio(
+          aspectRatio: 4 / 5,
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProductDetailsPage(
+                    productId: featuredProduct['_id'],
                   ),
                 ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(32),
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, deepNavy.withOpacity(0.8)],
-                          ),
+              );
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(32),
+                image: DecorationImage(
+                  image: NetworkImage(imageUrl),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(32),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, deepNavy.withOpacity(0.8)],
                         ),
                       ),
                     ),
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: 16,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.75),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.4),
-                              ),
+                  ),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.75),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.4),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: sunsetOrange.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    _featuredProducts[0]['isFeatured'] == true
-                                        ? 'FEATURED'
-                                        : 'TRENDING NOW',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: sunsetOrange,
-                                      letterSpacing: 1.1,
-                                    ),
-                                  ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _featuredProducts[0]['name'] ?? 'Product',
+                                decoration: BoxDecoration(
+                                  color: sunsetOrange.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  featuredProduct['isFeatured'] == true
+                                      ? 'FEATURED'
+                                      : 'TRENDING NOW',
                                   style: const TextStyle(
-                                    fontSize: 26,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.bold,
-                                    color: deepNavy,
+                                    color: sunsetOrange,
+                                    letterSpacing: 1.1,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _featuredProducts[0]['description'] ?? '',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: outline,
-                                    fontFamily: 'Inter',
-                                  ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                featuredProduct['name'] ?? 'Product',
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
+                                  color: deepNavy,
                                 ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.calendar_today_outlined,
-                                          size: 16,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                featuredProduct['description'] ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: outline,
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.calendar_today_outlined,
+                                        size: 16,
+                                        color: oceanBlue,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        featuredProduct['duration'] ?? '4 Days / 3 Nights',
+                                        style: const TextStyle(
                                           color: oceanBlue,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          _featuredProducts[0]['duration'] ?? '4 Days / 3 Nights',
-                                          style: const TextStyle(
-                                            color: oceanBlue,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => ProductDetailsPage(
-                                              productId: _featuredProducts[0]['_id'],
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: oceanBlue,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
-                                          vertical: 12,
-                                        ),
-                                        elevation: 0,
-                                      ),
-                                      child: const Text(
-                                        'Explore',
-                                        style: TextStyle(
-                                          color: Colors.white,
                                           fontWeight: FontWeight.w600,
+                                          fontSize: 13,
                                         ),
                                       ),
+                                    ],
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ProductDetailsPage(
+                                            productId: featuredProduct['_id'],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: oceanBlue,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 12,
+                                      ),
+                                      elevation: 0,
                                     ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                                    child: const Text(
+                                      'Explore',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -775,7 +812,7 @@ class _UserHomeState extends State<UserHome> {
               context,
               MaterialPageRoute(
                 builder: (context) => ProductDetailsPage(
-                  productId: 'minicoy', // Pass actual ID
+                  productId: 'minicoy',
                 ),
               ),
             );

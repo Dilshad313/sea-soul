@@ -18,10 +18,12 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
 }));
 
-// No need for explicit OPTIONS handler with this configuration
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ==================== Serve uploaded images ====================
+// ✅ Add this line - to serve uploaded images
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API Routes
 app.use('/api/auth', require('./routes/authRoutes'));
@@ -41,4 +43,5 @@ app.listen(PORT, () => {
   console.log(`Admin API: http://localhost:${PORT}/api/admin`);
   console.log(`React Admin: http://localhost:5173`);
   console.log(`Flutter Web: http://localhost:60254`);
+  console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
 });

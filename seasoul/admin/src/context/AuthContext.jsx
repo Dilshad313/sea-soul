@@ -13,7 +13,17 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('adminToken');
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser({ token });
+      // Try to get user data from localStorage
+      const userData = localStorage.getItem('adminUser');
+      if (userData) {
+        try {
+          setUser(JSON.parse(userData));
+        } catch {
+          setUser({ token });
+        }
+      } else {
+        setUser({ token });
+      }
     }
     setLoading(false);
   }, []);
@@ -23,8 +33,9 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post('/admin/login', { email, password });
       if (response.data.success) {
         localStorage.setItem('adminToken', response.data.token);
+        localStorage.setItem('adminUser', JSON.stringify(response.data.user));
         api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-        setUser({ token: response.data.token });
+        setUser(response.data.user);
         return { success: true };
       }
       return { success: false, message: response.data.message };
@@ -35,6 +46,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
   };
