@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -9,6 +10,7 @@ import {
   LogOut 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const menuItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -21,40 +23,93 @@ const menuItems = [
 
 export default function Sidebar() {
   const { logout } = useAuth();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false);
+    logout();
+    toast.success('Logged out successfully! 👋', {
+      duration: 3000,
+      style: {
+        background: '#FFFFFF',
+        color: '#1A2B49',
+        borderRadius: '12px',
+        padding: '16px',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+      },
+    });
+  };
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-[#1A2B49] text-white p-4">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[#00E5FF]">🌊 SeaSoul</h1>
-        <p className="text-gray-400 text-sm">Admin Panel</p>
-      </div>
+    <>
+      <aside className="fixed left-0 top-0 h-full w-64 bg-[#1A2B49] text-white p-4">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-[#00E5FF]">🌊 SeaSoul</h1>
+          <p className="text-gray-400 text-sm">Admin Panel</p>
+        </div>
 
-      <nav className="space-y-1">
-        {menuItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-                isActive 
-                  ? 'bg-white/10 text-[#00E5FF]' 
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`
-            }
-          >
-            <item.icon size={20} />
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
-      </nav>
+        <nav className="space-y-1">
+          {menuItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                  isActive 
+                    ? 'bg-white/10 text-[#00E5FF]' 
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`
+              }
+            >
+              <item.icon size={20} />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
 
-      <button
-        onClick={logout}
-        className="flex items-center gap-3 px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition w-full mt-4"
-      >
-        <LogOut size={20} />
-        <span>Logout</span>
-      </button>
-    </aside>
+        <button
+          onClick={handleLogoutClick}
+          className="flex items-center gap-3 px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition w-full mt-4"
+        >
+          <LogOut size={20} />
+          <span>Logout</span>
+        </button>
+      </aside>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <LogOut size={28} className="text-red-500" />
+              </div>
+              <h3 className="text-xl font-bold text-[#1A2B49] mb-2">Confirm Logout</h3>
+              <p className="text-gray-500 text-sm mb-6">
+                Are you sure you want to logout? You'll need to login again to access the admin panel.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmLogout}
+                  className="flex-1 px-4 py-2.5 bg-red-500 text-white font-medium rounded-xl hover:bg-red-600 transition"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
