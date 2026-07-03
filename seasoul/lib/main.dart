@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:seasoul/login.dart';
 import 'package:seasoul/signup.dart';
 import 'package:seasoul/splashscreen.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 void main() {
   runApp(const MyApp());
@@ -13,8 +14,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-    home: splashscreen(),
+    home: const SplashScreen(),
     debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+        useMaterial3: true,
+        // Web-specific constraints
+      ),
     );
   }
 }

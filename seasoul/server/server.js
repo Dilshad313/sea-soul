@@ -33,6 +33,8 @@ app.use('/api', require('./routes/profileRoutes'));
 // Admin API Routes (for React Admin)
 app.use('/api/admin', require('./routes/adminRoutes'));
 
+app.use('/api', require('./routes/activityRoutes'));
+
 app.get('/', (req, res) => {
   res.send('SeaSoul API is running...');
 });

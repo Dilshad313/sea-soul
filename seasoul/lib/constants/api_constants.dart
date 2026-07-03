@@ -3,13 +3,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 class ApiConstants {
   static String get baseUrl {
     if (kIsWeb) {
-      // For web, use localhost
       return 'http://localhost:5000';
     } else {
-      // For Android emulator
       return 'http://10.0.2.2:5000';
-      // For physical device, use your computer's IP
-      // return 'http://192.168.1.100:5000';
     }
   }
 
@@ -32,4 +28,11 @@ class ApiConstants {
   static String get trendingProducts => '$baseUrl/api/products/trending';
   static String productById(String id) => '$baseUrl/api/products/$id';
   static String productsByCategory(String category) => '$baseUrl/api/products/category/$category';
+  
+  // Activity APIs
+  static String get activities => '$baseUrl/api/activities';
+  static String get featuredActivities => '$baseUrl/api/activities/featured';
+  static String get trendingActivities => '$baseUrl/api/activities/trending';
+  static String activityById(String id) => '$baseUrl/api/activities/$id';
+  static String activitiesByCategory(String category) => '$baseUrl/api/activities/category/$category';
 }
