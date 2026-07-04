@@ -2,6 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:seasoul/payment.dart';
 import 'package:seasoul/services/product_service.dart';
+import 'package:seasoul/services/activity_service.dart';
+import 'package:seasoul/services/wishlist_service.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ProductDetailsPage extends StatefulWidget {
   final String productId;
@@ -18,12 +21,13 @@ class ProductDetailsPage extends StatefulWidget {
 class _ProductDetailsPageState extends State<ProductDetailsPage> {
   bool _isBookmarked = false;
   bool _isLoading = true;
+  bool _isSaving = false;
   Map<String, dynamic>? _product;
+  List<dynamic> _activities = [];
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
   static const Color sunsetOrange = Color(0xFFFFB84D);
-  static const Color turquoiseLagoon = Color(0xFF00C2A8);
   static const Color outline = Color(0xFF6E7880);
   static const Color sandWhite = Color(0xFFF8FBFF);
 
@@ -31,6 +35,17 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   void initState() {
     super.initState();
     _loadProduct();
+    _loadActivities();
+    _checkWishlistStatus();
+  }
+
+  Future<void> _checkWishlistStatus() async {
+    final inWishlist = await WishlistService.isInWishlist(widget.productId);
+    if (mounted) {
+      setState(() {
+        _isBookmarked = inWishlist;
+      });
+    }
   }
 
   Future<void> _loadProduct() async {
@@ -38,15 +53,123 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     try {
       final response = await ProductService.getProductById(widget.productId);
       if (response['success'] == true) {
-        setState(() {
-          _product = response['product'];
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _product = response['product'];
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       print('❌ Error loading product: $e');
     }
+  }
+
+  Future<void> _loadActivities() async {
+    try {
+      final response = await ActivityService.getActivities(limit: 3);
+      if (response['success'] == true) {
+        if (mounted) {
+          setState(() {
+            _activities = response['activities'] ?? [];
+          });
+        }
+      }
+    } catch (e) {
+      print('❌ Error loading activities: $e');
+    }
+  }
+
+  Future<void> _saveToWishlist() async {
+    setState(() => _isSaving = true);
+    
+    try {
+      if (_isBookmarked) {
+        await WishlistService.removeFromWishlist(widget.productId);
+        if (mounted) {
+          setState(() {
+            _isBookmarked = false;
+            _isSaving = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ Removed from wishlist'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        final product = _product!;
+        await WishlistService.addToWishlist({
+          'id': product['_id'],
+          'name': product['name'],
+          'location': product['location'],
+          'price': product['price'],
+          'images': product['images'],
+          'type': 'product',
+        });
+        if (mounted) {
+          setState(() {
+            _isBookmarked = true;
+            _isSaving = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Added to wishlist!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+      print('❌ Error saving to wishlist: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareProduct() async {
+    final product = _product!;
+    final String shareText = '''
+🌊 SeaSoul - ${product['name'] ?? 'Amazing Package'}
+
+📍 Location: ${product['location'] ?? 'Lakshadweep'}
+💰 Price: ₹${product['price'] ?? 0} / person
+⭐ Rating: ${product['rating'] ?? 4.5} ★
+
+${product['description'] ?? ''}
+
+✨ Book now and experience the beauty of Lakshadweep!
+📱 Download SeaSoul App: https://seasoul.com/download
+  ''';
+  
+  try {
+    await Share.share(shareText);
+  } catch (e) {
+    print('❌ Error sharing: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sharing: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
   }
 
   @override
@@ -141,14 +264,20 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   icon: Icons.arrow_back,
                   onTap: () => Navigator.maybePop(context),
                 ),
-                _buildGlassButton(
-                  icon: _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                  iconColor: _isBookmarked ? sunsetOrange : deepNavy,
-                  onTap: () {
-                    setState(() {
-                      _isBookmarked = !_isBookmarked;
-                    });
-                  },
+                Row(
+                  children: [
+                    _buildGlassButton(
+                      icon: _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                      iconColor: _isBookmarked ? sunsetOrange : deepNavy,
+                      onTap: _saveToWishlist,
+                      isLoading: _isSaving,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildGlassButton(
+                      icon: Icons.share_outlined,
+                      onTap: _shareProduct,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -162,9 +291,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     required IconData icon,
     required VoidCallback onTap,
     Color iconColor = deepNavy,
+    bool isLoading = false,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: isLoading ? null : onTap,
       child: Container(
         width: 44,
         height: 44,
@@ -180,7 +310,16 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             ),
           ],
         ),
-        child: Icon(icon, color: iconColor, size: 22),
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: oceanBlue,
+                ),
+              )
+            : Icon(icon, color: iconColor, size: 22),
       ),
     );
   }
@@ -194,6 +333,12 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           child: Image.network(
             imageUrl,
             fit: BoxFit.cover,
+            errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+              return Container(
+                color: Colors.grey[200],
+                child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+              );
+            },
           ),
         ),
         Positioned.fill(
@@ -328,7 +473,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.explore_outlined, color: oceanBlue, size: 18),
+                      Icon(Icons.location_on_outlined, color: oceanBlue, size: 18),
                       SizedBox(width: 4),
                       Text(
                         '459 km',
@@ -384,72 +529,84 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             ),
           ),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              _buildBentoHighlightTile(
-                Icons.water,
-                'Crystal Lagoons',
-                const Color(0xFF006386),
-              ),
-              const SizedBox(width: 12),
-              _buildBentoHighlightTile(
-                Icons.flight,
-                'Airport Access',
-                sunsetOrange,
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: oceanBlue.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: oceanBlue.withOpacity(0.1)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today_outlined, color: oceanBlue),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'DURATION',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: outline,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        product['duration'] ?? '3 Nights / 4 Days',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: deepNavy,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildBentoHighlightTile(
-                Icons.scuba_diving,
-                'Scuba Diving',
-                turquoiseLagoon,
-              ),
-              const SizedBox(width: 12),
-              _buildBentoHighlightTile(
-                Icons.wb_sunny_outlined,
-                'White Sands',
-                deepNavy,
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: sunsetOrange.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: sunsetOrange.withOpacity(0.1)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.currency_rupee, color: sunsetOrange),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'PRICE',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: outline,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        '₹${product['price'] ?? 0} / person',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: deepNavy,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBentoHighlightTile(
-    IconData icon,
-    String label,
-    Color themeColor,
-  ) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: themeColor.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: themeColor.withOpacity(0.12)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: themeColor, size: 24),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: themeColor,
-                  fontFamily: 'Inter',
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -466,7 +623,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Island Gallery',
+                'Gallery',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -474,7 +631,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 ),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: () {
+                  _showGalleryDialog(images);
+                },
                 child: const Text(
                   'View All',
                   style: TextStyle(
@@ -491,10 +650,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: images.length + 1,
+            itemCount: images.length > 4 ? 4 : images.length,
             itemBuilder: (context, index) {
-              if (index < images.length) {
-                return Container(
+              return GestureDetector(
+                onTap: () => _showGalleryDialog(images, initialIndex: index),
+                child: Container(
                   width: 220,
                   margin: const EdgeInsets.only(right: 14),
                   decoration: BoxDecoration(
@@ -502,29 +662,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     image: DecorationImage(
                       image: NetworkImage(images[index]),
                       fit: BoxFit.cover,
+                      onError: (exception, stackTrace) {
+                        // Handle image load error silently
+                      },
                     ),
                   ),
-                );
-              }
-              return Container(
-                width: 160,
-                decoration: BoxDecoration(
-                  color: oceanBlue.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: oceanBlue.withOpacity(0.15),
-                    style: BorderStyle.solid,
-                  ),
-                ),
-                child: const Center(
-                  child: Text(
-                    '+15 More Photos',
-                    style: TextStyle(
-                      color: deepNavy,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
+                  child: images[index].isEmpty
+                      ? const Icon(Icons.broken_image, color: Colors.grey)
+                      : null,
                 ),
               );
             },
@@ -534,27 +679,100 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
+  void _showGalleryDialog(List<dynamic> images, {int initialIndex = 0}) {
+    final PageController pageController = PageController(initialPage: initialIndex);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Gallery',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: deepNavy,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: deepNavy),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: PageView.builder(
+                  controller: pageController,
+                  itemCount: images.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          images[index],
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                          errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+                            return Container(
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.broken_image,
+                                size: 50,
+                                color: Colors.grey,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              if (images.length > 1)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      images.length,
+                      (index) => Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: index == 0 ? oceanBlue : Colors.grey[300],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildActivitiesSection() {
-    final activities = [
-      {
-        'title': 'Scuba Diving',
-        'desc': 'Explore vibrant coral reefs',
-        'price': '₹4,500',
-        'img': 'https://lh3.googleusercontent.com/aida-public/AB6AXuAULHWXBhocdKOR5d13w2PGJ0YY3sITinvpLvAUPK0kcz_uhv7CO7ucpOT5X246tYXF0inoMQh1JNqbZtiGA6mj3JZGh_8ZzJgVm-gmcUZY5a0NcV8HHOkTwgh7RqEzi7L0X153RQJFYqjBGYukBnJaZz3WmltXErW_e9v5pqv8EI1WunjhEGzzvqgSmmM-1pyhJdOm4Ki9K7IE3i3QrRFHGZwDX-vDUUeLYxOHLbzQK2Mn1qcXje115Gc3uuLu1-OFDwmgBJEPXLc',
-      },
-      {
-        'title': 'Snorkeling',
-        'desc': 'Witness the shallow reef magic',
-        'price': '₹1,500',
-        'img': 'https://lh3.googleusercontent.com/aida-public/AB6AXuAPRzcQ-yf-OHY1YQ66DRPfRnr00UjodzqA6xBaNkQX2tbKCj-FGALeOyu1jY8hyO3YMogBpJQ44cAOD-2eq7AIPtBvJtZsqADMF8Z2ddJuPJP3aeUuu9e958ofzXWVfjJ4NGjWPlB82-oaywimrkrXi23AbFyh07Tvbs0TG172bENcJmuiR87xhj67VpK0Uhr3TKbOgM14m_evfadBikJIJGpBdP1CAtLzLS6_zt6TMfSwGDXMuW8eBZBKNOlO0IRwT6XBQUXS5UU',
-      },
-      {
-        'title': 'Island Hopping',
-        'desc': 'Visit nearby uninhabited islets',
-        'price': '₹3,200',
-        'img': 'https://lh3.googleusercontent.com/aida-public/AB6AXuBPTjpQ9oImtDnikS3td-DR9h2T7FSdIzhyi9tt-SuqBXUZnXutL01szZAw-T9MF0C9IsrqTHAL4HwLIO8drergzWklDJHcAzA96CzXJ-hzdcMCyU3skSCOyXRLoVqqGh94Vi5gDQvv9g4s3z3IvSkv3fHuGNlk4p8Cnb0tH6v0rU4nFN0bh7A-6fUMMiq0o6MNGLgK6ULnRLD_Rw8MCFtSANlPzwhqKvrZhZGC5y2W8y5Spqny2d5Vi0iMN58M4SutbwrOUJx49oY',
-      },
-    ];
+    if (_activities.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
@@ -573,9 +791,13 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: activities.length,
+            itemCount: _activities.length > 3 ? 3 : _activities.length,
             itemBuilder: (context, index) {
-              final act = activities[index];
+              final activity = _activities[index];
+              final images = activity['images'] ?? [];
+              final imageUrl = images.isNotEmpty ? images[0] : 
+                  'https://via.placeholder.com/300x200';
+              
               return Container(
                 margin: const EdgeInsets.only(bottom: 14),
                 padding: const EdgeInsets.all(12),
@@ -599,10 +821,16 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         image: DecorationImage(
-                          image: NetworkImage(act['img']!),
+                          image: NetworkImage(imageUrl),
                           fit: BoxFit.cover,
+                          onError: (exception, stackTrace) {
+                            // Handle image load error silently
+                          },
                         ),
                       ),
+                      child: imageUrl.isEmpty
+                          ? const Icon(Icons.broken_image, color: Colors.grey)
+                          : null,
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -610,7 +838,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            act['title']!,
+                            activity['name'] ?? 'Activity',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -618,21 +846,47 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                             ),
                           ),
                           Text(
-                            act['desc']!,
+                            activity['description'] ?? '',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 12,
                               color: outline,
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Starting ${act['price']!}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: oceanBlue,
-                            ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.access_time,
+                                size: 12,
+                                color: outline,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                activity['duration'] ?? '2 hours',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: outline,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Icon(
+                                Icons.currency_rupee,
+                                size: 12,
+                                color: outline,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${activity['price'] ?? 0}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: oceanBlue,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

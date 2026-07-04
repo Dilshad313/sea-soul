@@ -19,7 +19,6 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
@@ -145,8 +144,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) return;
-    
     setState(() => _isLoading = true);
 
     try {
@@ -169,6 +166,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
         );
 
+        // Use pushReplacement to maintain bottom nav
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -225,204 +223,303 @@ class _EditProfilePageState extends State<EditProfilePage> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              // Profile Image
-              Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.grey[200],
-                      image: _profileImage.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(_profileImage),
-                              fit: BoxFit.cover,
-                              onError: (exception, stackTrace) {
-                                print('❌ Image load error: $exception');
-                              },
-                            )
-                          : null,
-                      border: Border.all(
-                        color: oceanBlue,
-                        width: 3,
-                      ),
-                    ),
-                    child: _profileImage.isEmpty
-                        ? Icon(
-                            Icons.person,
-                            size: 60,
-                            color: Colors.grey[400],
+        child: Column(
+          children: [
+            // Profile Image
+            Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey[200],
+                    image: _profileImage.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(_profileImage),
+                            fit: BoxFit.cover,
+                            onError: (exception, stackTrace) {
+                              print('❌ Image load error: $exception');
+                            },
                           )
                         : null,
+                    border: Border.all(
+                      color: oceanBlue,
+                      width: 3,
+                    ),
                   ),
-                  if (_isImageLoading)
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.5),
-                        ),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 30,
-                            height: 30,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
+                  child: _profileImage.isEmpty
+                      ? Icon(
+                          Icons.person,
+                          size: 60,
+                          color: Colors.grey[400],
+                        )
+                      : null,
+                ),
+                if (_isImageLoading)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withOpacity(0.5),
+                      ),
+                      child: const Center(
+                        child: SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
                           ),
                         ),
                       ),
                     ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+                  ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: oceanBlue,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      if (_profileImage.isNotEmpty &&
+                          !_profileImage.contains('default-avatar'))
+                        const SizedBox(width: 8),
+                      if (_profileImage.isNotEmpty &&
+                          !_profileImage.contains('default-avatar'))
                         GestureDetector(
-                          onTap: _pickImage,
+                          onTap: _removeImage,
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: const BoxDecoration(
-                              color: oceanBlue,
+                              color: Colors.red,
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
-                              Icons.camera_alt,
+                              Icons.delete,
                               color: Colors.white,
                               size: 20,
                             ),
                           ),
                         ),
-                        if (_profileImage.isNotEmpty &&
-                            !_profileImage.contains('default-avatar'))
-                          const SizedBox(width: 8),
-                        if (_profileImage.isNotEmpty &&
-                            !_profileImage.contains('default-avatar'))
-                          GestureDetector(
-                            onTap: _removeImage,
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.delete,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            
+            // Full Name - Using TextField (no validator to avoid yellow underline)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Full Name',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: outline,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _fullNameController,
+                  style: const TextStyle(color: deepNavy),
+                  decoration: InputDecoration(
+                    hintText: 'Enter your full name',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: const Icon(Icons.person_outline, color: oceanBlue),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 16,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: oceanBlue, width: 1.5),
+                    ),
+                    // Removed errorBorder to avoid yellow underline
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Phone - Using TextField
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Phone Number',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: outline,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _phoneController,
+                  style: const TextStyle(color: deepNavy),
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    hintText: 'Enter your phone number',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: const Icon(Icons.phone_outlined, color: oceanBlue),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 16,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: oceanBlue, width: 1.5),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              
-              // Full Name
-              TextFormField(
-                controller: _fullNameController,
-                style: const TextStyle(color: deepNavy),
-                decoration: InputDecoration(
-                  labelText: 'Full Name',
-                  labelStyle: TextStyle(color: outline),
-                  prefixIcon: const Icon(Icons.person_outline, color: oceanBlue),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: oceanBlue),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Location - Using TextField
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Location',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: outline,
                   ),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your full name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              
-              // Phone
-              TextFormField(
-                controller: _phoneController,
-                style: const TextStyle(color: deepNavy),
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  labelText: 'Phone Number',
-                  labelStyle: TextStyle(color: outline),
-                  prefixIcon: const Icon(Icons.phone_outlined, color: oceanBlue),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: oceanBlue),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _locationController,
+                  style: const TextStyle(color: deepNavy),
+                  decoration: InputDecoration(
+                    hintText: 'Enter your location',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: const Icon(Icons.location_on_outlined, color: oceanBlue),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 16,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: oceanBlue, width: 1.5),
+                    ),
                   ),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your phone number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              
-              // Location
-              TextFormField(
-                controller: _locationController,
-                style: const TextStyle(color: deepNavy),
-                decoration: InputDecoration(
-                  labelText: 'Location',
-                  labelStyle: TextStyle(color: outline),
-                  prefixIcon: const Icon(Icons.location_on_outlined, color: oceanBlue),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: oceanBlue),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Bio - Using TextField
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Bio',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: outline,
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Bio
-              TextFormField(
-                controller: _bioController,
-                style: const TextStyle(color: deepNavy),
-                maxLines: 4,
-                maxLength: 500,
-                decoration: InputDecoration(
-                  labelText: 'Bio',
-                  labelStyle: TextStyle(color: outline),
-                  prefixIcon: const Icon(Icons.description_outlined, color: oceanBlue),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: oceanBlue),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _bioController,
+                  style: const TextStyle(color: deepNavy),
+                  maxLines: 4,
+                  maxLength: 500,
+                  decoration: InputDecoration(
+                    hintText: 'Tell us about yourself',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    prefixIcon: const Icon(Icons.description_outlined, color: oceanBlue),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 16,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: oceanBlue, width: 1.5),
+                    ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            
+            // Save Button
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _saveProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: oceanBlue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Save Changes',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
-              const SizedBox(height: 32),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

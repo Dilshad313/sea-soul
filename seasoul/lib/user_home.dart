@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:seasoul/bottomnav.dart';
 import 'package:seasoul/explore.dart';
 import 'package:seasoul/profile.dart';
+import 'package:seasoul/wishlist.dart';
 import 'package:seasoul/product_details.dart';
 import 'package:seasoul/activity_details.dart';
 import 'package:seasoul/services/product_service.dart';
 import 'package:seasoul/services/activity_service.dart';
+import 'package:seasoul/services/wishlist_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UserHome extends StatefulWidget {
@@ -95,7 +97,6 @@ class _UserHomeState extends State<UserHome> {
       _loadFeaturedActivities(),
     ]);
     
-    // Start auto-slide after data loads
     _startPackageAutoSlide();
     _startActivityAutoSlide();
   }
@@ -104,7 +105,7 @@ class _UserHomeState extends State<UserHome> {
     _packageTimer?.cancel();
     if (_trendingProducts.length > 1) {
       _packageTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-        if (_trendingProducts.isNotEmpty) {
+        if (_trendingProducts.isNotEmpty && mounted) {
           int nextIndex = (_currentPackageIndex + 1) % _trendingProducts.length;
           _packagePageController.animateToPage(
             nextIndex,
@@ -123,7 +124,7 @@ class _UserHomeState extends State<UserHome> {
     _activityTimer?.cancel();
     if (_activities.length > 1) {
       _activityTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-        if (_activities.isNotEmpty) {
+        if (_activities.isNotEmpty && mounted) {
           int nextIndex = (_currentActivityIndex + 1) % _activities.length;
           _activityPageController.animateToPage(
             nextIndex,
@@ -219,7 +220,6 @@ class _UserHomeState extends State<UserHome> {
           _trendingProducts = response['products'] ?? [];
           _isLoadingTrending = false;
         });
-        // Restart auto-slide after loading
         _startPackageAutoSlide();
       }
     } catch (e) {
@@ -237,7 +237,6 @@ class _UserHomeState extends State<UserHome> {
           _activities = response['activities'] ?? [];
           _isLoadingActivities = false;
         });
-        // Restart auto-slide after loading
         _startActivityAutoSlide();
       }
     } catch (e) {
@@ -291,7 +290,7 @@ class _UserHomeState extends State<UserHome> {
       _buildHomeBody(),
       const ExplorePage(),
       _buildBookingsPlaceholder(),
-      _buildWishlistPlaceholder(),
+      const WishlistPage(),
       const ProfilePage(),
     ];
 
@@ -557,7 +556,10 @@ class _UserHomeState extends State<UserHome> {
                       productId: itemId,
                     ),
                   ),
-                );
+                ).then((_) {
+                  // Refresh wishlist status when returning
+                  _loadAllData();
+                });
               } else {
                 Navigator.push(
                   context,
@@ -566,7 +568,9 @@ class _UserHomeState extends State<UserHome> {
                       activityId: itemId,
                     ),
                   ),
-                );
+                ).then((_) {
+                  _loadAllData();
+                });
               }
             },
             child: Container(
@@ -682,7 +686,9 @@ class _UserHomeState extends State<UserHome> {
                                               productId: itemId,
                                             ),
                                           ),
-                                        );
+                                        ).then((_) {
+                                          _loadAllData();
+                                        });
                                       } else {
                                         Navigator.push(
                                           context,
@@ -691,7 +697,9 @@ class _UserHomeState extends State<UserHome> {
                                               activityId: itemId,
                                             ),
                                           ),
-                                        );
+                                        ).then((_) {
+                                          _loadAllData();
+                                        });
                                       }
                                     },
                                     style: ElevatedButton.styleFrom(
@@ -849,7 +857,6 @@ class _UserHomeState extends State<UserHome> {
                     onPageChanged: (index) {
                       setState(() {
                         _currentPackageIndex = index;
-                        // Reset timer on manual swipe
                         _packageTimer?.cancel();
                         _startPackageAutoSlide();
                       });
@@ -870,7 +877,9 @@ class _UserHomeState extends State<UserHome> {
                                 productId: pkg['_id'],
                               ),
                             ),
-                          );
+                          ).then((_) {
+                            _loadAllData();
+                          });
                         },
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -1016,7 +1025,6 @@ class _UserHomeState extends State<UserHome> {
                     },
                   ),
                 ),
-                // Dot indicator
                 if (_trendingProducts.length > 1)
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
@@ -1094,7 +1102,6 @@ class _UserHomeState extends State<UserHome> {
                     onPageChanged: (index) {
                       setState(() {
                         _currentActivityIndex = index;
-                        // Reset timer on manual swipe
                         _activityTimer?.cancel();
                         _startActivityAutoSlide();
                       });
@@ -1115,7 +1122,9 @@ class _UserHomeState extends State<UserHome> {
                                 activityId: activity['_id'],
                               ),
                             ),
-                          );
+                          ).then((_) {
+                            _loadAllData();
+                          });
                         },
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -1274,7 +1283,6 @@ class _UserHomeState extends State<UserHome> {
                     },
                   ),
                 ),
-                // Dot indicator
                 if (_activities.length > 1)
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
@@ -1334,7 +1342,9 @@ class _UserHomeState extends State<UserHome> {
                   productId: product['_id'],
                 ),
               ),
-            );
+            ).then((_) {
+              _loadAllData();
+            });
           },
           child: Container(
             height: 180,
@@ -1428,7 +1438,9 @@ class _UserHomeState extends State<UserHome> {
                           productId: product['_id'],
                         ),
                       ),
-                    );
+                    ).then((_) {
+                      _loadAllData();
+                    });
                   },
                   child: Container(
                     height: 220,
@@ -1501,7 +1513,9 @@ class _UserHomeState extends State<UserHome> {
                           productId: product['_id'],
                         ),
                       ),
-                    );
+                    ).then((_) {
+                      _loadAllData();
+                    });
                   },
                   child: Container(
                     height: 220,
@@ -1641,20 +1655,6 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  Widget _buildWishlistPlaceholder() {
-    return _buildPlaceholderPage(
-      icon: Icons.favorite_border,
-      title: 'My Wishlist',
-      subtitle: 'Save your favorite lagoons and luxurious resorts to plan your next retreat.',
-      buttonText: 'Browse Islands',
-      onButtonPressed: () {
-        setState(() {
-          _currentTab = 1;
-        });
-      },
-    );
-  }
-
   Widget _buildBookingsPlaceholder() {
     return _buildPlaceholderPage(
       icon: Icons.confirmation_number_outlined,
@@ -1668,4 +1668,14 @@ class _UserHomeState extends State<UserHome> {
       },
     );
   }
+
+  // Add this method in UserHome class
+static Future<void> navigateToHome(BuildContext context) async {
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (context) => const UserHome()),
+    (route) => false,
+  );
+ }
 }
+

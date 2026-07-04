@@ -2,6 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:seasoul/payment.dart';
 import 'package:seasoul/services/activity_service.dart';
+import 'package:seasoul/services/wishlist_service.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ActivityDetailsPage extends StatefulWidget {
   final String activityId;
@@ -18,6 +20,7 @@ class ActivityDetailsPage extends StatefulWidget {
 class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   bool _isBookmarked = false;
   bool _isLoading = true;
+  bool _isSaving = false;
   Map<String, dynamic>? _activity;
 
   static const Color deepNavy = Color(0xFF1A2B49);
@@ -31,6 +34,16 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   void initState() {
     super.initState();
     _loadActivity();
+    _checkWishlistStatus();
+  }
+
+  Future<void> _checkWishlistStatus() async {
+    final inWishlist = await WishlistService.isInWishlist(widget.activityId);
+    if (mounted) {
+      setState(() {
+        _isBookmarked = inWishlist;
+      });
+    }
   }
 
   Future<void> _loadActivity() async {
@@ -38,15 +51,108 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     try {
       final response = await ActivityService.getActivityById(widget.activityId);
       if (response['success'] == true) {
-        setState(() {
-          _activity = response['activity'];
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _activity = response['activity'];
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       print('❌ Error loading activity: $e');
     }
+  }
+
+  Future<void> _saveToWishlist() async {
+    setState(() => _isSaving = true);
+    
+    try {
+      if (_isBookmarked) {
+        await WishlistService.removeFromWishlist(widget.activityId);
+        if (mounted) {
+          setState(() {
+            _isBookmarked = false;
+            _isSaving = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ Removed from wishlist'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        final activity = _activity!;
+        await WishlistService.addToWishlist({
+          'id': activity['_id'],
+          'name': activity['name'],
+          'location': activity['location'],
+          'price': activity['price'],
+          'images': activity['images'],
+          'type': 'activity',
+        });
+        if (mounted) {
+          setState(() {
+            _isBookmarked = true;
+            _isSaving = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Added to wishlist!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+      print('❌ Error saving to wishlist: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareActivity() async {
+    final activity = _activity!;
+    final String shareText = '''
+🌊 SeaSoul - ${activity['name'] ?? 'Amazing Activity'}
+
+📍 Location: ${activity['location'] ?? 'Lakshadweep'}
+💰 Price: ₹${activity['price'] ?? 0} / person
+⏰ Duration: ${activity['duration'] ?? '2 hours'}
+
+${activity['description'] ?? ''}
+
+✨ Book now and experience the adventure!
+📱 Download SeaSoul App: https://seasoul.com/download
+  ''';
+  
+  try {
+    await Share.share(shareText);
+  } catch (e) {
+    print('❌ Error sharing: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sharing: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
   }
 
   @override
@@ -142,14 +248,20 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                   icon: Icons.arrow_back,
                   onTap: () => Navigator.maybePop(context),
                 ),
-                _buildGlassButton(
-                  icon: _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                  iconColor: _isBookmarked ? sunsetOrange : deepNavy,
-                  onTap: () {
-                    setState(() {
-                      _isBookmarked = !_isBookmarked;
-                    });
-                  },
+                Row(
+                  children: [
+                    _buildGlassButton(
+                      icon: _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                      iconColor: _isBookmarked ? sunsetOrange : deepNavy,
+                      onTap: _saveToWishlist,
+                      isLoading: _isSaving,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildGlassButton(
+                      icon: Icons.share_outlined,
+                      onTap: _shareActivity,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -163,9 +275,10 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     required IconData icon,
     required VoidCallback onTap,
     Color iconColor = deepNavy,
+    bool isLoading = false,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: isLoading ? null : onTap,
       child: Container(
         width: 44,
         height: 44,
@@ -181,7 +294,16 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
             ),
           ],
         ),
-        child: Icon(icon, color: iconColor, size: 22),
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: oceanBlue,
+                ),
+              )
+            : Icon(icon, color: iconColor, size: 22),
       ),
     );
   }
@@ -195,6 +317,12 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
           child: Image.network(
             imageUrl,
             fit: BoxFit.cover,
+            errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+              return Container(
+                color: Colors.grey[200],
+                child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+              );
+            },
           ),
         ),
         Positioned.fill(
@@ -388,6 +516,84 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
               height: 1.6,
             ),
           ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: oceanBlue.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: oceanBlue.withOpacity(0.1)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.location_on_outlined, color: oceanBlue),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'LOCATION',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: outline,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        activity['location'] ?? 'Location',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: deepNavy,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: sunsetOrange.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: sunsetOrange.withOpacity(0.1)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.currency_rupee, color: sunsetOrange),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'PRICE',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: outline,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        '₹${activity['price'] ?? 0} / person',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: deepNavy,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -427,8 +633,14 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                   image: DecorationImage(
                     image: NetworkImage(displayImages[index]),
                     fit: BoxFit.cover,
+                    onError: (exception, stackTrace) {
+                      // Handle image load error silently
+                    },
                   ),
                 ),
+                child: displayImages[index].isEmpty
+                    ? const Icon(Icons.broken_image, color: Colors.grey)
+                    : null,
               );
             },
           ),
@@ -447,7 +659,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'What\'s Included',
+            "What's Included",
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,

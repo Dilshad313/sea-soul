@@ -10,11 +10,10 @@ class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  State<ProfilePage> createState() => profile();
+  State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class profile extends State<ProfilePage> {
-  bool _isBiometricLoginEnabled = true;
+class _ProfilePageState extends State<ProfilePage> {
   bool _isLoggingOut = false;
   bool _isLoading = true;
   Map<String, dynamic>? _userData;
@@ -150,9 +149,6 @@ class profile extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final String userName = _userData?['fullName'] ?? 'User';
     final String userEmail = _userData?['email'] ?? 'user@email.com';
-    final String userPhone = _userData?['phone'] ?? '+91 0000000000';
-    final String userBio = _userData?['bio'] ?? '';
-    final String userLocation = _userData?['location'] ?? '';
     final String profileImage = _userData?['profileImage'] ?? 
         'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
 
@@ -179,17 +175,13 @@ class profile extends State<ProfilePage> {
               _buildProfileHeaderSection(
                 userName, 
                 userEmail, 
-                userPhone, 
-                userBio, 
-                userLocation,
                 profileImage,
               ),
               const SizedBox(height: 32),
-
               _buildBentoSection(
                 icon: Icons.person_outline,
                 iconColor: oceanBlue,
-                title: 'Personal Information',
+                title: 'Account',
                 items: [
                   _buildListActionRow(
                     label: 'Edit Profile',
@@ -204,46 +196,6 @@ class profile extends State<ProfilePage> {
                       ).then((_) => _loadUserData());
                     },
                   ),
-                  _buildListActionRow(label: 'Saved Travelers'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildBentoSection(
-                icon: Icons.folder_shared_outlined,
-                iconColor: turquoiseLagoon,
-                title: 'Documents & Permits',
-                items: [
-                  _buildListActionRow(
-                    label: 'ID Vault',
-                    trailingWidget: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE0E8FF),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'ENCRYPTED',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF007262),
-                        ),
-                      ),
-                    ),
-                  ),
-                  _buildListActionRow(label: 'Entry Permits'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildBentoSection(
-                icon: Icons.security_outlined,
-                iconColor: sunsetOrange,
-                title: 'Security',
-                items: [
                   _buildListActionRow(
                     label: 'Change Password',
                     onTap: () {
@@ -255,59 +207,35 @@ class profile extends State<ProfilePage> {
                       );
                     },
                   ),
-                  _buildListActionRow(
-                    label: 'Biometric Login',
-                    hasChevron: false,
-                    trailingWidget: Transform.scale(
-                      scale: 0.85,
-                      child: CupertinoSwitch(
-                        activeColor: turquoiseLagoon,
-                        value: _isBiometricLoginEnabled,
-                        onChanged: (value) {
-                          setState(() {
-                            _isBiometricLoginEnabled = value;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(height: 16),
               _buildBentoSection(
-                icon: Icons.tune_outlined,
-                iconColor: deepNavy,
-                title: 'Preferences',
+                icon: Icons.support_outlined,
+                iconColor: turquoiseLagoon,
+                title: 'Support',
                 items: [
                   _buildListActionRow(
-                    label: 'Language',
-                    trailingWidget: const Padding(
-                      padding: EdgeInsets.only(right: 6.0),
-                      child: Text(
-                        'English',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          color: outline,
-                        ),
-                      ),
-                    ),
+                    label: 'Help Center',
+                    onTap: () {
+                      // Navigate to Help Center
+                    },
                   ),
-                  _buildListActionRow(label: 'Notifications'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildBentoSection(
-                icon: Icons.contact_support_outlined,
-                iconColor: oceanBlue,
-                title: 'Support & Legal',
-                items: [
-                  _buildListActionRow(label: 'Help Center'),
-                  _buildListActionRow(label: 'Terms of Service'),
+                  _buildListActionRow(
+                    label: 'Terms & Conditions',
+                    onTap: () {
+                      // Navigate to Terms
+                    },
+                  ),
+                  _buildListActionRow(
+                    label: 'Privacy Policy',
+                    onTap: () {
+                      // Navigate to Privacy Policy
+                    },
+                  ),
                 ],
               ),
               const SizedBox(height: 24),
-
               _buildLogoutButton(),
               const SizedBox(height: 24),
             ],
@@ -320,9 +248,6 @@ class profile extends State<ProfilePage> {
   Widget _buildProfileHeaderSection(
     String name,
     String email,
-    String phone,
-    String bio,
-    String location,
     String profileImage,
   ) {
     return Column(
@@ -353,22 +278,6 @@ class profile extends State<ProfilePage> {
                 ),
               ),
             ),
-            Positioned(
-              bottom: 2,
-              right: 2,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: turquoiseLagoon,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.verified,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -389,72 +298,7 @@ class profile extends State<ProfilePage> {
             fontFamily: 'Inter',
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          phone,
-          style: TextStyle(
-            fontSize: 14,
-            color: outline,
-            fontFamily: 'Inter',
-          ),
-        ),
-        if (location.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            location,
-            style: TextStyle(
-              fontSize: 14,
-              color: outline,
-              fontFamily: 'Inter',
-            ),
-          ),
-        ],
-        if (bio.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: oceanBlue.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: oceanBlue.withOpacity(0.1),
-              ),
-            ),
-            child: Text(
-              bio,
-              style: TextStyle(
-                fontSize: 13,
-                color: outline,
-                fontFamily: 'Inter',
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: oceanBlue.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(99),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.workspace_premium, color: oceanBlue, size: 16),
-              SizedBox(width: 6),
-              Text(
-                'Premium Member',
-                style: TextStyle(
-                  color: oceanBlue,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
+        // Removed: Phone, Location, Bio, Premium Member badge, Verified badge
       ],
     );
   }
