@@ -13,7 +13,6 @@ class Bottomnav extends StatelessWidget {
 
   static const Color oceanBlue = Color(0xFF0099CC);  
   static const Color outline = Color(0xFF6E7880);
-  
 
   @override
   Widget build(BuildContext context) {
@@ -35,14 +34,13 @@ class Bottomnav extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              
               _buildNavItem(0, Icons.home_outlined, 'Home'),
               _buildNavItem(1, Icons.explore_outlined, 'Explore'),
               _buildNavItem(2, Icons.confirmation_number_outlined, 'Bookings'),
+              _buildNavItem(3, Icons.favorite_border, 'Wishlist'),
               _buildNavItem(4, Icons.person_outline, 'Profile'),
             ],
           ),
-          
         ),
       ),
     );
@@ -81,4 +79,3 @@ class Bottomnav extends StatelessWidget {
     );
   }
 }
-
