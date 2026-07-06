@@ -27,6 +27,7 @@ function App() {
               borderRadius: '12px',
               padding: '16px',
               boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+              maxWidth: '90vw',
             },
             success: {
               icon: '✅',

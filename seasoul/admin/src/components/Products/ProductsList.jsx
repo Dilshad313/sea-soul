@@ -85,14 +85,14 @@ export default function ProductsList() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[#1A2B49]">Products</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your products and packages</p>
         </div>
         <Link
           to="/products/add"
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#00E5FF] text-[#1A2B49] font-semibold rounded-xl hover:bg-[#00E5FF]/80 transition shadow-sm"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#00E5FF] text-[#1A2B49] font-semibold rounded-xl hover:bg-[#00E5FF]/80 transition shadow-sm"
         >
           <Plus size={18} />
           Add Product
@@ -116,7 +116,7 @@ export default function ProductsList() {
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition whitespace-nowrap ${
+              className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition whitespace-nowrap ${
                 selectedCategory === category
                   ? 'bg-[#1A2B49] text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
@@ -130,7 +130,7 @@ export default function ProductsList() {
 
       {/* Products Grid */}
       {filteredProducts.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm p-12 text-center border border-gray-100">
+        <div className="bg-white rounded-2xl shadow-sm p-8 md:p-12 text-center border border-gray-100">
           <div className="flex flex-col items-center">
             <Package size={48} className="text-gray-300 mb-4" />
             <h3 className="text-lg font-medium text-[#1A2B49]">No products found</h3>
@@ -158,13 +158,13 @@ export default function ProductsList() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
           {filteredProducts.map((product) => (
             <div
               key={product._id}
               className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
             >
-              <div className="relative h-52 bg-gray-100">
+              <div className="relative h-48 sm:h-52 bg-gray-100">
                 {product.images && product.images.length > 0 ? (
                   <img
                     src={product.images[0]}
@@ -193,7 +193,7 @@ export default function ProductsList() {
                 </div>
               </div>
 
-              <div className="p-5">
+              <div className="p-4 md:p-5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-[#1A2B49] truncate">
@@ -208,7 +208,7 @@ export default function ProductsList() {
                   </span>
                 </div>
 
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
                   <span className="text-xl font-bold text-[#00E5FF]">
                     ₹{product.price}
                   </span>
@@ -251,7 +251,7 @@ export default function ProductsList() {
               <p className="text-gray-500 text-sm mb-6">
                 Are you sure you want to delete this product? This action cannot be undone.
               </p>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => setDeleteConfirm(null)}
                   className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition"

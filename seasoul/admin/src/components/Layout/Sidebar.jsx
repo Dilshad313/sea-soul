@@ -21,7 +21,7 @@ const menuItems = [
   { path: '/users', icon: Users, label: 'Users' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onItemClick }) {
   const { logout } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -44,19 +44,26 @@ export default function Sidebar() {
     });
   };
 
+  const handleNavClick = () => {
+    if (onItemClick) {
+      onItemClick();
+    }
+  };
+
   return (
     <>
-      <aside className="fixed left-0 top-0 h-full w-64 bg-[#1A2B49] text-white p-4">
+      <div className="flex flex-col h-full">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-[#00E5FF]">🌊 SeaSoul</h1>
           <p className="text-gray-400 text-sm">Admin Panel</p>
         </div>
 
-        <nav className="space-y-1">
+        <nav className="space-y-1 flex-1">
           {menuItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
+              onClick={handleNavClick}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
                   isActive 
@@ -78,7 +85,7 @@ export default function Sidebar() {
           <LogOut size={20} />
           <span>Logout</span>
         </button>
-      </aside>
+      </div>
 
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (

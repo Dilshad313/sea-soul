@@ -33,14 +33,14 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0D1516] p-4">
-      <div className="bg-[#1A2B49]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-8 w-full max-w-md">
+      <div className="bg-[#1A2B49]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-[#00E5FF]">🌊 SeaSoul</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-[#00E5FF]">🌊 SeaSoul</h1>
           <p className="text-gray-400 mt-2">Admin Panel</p>
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg mb-4">
+          <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg mb-4 text-sm">
             {error}
           </div>
         )}

@@ -74,7 +74,7 @@ export default function UsersList() {
       </div>
 
       {/* Search */}
-      <div className="relative mb-6 max-w-md">
+      <div className="relative mb-6 max-w-full md:max-w-md">
         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
@@ -87,7 +87,7 @@ export default function UsersList() {
 
       {/* Users Table */}
       {filteredUsers.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm p-12 text-center border border-gray-100">
+        <div className="bg-white rounded-2xl shadow-sm p-8 md:p-12 text-center border border-gray-100">
           <div className="flex flex-col items-center">
             <UserX size={48} className="text-gray-300 mb-4" />
             <h3 className="text-lg font-medium text-[#1A2B49]">No users found</h3>
@@ -98,7 +98,8 @@ export default function UsersList() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -186,16 +187,99 @@ export default function UsersList() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="lg:hidden">
+            {filteredUsers.map((user) => (
+              <div key={user._id} className="p-4 border-b border-gray-100 hover:bg-gray-50/50 transition">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={user.profileImage || 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png'}
+                      alt={user.fullName}
+                      className="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0"
+                      onError={(e) => {
+                        e.target.src = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-medium text-[#1A2B49] truncate">{user.fullName}</p>
+                      <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                    </div>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
+                    user.isActive !== false 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {user.isActive !== false ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-xs text-gray-400">Phone</p>
+                    <p className="text-sm text-gray-600">{user.phone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Role</p>
+                    {user.role === 'admin' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                        <Shield size={12} />
+                        Admin
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                        User
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Joined</p>
+                    <p className="text-sm text-gray-500">
+                      {new Date(user.createdAt).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleViewUser(user)}
+                      className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition"
+                      title="View Details"
+                    >
+                      <Eye size={17} />
+                    </button>
+                    {user.role !== 'admin' && (
+                      <button
+                        onClick={() => toggleUserStatus(user._id, user.isActive !== false)}
+                        className={`p-2 rounded-lg transition ${
+                          user.isActive !== false
+                            ? 'text-red-500 hover:bg-red-50'
+                            : 'text-green-500 hover:bg-green-50'
+                        }`}
+                        title={user.isActive !== false ? 'Deactivate' : 'Activate'}
+                      >
+                        {user.isActive !== false ? <UserX size={17} /> : <UserCheck size={17} />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* User Details Modal */}
+      {/* User Details Modal - Responsive */}
       {showModal && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-[#1A2B49]">User Details</h2>
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-100">
+              <h2 className="text-lg sm:text-xl font-bold text-[#1A2B49]">User Details</h2>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition"
@@ -205,20 +289,20 @@ export default function UsersList() {
             </div>
 
             {/* Modal Body */}
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {/* Profile Image & Name */}
               <div className="flex items-center gap-4 mb-6">
                 <img
                   src={selectedUser.profileImage || 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png'}
                   alt={selectedUser.fullName}
-                  className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-gray-200"
                   onError={(e) => {
                     e.target.src = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
                   }}
                 />
                 <div>
-                  <h3 className="text-xl font-bold text-[#1A2B49]">{selectedUser.fullName}</h3>
-                  <div className="flex items-center gap-2 mt-1">
+                  <h3 className="text-lg sm:text-xl font-bold text-[#1A2B49]">{selectedUser.fullName}</h3>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
                     {selectedUser.role === 'admin' ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
                         <Shield size={12} />
@@ -245,15 +329,15 @@ export default function UsersList() {
                 <div className="bg-gray-50 rounded-xl p-4">
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Email</p>
                   <p className="text-sm text-[#1A2B49] mt-1 flex items-center gap-2">
-                    <Mail size={16} className="text-gray-400" />
-                    {selectedUser.email}
+                    <Mail size={16} className="text-gray-400 flex-shrink-0" />
+                    <span className="break-all">{selectedUser.email}</span>
                   </p>
                 </div>
 
                 <div className="bg-gray-50 rounded-xl p-4">
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Phone</p>
                   <p className="text-sm text-[#1A2B49] mt-1 flex items-center gap-2">
-                    <Phone size={16} className="text-gray-400" />
+                    <Phone size={16} className="text-gray-400 flex-shrink-0" />
                     {selectedUser.phone || 'Not provided'}
                   </p>
                 </div>
@@ -277,7 +361,7 @@ export default function UsersList() {
                 <div className="bg-gray-50 rounded-xl p-4">
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Joined</p>
                   <p className="text-sm text-[#1A2B49] mt-1 flex items-center gap-2">
-                    <Calendar size={16} className="text-gray-400" />
+                    <Calendar size={16} className="text-gray-400 flex-shrink-0" />
                     {new Date(selectedUser.createdAt).toLocaleDateString('en-IN', {
                       day: '2-digit',
                       month: 'long',
@@ -291,7 +375,7 @@ export default function UsersList() {
 
                 <div className="bg-gray-50 rounded-xl p-4">
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">User ID</p>
-                  <p className="text-sm font-mono text-[#1A2B49] mt-1">{selectedUser._id}</p>
+                  <p className="text-sm font-mono text-[#1A2B49] mt-1 break-all">{selectedUser._id}</p>
                 </div>
               </div>
 

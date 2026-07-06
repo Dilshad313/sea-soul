@@ -13,7 +13,6 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('adminToken');
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      // Try to get user data from localStorage
       const userData = localStorage.getItem('adminUser');
       if (userData) {
         try {
