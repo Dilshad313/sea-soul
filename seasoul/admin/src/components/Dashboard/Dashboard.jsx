@@ -10,13 +10,52 @@ import {
   CreditCard,
   Eye,
   User,
-  Clock
+  Clock,
+  ArrowRight
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
+// ✅ User Avatar Component with Dark Navy background
+const UserAvatar = ({ user, size = 'w-10 h-10' }) => {
+  const name = user?.fullName || 'User';
+  const initial = name.charAt(0).toUpperCase();
+  const profileImage = user?.profileImage;
+  
+  const hasImage = profileImage && 
+                   profileImage.trim() !== '' && 
+                   !profileImage.includes('default-avatar');
+  
+  if (hasImage) {
+    return (
+      <img
+        src={profileImage}
+        alt={name}
+        className={`${size} rounded-full object-cover border border-gray-200 flex-shrink-0`}
+        onError={(e) => {
+          e.target.style.display = 'none';
+          const parent = e.target.parentNode;
+          const initialDiv = document.createElement('div');
+          initialDiv.className = `${size} rounded-full bg-[#1A2B49] flex items-center justify-center flex-shrink-0`;
+          initialDiv.innerHTML = `<span class="text-[#00E5FF] font-bold text-sm">${initial}</span>`;
+          parent.appendChild(initialDiv);
+        }}
+      />
+    );
+  }
+  
+  return (
+    <div className={`${size} rounded-full bg-[#1A2B49] flex items-center justify-center flex-shrink-0`}>
+      <span className="text-[#00E5FF] font-bold text-sm">
+        {initial}
+      </span>
+    </div>
+  );
+};
+
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({ 
     products: 0, 
     bookings: 0, 
@@ -27,13 +66,19 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [recentUsers, setRecentUsers] = useState([]);
   const [recentProducts, setRecentProducts] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [recentBookings, setRecentBookings] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+  const [loadingBookings, setLoadingBookings] = useState(true);
 
   useEffect(() => {
     fetchStats();
     fetchRecentUsers();
     fetchRecentProducts();
+    fetchRecentActivities();
+    fetchRecentBookings();
   }, []);
 
   const fetchStats = async () => {
@@ -51,6 +96,7 @@ export default function Dashboard() {
   const fetchRecentUsers = async () => {
     try {
       const response = await api.get('/admin/users?limit=5');
+      // Backend already filters admin users
       setRecentUsers(response.data.users || []);
     } catch (error) {
       console.error('Error fetching recent users:', error);
@@ -68,6 +114,106 @@ export default function Dashboard() {
     } finally {
       setLoadingProducts(false);
     }
+  };
+
+  const fetchRecentActivities = async () => {
+    try {
+      const response = await api.get('/admin/activities?limit=5');
+      setRecentActivities(response.data.activities || []);
+    } catch (error) {
+      console.error('Error fetching recent activities:', error);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  const fetchRecentBookings = async () => {
+    try {
+      const response = await api.get('/admin/bookings?limit=5');
+      setRecentBookings(response.data.bookings || []);
+    } catch (error) {
+      console.error('Error fetching recent bookings:', error);
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
+
+  // ✅ Format time ago
+  const timeAgo = (date) => {
+    const now = new Date();
+    const past = new Date(date);
+    const diffMs = now - past;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  };
+
+  // ✅ Generate recent activity items from real data
+  const getRecentActivities = () => {
+    const activities = [];
+
+    // Add recent users
+    recentUsers.slice(0, 2).forEach(user => {
+      if (user.createdAt) {
+        activities.push({
+          id: `user-${user._id}`,
+          type: 'user',
+          title: `New user registered: ${user.fullName}`,
+          time: timeAgo(user.createdAt),
+          icon: 'user',
+          link: '/users',
+          isNew: true
+        });
+      }
+    });
+
+    // Add recent products
+    recentProducts.slice(0, 2).forEach(product => {
+      if (product.createdAt) {
+        activities.push({
+          id: `product-${product._id}`,
+          type: 'product',
+          title: `New product added: ${product.name}`,
+          time: timeAgo(product.createdAt),
+          icon: 'product',
+          link: '/products',
+          isNew: true
+        });
+      }
+    });
+
+    // Add recent activities
+    recentActivities.slice(0, 2).forEach(activity => {
+      if (activity.createdAt) {
+        activities.push({
+          id: `activity-${activity._id}`,
+          type: 'activity',
+          title: `New activity added: ${activity.name}`,
+          time: timeAgo(activity.createdAt),
+          icon: 'activity',
+          link: '/activities',
+          isNew: true
+        });
+      }
+    });
+
+    // Sort by time (newest first)
+    activities.sort((a, b) => {
+      const timeA = a.time.includes('min') ? parseInt(a.time) : 
+                   a.time.includes('hour') ? parseInt(a.time) * 60 : 
+                   a.time.includes('day') ? parseInt(a.time) * 1440 : 0;
+      const timeB = b.time.includes('min') ? parseInt(b.time) : 
+                   b.time.includes('hour') ? parseInt(b.time) * 60 : 
+                   b.time.includes('day') ? parseInt(b.time) * 1440 : 0;
+      return timeA - timeB;
+    });
+
+    return activities.slice(0, 5);
   };
 
   const statsCards = [
@@ -118,6 +264,8 @@ export default function Dashboard() {
     },
   ];
 
+  const recentActivityItems = getRecentActivities();
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -128,6 +276,34 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  // ✅ Get icon based on activity type
+  const getActivityIcon = (type) => {
+    switch(type) {
+      case 'user':
+        return <Users size={14} className="text-[#9B59B6]" />;
+      case 'product':
+        return <Package size={14} className="text-[#00E5FF]" />;
+      case 'activity':
+        return <Activity size={14} className="text-[#00A694]" />;
+      default:
+        return <Clock size={14} className="text-[#00E5FF]" />;
+    }
+  };
+
+  // ✅ Get activity background color
+  const getActivityBg = (type) => {
+    switch(type) {
+      case 'user':
+        return 'bg-[#9B59B6]/10';
+      case 'product':
+        return 'bg-[#00E5FF]/10';
+      case 'activity':
+        return 'bg-[#00A694]/10';
+      default:
+        return 'bg-[#00E5FF]/10';
+    }
+  };
 
   return (
     <div>
@@ -175,9 +351,12 @@ export default function Dashboard() {
               <Users size={18} className="sm:w-[20px] sm:h-[20px] text-[#9B59B6]" />
               <h3 className="text-sm sm:text-base font-semibold text-[#1A2B49]">Latest Users</h3>
             </div>
-            <Link to="/users" className="text-xs text-[#00E5FF] hover:underline font-medium">
-              View All →
-            </Link>
+            <button
+              onClick={() => navigate('/users')}
+              className="text-xs text-[#00E5FF] hover:underline font-medium flex items-center gap-1"
+            >
+              View All <ArrowRight size={12} />
+            </button>
           </div>
           
           {loadingUsers ? (
@@ -190,29 +369,20 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentUsers.map((user, index) => (
+              {recentUsers.slice(0, 4).map((user) => (
                 <div 
                   key={user._id} 
-                  className="flex items-center justify-between p-2 sm:p-3 rounded-xl hover:bg-gray-50 transition group"
+                  className="flex items-center justify-between p-2 sm:p-3 rounded-xl hover:bg-gray-50 transition group cursor-pointer"
+                  onClick={() => navigate('/users')}
                 >
                   <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                    <div className="relative flex-shrink-0">
-                      <img
-                        src={user.profileImage || 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png'}
-                        alt={user.fullName}
-                        className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full object-cover border border-gray-200"
-                        onError={(e) => {
-                          e.target.src = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
-                        }}
-                      />
-                      <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-white ${user.isActive !== false ? 'bg-green-500' : 'bg-red-500'}`} />
-                    </div>
+                    <UserAvatar user={user} size="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm font-medium text-[#1A2B49] truncate">{user.fullName}</p>
                       <p className="text-[10px] sm:text-xs text-gray-400 truncate">{user.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 sm:gap-2 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
+                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                     <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full ${
                       user.isActive !== false 
                         ? 'bg-green-100 text-green-700' 
@@ -220,12 +390,6 @@ export default function Dashboard() {
                     }`}>
                       {user.isActive !== false ? 'Active' : 'Inactive'}
                     </span>
-                    <Link 
-                      to={`/users`}
-                      className="p-1 sm:p-1.5 text-gray-400 hover:text-[#1A2B49] hover:bg-gray-100 rounded-lg transition"
-                    >
-                      <Eye size={12} className="sm:w-[14px] sm:h-[14px]" />
-                    </Link>
                   </div>
                 </div>
               ))}
@@ -240,9 +404,12 @@ export default function Dashboard() {
               <Package size={18} className="sm:w-[20px] sm:h-[20px] text-[#00E5FF]" />
               <h3 className="text-sm sm:text-base font-semibold text-[#1A2B49]">Latest Products</h3>
             </div>
-            <Link to="/products" className="text-xs text-[#00E5FF] hover:underline font-medium">
-              View All →
-            </Link>
+            <button
+              onClick={() => navigate('/products')}
+              className="text-xs text-[#00E5FF] hover:underline font-medium flex items-center gap-1"
+            >
+              View All <ArrowRight size={12} />
+            </button>
           </div>
           
           {loadingProducts ? (
@@ -255,10 +422,11 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentProducts.map((product) => (
+              {recentProducts.slice(0, 4).map((product) => (
                 <div 
                   key={product._id} 
-                  className="flex items-center justify-between p-2 sm:p-3 rounded-xl hover:bg-gray-50 transition group"
+                  className="flex items-center justify-between p-2 sm:p-3 rounded-xl hover:bg-gray-50 transition group cursor-pointer"
+                  onClick={() => navigate(`/products/edit/${product._id}`)}
                 >
                   <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                     {product.images && product.images.length > 0 ? (
@@ -286,18 +454,13 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 sm:gap-2 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
+                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                     {product.isFeatured && (
                       <span className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 bg-yellow-400 text-yellow-900 rounded font-bold">
                         FEATURED
                       </span>
                     )}
-                    <Link 
-                      to={`/products/edit/${product._id}`}
-                      className="p-1 sm:p-1.5 text-gray-400 hover:text-[#1A2B49] hover:bg-gray-100 rounded-lg transition"
-                    >
-                      <Eye size={12} className="sm:w-[14px] sm:h-[14px]" />
-                    </Link>
+                    <Eye size={14} className="text-gray-400" />
                   </div>
                 </div>
               ))}
@@ -308,61 +471,104 @@ export default function Dashboard() {
 
       {/* Recent Activity & Quick Actions - Bottom */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        {/* Recent Activity - Real Data */}
         <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border border-gray-100 shadow-sm">
-          <h3 className="text-sm sm:text-base font-semibold text-[#1A2B49] mb-4 flex items-center gap-2">
-            <TrendingUp size={16} className="sm:w-[18px] sm:h-[18px] text-[#00E5FF]" />
-            Recent Activity
-          </h3>
-          <div className="space-y-3 sm:space-y-4">
-            {[1, 2, 3, 4].map((_, i) => (
-              <div key={i} className="flex items-center gap-2 sm:gap-3 pb-3 border-b border-gray-50 last:border-0 last:pb-0">
-                <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full bg-[#00E5FF]/10 flex items-center justify-center flex-shrink-0">
-                  <Clock size={12} className="sm:w-[14px] sm:h-[14px] text-[#00E5FF]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-800 truncate">New booking received</p>
-                  <p className="text-[10px] sm:text-xs text-gray-400">2 minutes ago</p>
-                </div>
-                <span className="text-[10px] sm:text-xs font-medium text-[#00A694] flex-shrink-0">New</span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm sm:text-base font-semibold text-[#1A2B49] flex items-center gap-2">
+              <TrendingUp size={16} className="sm:w-[18px] sm:h-[18px] text-[#00E5FF]" />
+              Recent Activity
+            </h3>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="text-xs text-[#00E5FF] hover:underline font-medium"
+            >
+              Refresh
+            </button>
           </div>
+          
+          {recentActivityItems.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 text-sm">
+              No recent activity
+            </div>
+          ) : (
+            <div className="space-y-3 sm:space-y-4">
+              {recentActivityItems.map((activity) => (
+                <div 
+                  key={activity.id} 
+                  className="flex items-center gap-2 sm:gap-3 pb-3 border-b border-gray-50 last:border-0 last:pb-0 cursor-pointer hover:bg-gray-50/50 p-2 rounded-lg transition"
+                  onClick={() => navigate(activity.link)}
+                >
+                  <div className={`w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full ${getActivityBg(activity.type)} flex items-center justify-center flex-shrink-0`}>
+                    {getActivityIcon(activity.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-800 truncate">{activity.title}</p>
+                    <p className="text-[10px] sm:text-xs text-gray-400">{activity.time}</p>
+                  </div>
+                  {activity.isNew && (
+                    <span className="text-[10px] sm:text-xs font-medium text-[#00A694] flex-shrink-0 bg-[#00A694]/10 px-2 py-0.5 rounded-full">
+                      New
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
+        {/* Quick Actions - Working */}
         <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border border-gray-100 shadow-sm">
           <h3 className="text-sm sm:text-base font-semibold text-[#1A2B49] mb-4 flex items-center gap-2">
             <Activity size={16} className="sm:w-[18px] sm:h-[18px] text-[#00A694]" />
             Quick Actions
           </h3>
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <Link 
-              to="/products/add"
+            <button
+              onClick={() => navigate('/products/add')}
               className="p-3 sm:p-4 bg-[#1A2B49]/5 rounded-xl hover:bg-[#1A2B49]/10 transition text-left group"
             >
               <Package size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-[#1A2B49] mb-1 sm:mb-2 group-hover:scale-110 transition" />
               <p className="text-xs sm:text-sm font-medium text-[#1A2B49]">Add Product</p>
-            </Link>
-            <Link 
-              to="/activities/add"
+            </button>
+            <button
+              onClick={() => navigate('/activities/add')}
               className="p-3 sm:p-4 bg-[#00E5FF]/5 rounded-xl hover:bg-[#00E5FF]/10 transition text-left group"
             >
               <Activity size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-[#00E5FF] mb-1 sm:mb-2 group-hover:scale-110 transition" />
               <p className="text-xs sm:text-sm font-medium text-[#1A2B49]">Add Activity</p>
-            </Link>
-            <Link 
-              to="/bookings"
+            </button>
+            <button
+              onClick={() => navigate('/bookings')}
               className="p-3 sm:p-4 bg-[#FFB84D]/5 rounded-xl hover:bg-[#FFB84D]/10 transition text-left group"
             >
               <Calendar size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-[#FFB84D] mb-1 sm:mb-2 group-hover:scale-110 transition" />
               <p className="text-xs sm:text-sm font-medium text-[#1A2B49]">View Bookings</p>
-            </Link>
-            <Link 
-              to="/users"
+            </button>
+            <button
+              onClick={() => navigate('/users')}
               className="p-3 sm:p-4 bg-[#2ECC71]/5 rounded-xl hover:bg-[#2ECC71]/10 transition text-left group"
             >
               <Users size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-[#2ECC71] mb-1 sm:mb-2 group-hover:scale-110 transition" />
               <p className="text-xs sm:text-sm font-medium text-[#1A2B49]">Manage Users</p>
-            </Link>
+            </button>
+          </div>
+
+          {/* Extra Quick Actions - Bottom Row */}
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:gap-3">
+            <button
+              onClick={() => navigate('/products')}
+              className="p-3 sm:p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition text-left group"
+            >
+              <Package size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-gray-500 mb-1 sm:mb-2 group-hover:scale-110 transition" />
+              <p className="text-xs sm:text-sm font-medium text-gray-600">View Products</p>
+            </button>
+            <button
+              onClick={() => navigate('/activities')}
+              className="p-3 sm:p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition text-left group"
+            >
+              <Activity size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-gray-500 mb-1 sm:mb-2 group-hover:scale-110 transition" />
+              <p className="text-xs sm:text-sm font-medium text-gray-600">View Activities</p>
+            </button>
           </div>
         </div>
       </div>

@@ -145,12 +145,28 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // ✅ FIXED: Get user initial
+  String _getUserInitial(String name) {
+    if (name.isEmpty) return '?';
+    return name.trim()[0].toUpperCase(); // ✅ Use [0] instead of charAt(0)
+  }
+
+  // ✅ Check if user has profile image
+  bool _hasProfileImage(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return false;
+    // Check if it's default avatar
+    if (imageUrl.contains('default-avatar')) return false;
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final String userName = _userData?['fullName'] ?? 'User';
     final String userEmail = _userData?['email'] ?? 'user@email.com';
     final String profileImage = _userData?['profileImage'] ?? 
         'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
+    final String userInitial = _getUserInitial(userName);
+    final bool hasImage = _hasProfileImage(profileImage);
 
     if (_isLoading) {
       return Container(
@@ -176,6 +192,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 userName, 
                 userEmail, 
                 profileImage,
+                userInitial,
+                hasImage,
               ),
               const SizedBox(height: 32),
               _buildBentoSection(
@@ -249,32 +267,93 @@ class _ProfilePageState extends State<ProfilePage> {
     String name,
     String email,
     String profileImage,
+    String initial,
+    bool hasImage,
   ) {
     return Column(
       children: [
+        // ✅ FIXED: Profile Avatar with fallback to initial
         Stack(
           alignment: Alignment.bottomRight,
           children: [
-            Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: deepNavy.withOpacity(0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
+            if (hasImage)
+              Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: deepNavy.withOpacity(0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.white, width: 4),
+                  image: DecorationImage(
+                    image: NetworkImage(profileImage),
+                    fit: BoxFit.cover,
+                    onError: (exception, stackTrace) {
+                      // If image fails, show initial
+                    },
                   ),
-                ],
-                border: Border.all(color: Colors.white, width: 4),
-                image: DecorationImage(
-                  image: NetworkImage(profileImage),
-                  fit: BoxFit.cover,
-                  onError: (exception, stackTrace) {
-                    // If image fails to load, show default
-                  },
+                ),
+              )
+            else
+              // ✅ Show initial when no profile image
+              Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: oceanBlue.withOpacity(0.15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: deepNavy.withOpacity(0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                  border: Border.all(color: oceanBlue.withOpacity(0.3), width: 4),
+                ),
+                child: Center(
+                  child: Text(
+                    initial,
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: oceanBlue,
+                    ),
+                  ),
+                ),
+              ),
+            // Edit icon
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EditProfilePage(
+                        userData: _userData ?? {},
+                      ),
+                    ),
+                  ).then((_) => _loadUserData());
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: oceanBlue,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.edit,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
               ),
             ),
@@ -298,7 +377,6 @@ class _ProfilePageState extends State<ProfilePage> {
             fontFamily: 'Inter',
           ),
         ),
-        // Removed: Phone, Location, Bio, Premium Member badge, Verified badge
       ],
     );
   }
