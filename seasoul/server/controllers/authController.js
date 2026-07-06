@@ -305,21 +305,32 @@ exports.register = async (req, res) => {
       });
     }
 
+    // ✅ CHECK: Email already registered? (NEW)
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      console.log('❌ Email already registered:', email);
+      return res.status(400).json({
+        success: false,
+        message: 'This email is already registered. Please login or use another email.'
+      });
+    }
+
+    // ✅ CHECK: Phone already registered? (NEW)
+    const phoneExists = await User.findOne({ phone });
+    if (phoneExists) {
+      console.log('❌ Phone already registered:', phone);
+      return res.status(400).json({
+        success: false,
+        message: 'This phone number is already registered. Please login or use another number.'
+      });
+    }
+
     const otpRecord = await OTP.findOne({ email, verified: true });
     if (!otpRecord) {
       console.log('❌ Email not verified');
       return res.status(400).json({
         success: false,
         message: 'Email not verified. Please verify OTP first.'
-      });
-    }
-
-    const userExists = await User.findOne({ $or: [{ email }, { phone }] });
-    if (userExists) {
-      console.log('❌ User already exists');
-      return res.status(400).json({
-        success: false,
-        message: 'User already exists'
       });
     }
 
