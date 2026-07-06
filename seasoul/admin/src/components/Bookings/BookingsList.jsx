@@ -120,7 +120,7 @@ export default function BookingsList() {
             <button
               key={status}
               onClick={() => setFilterStatus(status)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition capitalize ${
+              className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition capitalize ${
                 filterStatus === status
                   ? 'bg-[#1A2B49] text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
@@ -134,7 +134,7 @@ export default function BookingsList() {
 
       {/* Bookings Table */}
       {filteredBookings.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm p-12 text-center border border-gray-100">
+        <div className="bg-white rounded-2xl shadow-sm p-8 md:p-12 text-center border border-gray-100">
           <div className="flex flex-col items-center">
             <Calendar size={48} className="text-gray-300 mb-4" />
             <h3 className="text-lg font-medium text-[#1A2B49]">No bookings found</h3>
@@ -145,7 +145,8 @@ export default function BookingsList() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -206,7 +207,8 @@ export default function BookingsList() {
                               >
                                 <CheckCircle size={17} />
                               </button>
-                              <button                                onClick={() => updateStatus(booking._id, 'cancelled')}
+                              <button
+                                onClick={() => updateStatus(booking._id, 'cancelled')}
                                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
                                 title="Cancel"
                               >
@@ -221,6 +223,76 @@ export default function BookingsList() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="lg:hidden">
+            {filteredBookings.map((booking) => {
+              const statusConfig = getStatusConfig(booking.status);
+              const StatusIcon = statusConfig.icon;
+              
+              return (
+                <div key={booking._id} className="p-4 border-b border-gray-100 hover:bg-gray-50/50 transition">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-mono text-sm text-gray-600">
+                        #{booking._id?.slice(-8)}
+                      </p>
+                      <p className="font-medium text-[#1A2B49]">{booking.user?.fullName || 'Unknown'}</p>
+                      <p className="text-sm text-gray-500">{booking.user?.email}</p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
+                      <StatusIcon size={14} />
+                      {statusConfig.label}
+                    </span>
+                  </div>
+                  
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-xs text-gray-400">Item</p>
+                      <p className="font-medium text-[#1A2B49]">{booking.item?.name || 'Unknown'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">Amount</p>
+                      <p className="font-bold text-[#1A2B49]">₹{booking.totalAmount}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">Date</p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(booking.createdAt).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button className="p-2 text-gray-400 hover:text-[#1A2B49] hover:bg-gray-100 rounded-lg transition">
+                        <Eye size={17} />
+                      </button>
+                      {booking.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => updateStatus(booking._id, 'confirmed')}
+                            className="p-2 text-green-500 hover:bg-green-50 rounded-lg transition"
+                            title="Confirm"
+                          >
+                            <CheckCircle size={17} />
+                          </button>
+                          <button
+                            onClick={() => updateStatus(booking._id, 'cancelled')}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                            title="Cancel"
+                          >
+                            <XCircle size={17} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

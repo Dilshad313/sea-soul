@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:seasoul/payment.dart';
+import 'package:seasoul/activity_details.dart'; // ✅ Added import
 import 'package:seasoul/services/product_service.dart';
 import 'package:seasoul/services/activity_service.dart';
 import 'package:seasoul/services/wishlist_service.dart';
@@ -769,6 +770,10 @@ ${product['description'] ?? ''}
     );
   }
 
+  // ============================================================================
+  // ✅ FIXED: Things to Do Section with Navigation
+  // ============================================================================
+
   Widget _buildActivitiesSection() {
     if (_activities.isEmpty) {
       return const SizedBox.shrink();
@@ -798,101 +803,114 @@ ${product['description'] ?? ''}
               final imageUrl = images.isNotEmpty ? images[0] : 
                   'https://via.placeholder.com/300x200';
               
-              return Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white.withOpacity(0.6)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: deepNavy.withOpacity(0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        image: DecorationImage(
-                          image: NetworkImage(imageUrl),
-                          fit: BoxFit.cover,
-                          onError: (exception, stackTrace) {
-                            // Handle image load error silently
-                          },
-                        ),
+              return GestureDetector(
+                onTap: () {
+                  // ✅ Navigate to Activity Details Page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ActivityDetailsPage(
+                        activityId: activity['_id'],
                       ),
-                      child: imageUrl.isEmpty
-                          ? const Icon(Icons.broken_image, color: Colors.grey)
-                          : null,
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            activity['name'] ?? 'Activity',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: deepNavy,
-                            ),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.white.withOpacity(0.6)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: deepNavy.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          image: DecorationImage(
+                            image: NetworkImage(imageUrl),
+                            fit: BoxFit.cover,
+                            onError: (exception, stackTrace) {
+                              // Handle image load error silently
+                            },
                           ),
-                          Text(
-                            activity['description'] ?? '',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 12,
-                              color: outline,
+                        ),
+                        child: imageUrl.isEmpty
+                            ? const Icon(Icons.broken_image, color: Colors.grey)
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activity['name'] ?? 'Activity',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: deepNavy,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.access_time,
-                                size: 12,
+                            Text(
+                              activity['description'] ?? '',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
                                 color: outline,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                activity['duration'] ?? '2 hours',
-                                style: const TextStyle(
-                                  fontSize: 12,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.access_time,
+                                  size: 12,
                                   color: outline,
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Icon(
-                                Icons.currency_rupee,
-                                size: 12,
-                                color: outline,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${activity['price'] ?? 0}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: oceanBlue,
+                                const SizedBox(width: 4),
+                                Text(
+                                  activity['duration'] ?? '2 hours',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: outline,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                                const SizedBox(width: 12),
+                                const Icon(
+                                  Icons.currency_rupee,
+                                  size: 12,
+                                  color: outline,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${activity['price'] ?? 0}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: oceanBlue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.chevron_right, color: outline, size: 20),
-                  ],
+                      const Icon(Icons.chevron_right, color: outline, size: 20),
+                    ],
+                  ),
                 ),
               );
             },

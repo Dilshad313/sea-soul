@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, User, Mail } from 'lucide-react';
+import { LogOut, Menu, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function Header() {
+export default function Header({ isMobile, onMenuClick, isSidebarOpen }) {
   const { user, logout } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -12,6 +12,7 @@ export default function Header() {
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);
+    setShowDropdown(false);
   };
 
   const confirmLogout = () => {
@@ -24,9 +25,30 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-end">
-        {/* Profile Section with Dropdown */}
+    <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
+      <div className="flex items-center justify-between">
+        {/* Left side - Menu button for mobile */}
+        <div className="flex items-center gap-3">
+          {isMobile && (
+            <button
+              onClick={onMenuClick}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Toggle menu"
+            >
+              {isSidebarOpen ? (
+                <X size={24} className="text-[#1A2B49]" />
+              ) : (
+                <Menu size={24} className="text-[#1A2B49]" />
+              )}
+            </button>
+          )}
+          {/* Title - only show on mobile when sidebar is closed */}
+          {isMobile && !isSidebarOpen && (
+            <h1 className="text-xl font-bold text-[#1A2B49]">SeaSoul Admin</h1>
+          )}
+        </div>
+
+        {/* Right side - Profile Section */}
         <div className="relative">
           <button
             onClick={() => setShowDropdown(!showDropdown)}
@@ -47,7 +69,7 @@ export default function Header() {
                 onClick={() => setShowDropdown(false)}
               />
               
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden top-full">
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-[#00E5FF]/20 flex items-center justify-center">
