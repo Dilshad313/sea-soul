@@ -88,11 +88,13 @@ exports.sendOTP = async (req, res) => {
       });
     }
 
+    // ✅ CHECK: Email already registered? (NEW - IMPORTANT)
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log('❌ Email already registered:', email);
       return res.status(400).json({ 
         success: false,
-        message: 'Email already registered. Please login or use another email.' 
+        message: 'This email is already registered. Please login or use another email.' 
       });
     }
 
@@ -113,21 +115,17 @@ exports.sendOTP = async (req, res) => {
       verified: false,
     });
 
-    // Send email (with error handling)
+    // Send email
     try {
       await sendOTPEmail(email, otp);
       console.log('✅ OTP email sent successfully');
     } catch (emailError) {
       console.error('❌ Email sending failed:', emailError);
-      // Still return success to user, but log the error
-      // You can also return error if you want
     }
 
     res.status(200).json({
       success: true,
       message: 'OTP sent successfully to your email',
-      // For testing only - remove in production
-      // otp: otp 
     });
   } catch (error) {
     console.error('❌ Error in sendOTP:', error);

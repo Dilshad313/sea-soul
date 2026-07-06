@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../constants/api_constants.dart';
 import '../user_home.dart';
+import '../signup.dart'; // ✅ Import signup
 
 class OTPPage extends StatefulWidget {
   final String email;
@@ -203,18 +204,26 @@ class _OTPPageState extends State<OTPPage> {
 
   void _handleOtpChange(String value, int index) {
     if (value.isNotEmpty) {
-      // Move to next field if current field has value
       if (index < _otpLength - 1) {
         _focusNodes[index + 1].requestFocus();
       } else {
         _focusNodes[index].unfocus();
       }
     } else {
-      // Move to previous field if current field is empty (backspace)
       if (index > 0) {
         _focusNodes[index - 1].requestFocus();
       }
     }
+  }
+
+  // ✅ NEW: Navigate back to Signup
+  void _goBackToSignup() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const signup(),
+      ),
+    );
   }
 
   @override
@@ -291,15 +300,14 @@ class _OTPPageState extends State<OTPPage> {
                         ),
                       ],
                     ),
+                    // ✅ FIXED: X Icon - Navigate back to Signup
                     IconButton(
                       icon: const Icon(Icons.close, color: colorOnSurface),
                       style: IconButton.styleFrom(
                         backgroundColor: Colors.white.withOpacity(0.05),
                         side: BorderSide(color: Colors.white.withOpacity(0.1)),
                       ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
+                      onPressed: _goBackToSignup, // ✅ Navigate to Signup
                     ),
                   ],
                 ),

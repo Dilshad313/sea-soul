@@ -78,6 +78,17 @@ class _signupState extends State<signup> {
     return;
   }
 
+  // Phone validation (basic)
+  if (phone.length < 10) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please enter a valid phone number'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
   if (!_termsAccepted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -96,7 +107,21 @@ class _signupState extends State<signup> {
 
     print('📱 API Response: $response');
 
-    // Show success message (no OTP shown)
+    // ✅ Check if email already exists
+    if (response['success'] == false) {
+      // Show error message from backend
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response['message'] ?? 'Something went wrong'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    // Success - OTP sent
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✅ OTP has been sent to your email address'),
@@ -120,12 +145,27 @@ class _signupState extends State<signup> {
     }
   } catch (e) {
     print('❌ Error: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error: ${e.toString()}'),
-        backgroundColor: Colors.red,
-      ),
-    );
+    
+    // ✅ Check if error contains "already registered"
+    final errorMsg = e.toString();
+    if (errorMsg.contains('already registered') || 
+        errorMsg.contains('exists') ||
+        errorMsg.contains('Email') && errorMsg.contains('registered')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This email is already registered. Please login or use another email.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   } finally {
     if (mounted) setState(() => _isLoading = false);
   }
