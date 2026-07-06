@@ -1,14 +1,54 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, Menu, X } from 'lucide-react';
+import { LogOut, Menu, X, User, ChevronDown } from 'lucide-react'; // ✅ Removed Settings
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+
+// ✅ Profile Avatar Component with Dark Navy background
+const ProfileAvatar = ({ user, size = 'w-10 h-10', showInitial = true }) => {
+  const name = user?.fullName || 'Admin';
+  const initial = name.charAt(0).toUpperCase();
+  const profileImage = user?.profileImage;
+  
+  const hasImage = profileImage && 
+                   profileImage.trim() !== '' && 
+                   !profileImage.includes('default-avatar');
+  
+  if (hasImage) {
+    return (
+      <img
+        src={profileImage}
+        alt={name}
+        className={`${size} rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-pointer`}
+        onError={(e) => {
+          e.target.style.display = 'none';
+          const parent = e.target.parentNode;
+          const initialDiv = document.createElement('div');
+          initialDiv.className = `${size} rounded-full bg-[#1A2B49] flex items-center justify-center flex-shrink-0 cursor-pointer`;
+          initialDiv.innerHTML = `<span class="text-[#00E5FF] font-bold text-sm">${initial}</span>`;
+          parent.appendChild(initialDiv);
+        }}
+      />
+    );
+  }
+  
+  return (
+    <div className={`${size} rounded-full bg-[#1A2B49] flex items-center justify-center flex-shrink-0 cursor-pointer`}>
+      <span className="text-[#00E5FF] font-bold text-sm">
+        {initial}
+      </span>
+    </div>
+  );
+};
 
 export default function Header({ isMobile, onMenuClick, isSidebarOpen }) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const userEmail = user?.email || 'admin@seasoul.com';
+  const userName = user?.fullName || 'Admin';
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);
@@ -22,6 +62,15 @@ export default function Header({ isMobile, onMenuClick, isSidebarOpen }) {
     toast.success('Logged out successfully! 👋', {
       duration: 3000,
     });
+  };
+
+  const handleProfileClick = () => {
+    setShowDropdown(false);
+    navigate('/admin-profile');
+  };
+
+  const toggleDropdown = () => {
+    setShowDropdown(!showDropdown);
   };
 
   return (
@@ -51,14 +100,17 @@ export default function Header({ isMobile, onMenuClick, isSidebarOpen }) {
         {/* Right side - Profile Section */}
         <div className="relative">
           <button
-            onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-3 focus:outline-none"
+            onClick={toggleDropdown}
+            className="flex items-center gap-2 focus:outline-none group"
           >
-            <div className="w-10 h-10 rounded-full bg-[#00E5FF]/20 flex items-center justify-center hover:bg-[#00E5FF]/30 transition">
-              <span className="text-[#00E5FF] font-bold text-sm">
-                {userEmail.charAt(0).toUpperCase()}
-              </span>
-            </div>
+            {/* ✅ Profile Avatar with cursor pointer */}
+            <ProfileAvatar user={user} size="w-10 h-10" />
+            <ChevronDown 
+              size={16} 
+              className={`text-gray-400 transition-transform duration-200 ${
+                showDropdown ? 'rotate-180' : ''
+              }`}
+            />
           </button>
 
           {/* Dropdown Menu */}
@@ -69,30 +121,40 @@ export default function Header({ isMobile, onMenuClick, isSidebarOpen }) {
                 onClick={() => setShowDropdown(false)}
               />
               
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden animate-fadeIn">
+                {/* Profile Info */}
                 <div className="px-4 py-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#00E5FF]/20 flex items-center justify-center">
-                      <span className="text-[#00E5FF] font-bold text-sm">
-                        {userEmail.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                    <ProfileAvatar user={user} size="w-10 h-10" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">
-                        {userEmail}
+                        {userName}
                       </p>
-                      <p className="text-xs text-gray-500">Admin</p>
+                      <p className="text-xs text-gray-500 truncate">{userEmail}</p>
                     </div>
                   </div>
                 </div>
 
+                {/* ✅ Profile Option */}
                 <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors duration-150"
+                  onClick={handleProfileClick}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors duration-150"
                 >
-                  <LogOut size={18} />
-                  <span className="text-sm font-medium">Logout</span>
+                  <User size={18} />
+                  <span className="text-sm font-medium">Profile</span>
                 </button>
+
+                {/* ❌ REMOVED: Settings Option */}
+
+                <div className="border-t border-gray-100">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors duration-150"
+                  >
+                    <LogOut size={18} />
+                    <span className="text-sm font-medium">Logout</span>
+                  </button>
+                </div>
               </div>
             </>
           )}

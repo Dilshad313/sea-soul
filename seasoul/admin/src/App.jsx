@@ -12,6 +12,7 @@ import ActivityForm from './components/Activities/ActivityForm';
 import BookingsList from './components/Bookings/BookingsList';
 import PaymentsList from './components/Payments/PaymentsList';
 import UsersList from './components/Users/UsersList';
+import AdminProfile from './components/AdminProfile/AdminProfile'; // ✅ NEW
 
 function App() {
   return (
@@ -58,6 +59,7 @@ function App() {
               <Route path="/bookings" element={<BookingsList />} />
               <Route path="/payments" element={<PaymentsList />} />
               <Route path="/users" element={<UsersList />} />
+              <Route path="/admin-profile" element={<AdminProfile />} /> {/* ✅ NEW */}
             </Route>
           </Route>
         </Routes>

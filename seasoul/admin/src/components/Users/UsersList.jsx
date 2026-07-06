@@ -1,6 +1,43 @@
 import { useEffect, useState } from 'react';
-import { Eye, UserCheck, UserX, Search, Mail, Phone, Calendar, Shield, X } from 'lucide-react';
+import { Eye, UserX, Search, Mail, Phone, Calendar, Shield, X } from 'lucide-react';
 import api from '../../services/api';
+
+// ✅ User Avatar Component with Dark Navy background
+const UserAvatar = ({ user, size = 'w-10 h-10' }) => {
+  const name = user?.fullName || 'User';
+  const initial = name.charAt(0).toUpperCase();
+  const profileImage = user?.profileImage;
+  
+  const hasImage = profileImage && 
+                   profileImage.trim() !== '' && 
+                   !profileImage.includes('default-avatar');
+  
+  if (hasImage) {
+    return (
+      <img
+        src={profileImage}
+        alt={name}
+        className={`${size} rounded-full object-cover border border-gray-200 flex-shrink-0`}
+        onError={(e) => {
+          e.target.style.display = 'none';
+          const parent = e.target.parentNode;
+          const initialDiv = document.createElement('div');
+          initialDiv.className = `${size} rounded-full bg-[#1A2B49] flex items-center justify-center flex-shrink-0`;
+          initialDiv.innerHTML = `<span class="text-[#00E5FF] font-bold text-sm">${initial}</span>`;
+          parent.appendChild(initialDiv);
+        }}
+      />
+    );
+  }
+  
+  return (
+    <div className={`${size} rounded-full bg-[#1A2B49] flex items-center justify-center flex-shrink-0`}>
+      <span className="text-[#00E5FF] font-bold text-sm">
+        {initial}
+      </span>
+    </div>
+  );
+};
 
 export default function UsersList() {
   const [users, setUsers] = useState([]);
@@ -16,22 +53,12 @@ export default function UsersList() {
   const fetchUsers = async () => {
     try {
       const response = await api.get('/admin/users');
+      // ✅ Backend already filters admin, so no need to filter here
       setUsers(response.data.users || []);
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const toggleUserStatus = async (id, currentStatus) => {
-    try {
-      await api.put(`/admin/users/${id}/status`, { 
-        isActive: !currentStatus 
-      });
-      fetchUsers();
-    } catch (error) {
-      alert('Failed to update user status');
     }
   };
 
@@ -117,30 +144,16 @@ export default function UsersList() {
                   <tr key={user._id} className="hover:bg-gray-50/50 transition">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={user.profileImage || 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png'}
-                          alt={user.fullName}
-                          className="w-10 h-10 rounded-full object-cover border border-gray-200"
-                          onError={(e) => {
-                            e.target.src = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
-                          }}
-                        />
+                        <UserAvatar user={user} size="w-10 h-10" />
                         <span className="font-medium text-[#1A2B49]">{user.fullName}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{user.email}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{user.phone || 'N/A'}</td>
                     <td className="px-6 py-4">
-                      {user.role === 'admin' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                          <Shield size={12} />
-                          Admin
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                          User
-                        </span>
-                      )}
+                      <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                        User
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -167,19 +180,6 @@ export default function UsersList() {
                         >
                           <Eye size={17} />
                         </button>
-                        {user.role !== 'admin' && (
-                          <button
-                            onClick={() => toggleUserStatus(user._id, user.isActive !== false)}
-                            className={`p-2 rounded-lg transition ${
-                              user.isActive !== false
-                                ? 'text-red-500 hover:bg-red-50'
-                                : 'text-green-500 hover:bg-green-50'
-                            }`}
-                            title={user.isActive !== false ? 'Deactivate' : 'Activate'}
-                          >
-                            {user.isActive !== false ? <UserX size={17} /> : <UserCheck size={17} />}
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -194,14 +194,7 @@ export default function UsersList() {
               <div key={user._id} className="p-4 border-b border-gray-100 hover:bg-gray-50/50 transition">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={user.profileImage || 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png'}
-                      alt={user.fullName}
-                      className="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0"
-                      onError={(e) => {
-                        e.target.src = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
-                      }}
-                    />
+                    <UserAvatar user={user} size="w-10 h-10" />
                     <div className="min-w-0">
                       <p className="font-medium text-[#1A2B49] truncate">{user.fullName}</p>
                       <p className="text-sm text-gray-500 truncate">{user.email}</p>
@@ -223,16 +216,9 @@ export default function UsersList() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">Role</p>
-                    {user.role === 'admin' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                        <Shield size={12} />
-                        Admin
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                        User
-                      </span>
-                    )}
+                    <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                      User
+                    </span>
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">Joined</p>
@@ -252,19 +238,6 @@ export default function UsersList() {
                     >
                       <Eye size={17} />
                     </button>
-                    {user.role !== 'admin' && (
-                      <button
-                        onClick={() => toggleUserStatus(user._id, user.isActive !== false)}
-                        className={`p-2 rounded-lg transition ${
-                          user.isActive !== false
-                            ? 'text-red-500 hover:bg-red-50'
-                            : 'text-green-500 hover:bg-green-50'
-                        }`}
-                        title={user.isActive !== false ? 'Deactivate' : 'Activate'}
-                      >
-                        {user.isActive !== false ? <UserX size={17} /> : <UserCheck size={17} />}
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -292,27 +265,13 @@ export default function UsersList() {
             <div className="p-4 sm:p-6">
               {/* Profile Image & Name */}
               <div className="flex items-center gap-4 mb-6">
-                <img
-                  src={selectedUser.profileImage || 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png'}
-                  alt={selectedUser.fullName}
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-gray-200"
-                  onError={(e) => {
-                    e.target.src = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
-                  }}
-                />
+                <UserAvatar user={selectedUser} size="w-16 h-16 sm:w-20 sm:h-20" />
                 <div>
                   <h3 className="text-lg sm:text-xl font-bold text-[#1A2B49]">{selectedUser.fullName}</h3>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
-                    {selectedUser.role === 'admin' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                        <Shield size={12} />
-                        Admin
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                        User
-                      </span>
-                    )}
+                    <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                      User
+                    </span>
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                       selectedUser.isActive !== false 
                         ? 'bg-green-100 text-green-700' 
@@ -378,35 +337,6 @@ export default function UsersList() {
                   <p className="text-sm font-mono text-[#1A2B49] mt-1 break-all">{selectedUser._id}</p>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              {selectedUser.role !== 'admin' && (
-                <div className="mt-6 pt-4 border-t border-gray-100">
-                  <button
-                    onClick={() => {
-                      toggleUserStatus(selectedUser._id, selectedUser.isActive !== false);
-                      setShowModal(false);
-                    }}
-                    className={`w-full py-3 rounded-xl font-medium transition ${
-                      selectedUser.isActive !== false
-                        ? 'bg-red-500 hover:bg-red-600 text-white'
-                        : 'bg-green-500 hover:bg-green-600 text-white'
-                    }`}
-                  >
-                    {selectedUser.isActive !== false ? (
-                      <>
-                        <UserX size={18} className="inline mr-2" />
-                        Deactivate User
-                      </>
-                    ) : (
-                      <>
-                        <UserCheck size={18} className="inline mr-2" />
-                        Activate User
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
