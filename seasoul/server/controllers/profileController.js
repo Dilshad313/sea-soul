@@ -2,8 +2,9 @@ const User = require('../models/User');
 const cloudinary = require('../config/cloudinary');
 const fs = require('fs');
 const path = require('path');
+const { createNotification } = require('../utils/createNotification');
 
-// Get User Profile
+// ✅ Get User Profile
 exports.getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -27,11 +28,13 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-// Update Profile (without image)
+// ✅ Update Profile - With Notification
 exports.updateProfile = async (req, res) => {
   try {
     const { fullName, phone, bio, location } = req.body;
     const userId = req.user.id;
+
+    console.log('📝 Updating profile for user:', userId);
 
     const user = await User.findById(userId);
     if (!user) {
@@ -41,12 +44,50 @@ exports.updateProfile = async (req, res) => {
       });
     }
 
-    if (fullName) user.fullName = fullName;
-    if (phone) user.phone = phone;
-    if (bio !== undefined) user.bio = bio;
-    if (location !== undefined) user.location = location;
+    // Check what changed
+    const changes = [];
+    let notificationMessage = 'Your profile has been updated: ';
+    
+    if (fullName && fullName !== user.fullName) {
+      changes.push('name');
+      user.fullName = fullName;
+    }
+    if (phone && phone !== user.phone) {
+      changes.push('phone');
+      user.phone = phone;
+    }
+    if (bio !== undefined && bio !== user.bio) {
+      changes.push('bio');
+      user.bio = bio;
+    }
+    if (location !== undefined && location !== user.location) {
+      changes.push('location');
+      user.location = location;
+    }
+
+    if (changes.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No changes detected'
+      });
+    }
 
     await user.save();
+    console.log('✅ Profile updated:', userId);
+
+    notificationMessage += changes.join(', ');
+
+    // ✅ Create notification for profile update
+    await createNotification(
+      userId,
+      '👤 Profile Updated',
+      notificationMessage,
+      'profile',
+      null,
+      user.profileImage,
+      { changes }
+    );
+    console.log('✅ Profile update notification created');
 
     res.status(200).json({
       success: true,
@@ -71,12 +112,11 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// Upload Profile Image
+// ✅ Upload Profile Image - With Notification
 exports.uploadProfileImage = async (req, res) => {
   try {
     console.log('📤 Upload request received');
     console.log('📤 Request file:', req.file);
-    console.log('📤 Request body:', req.body);
 
     const userId = req.user.id;
 
@@ -89,7 +129,6 @@ exports.uploadProfileImage = async (req, res) => {
     }
 
     console.log('📤 File received:', req.file.path);
-    console.log('📤 File mimetype:', req.file.mimetype);
 
     const user = await User.findById(userId);
     if (!user) {
@@ -135,6 +174,18 @@ exports.uploadProfileImage = async (req, res) => {
       console.log('⚠️ Could not delete temp file:', err.message);
     }
 
+    // ✅ Create notification for profile image update
+    await createNotification(
+      userId,
+      '🖼️ Profile Photo Updated',
+      'Your profile photo has been updated successfully!',
+      'profile',
+      null,
+      result.secure_url,
+      { action: 'photo_upload' }
+    );
+    console.log('✅ Profile photo notification created');
+
     res.status(200).json({
       success: true,
       message: 'Profile image uploaded successfully',
@@ -143,7 +194,6 @@ exports.uploadProfileImage = async (req, res) => {
   } catch (error) {
     console.error('❌ Error in uploadProfileImage:', error);
     
-    // Delete temp file if exists
     if (req.file && req.file.path) {
       try {
         fs.unlinkSync(req.file.path);
@@ -160,7 +210,7 @@ exports.uploadProfileImage = async (req, res) => {
   }
 };
 
-// Delete Profile Image (set to default)
+// ✅ Delete Profile Image - With Notification
 exports.deleteProfileImage = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -173,7 +223,6 @@ exports.deleteProfileImage = async (req, res) => {
       });
     }
 
-    // Delete image from Cloudinary if not default
     if (user.profileImage && !user.profileImage.includes('default-avatar')) {
       try {
         const publicId = user.profileImage.split('/').pop().split('.')[0];
@@ -184,9 +233,20 @@ exports.deleteProfileImage = async (req, res) => {
       }
     }
 
-    // Set to default
     user.profileImage = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
     await user.save();
+
+    // ✅ Create notification for profile image removal
+    await createNotification(
+      userId,
+      '🖼️ Profile Photo Removed',
+      'Your profile photo has been removed.',
+      'profile',
+      null,
+      null,
+      { action: 'photo_removed' }
+    );
+    console.log('✅ Profile photo removal notification created');
 
     res.status(200).json({
       success: true,

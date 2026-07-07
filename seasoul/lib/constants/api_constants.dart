@@ -35,4 +35,12 @@ class ApiConstants {
   static String get trendingActivities => '$baseUrl/api/activities/trending';
   static String activityById(String id) => '$baseUrl/api/activities/$id';
   static String activitiesByCategory(String category) => '$baseUrl/api/activities/category/$category';
+
+  // Notification APIs
+  static String get notifications => '$baseUrl/api/notifications';
+  static String get unreadCount => '$baseUrl/api/notifications/unread-count';
+  static String markAsRead(String id) => '$baseUrl/api/notifications/$id/read';
+  static String get markAllAsRead => '$baseUrl/api/notifications/read-all';
+  static String deleteNotification(String id) => '$baseUrl/api/notifications/$id';
+  static String get deleteAllNotifications => '$baseUrl/api/notifications';
 }

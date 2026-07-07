@@ -21,6 +21,7 @@ class _signupState extends State<signup> {
 
   bool _termsAccepted = false;
   bool _isLoading = false;
+  bool _obscurePassword = true; // ✅ Password visibility toggle
 
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
@@ -50,126 +51,135 @@ class _signupState extends State<signup> {
   }
 
   void _sendOTP() async {
-  if (_isLoading) return;
+    if (_isLoading) return;
 
-  final fullName = _fullNameController.text.trim();
-  final email = _emailController.text.trim();
-  final phone = _phoneController.text.trim();
-  final password = _passwordController.text.trim();
+    final fullName = _fullNameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text.trim();
 
-  if (fullName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please fill all fields'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-
-  // Email validation
-  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please enter a valid email address'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-
-  // Phone validation (basic)
-  if (phone.length < 10) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please enter a valid phone number'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-
-  if (!_termsAccepted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please accept Terms & Conditions'),
-        backgroundColor: Colors.orange,
-      ),
-    );
-    return;
-  }
-
-  setState(() => _isLoading = true);
-
-  try {
-    final data = {'email': email};
-    final response = await ApiService.post(ApiConstants.sendOTP, data);
-
-    print('📱 API Response: $response');
-
-    // ✅ Check if email already exists
-    if (response['success'] == false) {
-      // Show error message from backend
+    if (fullName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(response['message'] ?? 'Something went wrong'),
+        const SnackBar(
+          content: Text('Please fill all fields'),
           backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
         ),
       );
-      setState(() => _isLoading = false);
       return;
     }
 
-    // Success - OTP sent
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✅ OTP has been sent to your email address'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 3),
-      ),
-    );
-
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OTPPage(
-            email: email,
-            fullName: fullName,
-            phone: phone,
-            password: password,
-          ),
-        ),
-      );
-    }
-  } catch (e) {
-    print('❌ Error: $e');
-    
-    // ✅ Check if error contains "already registered"
-    final errorMsg = e.toString();
-    if (errorMsg.contains('already registered') || 
-        errorMsg.contains('exists') ||
-        errorMsg.contains('Email') && errorMsg.contains('registered')) {
+    // ✅ CHECK: Valid email format
+    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    if (!emailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('This email is already registered. Please login or use another email.'),
+          content: Text('Please enter a valid email address (e.g., name@domain.com)'),
           backgroundColor: Colors.red,
-          duration: Duration(seconds: 4),
+          duration: Duration(seconds: 3),
         ),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      return;
     }
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
+
+    // Phone validation (basic)
+    if (phone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid phone number'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!_termsAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please accept Terms & Conditions'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final data = {'email': email};
+      final response = await ApiService.post(ApiConstants.sendOTP, data);
+
+      print('📱 API Response: $response');
+
+      // ✅ Check response from backend
+      if (response['success'] == false) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Something went wrong'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Success - OTP sent
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ OTP has been sent to your email address'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OTPPage(
+              email: email,
+              fullName: fullName,
+              phone: phone,
+              password: password,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error: $e');
+      
+      // ✅ Check error message and show appropriate toast
+      final errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('invalid email') || errorMsg.contains('valid email')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid email address'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else if (errorMsg.contains('already registered') || 
+                 errorMsg.contains('exists') ||
+                 (errorMsg.contains('email') && errorMsg.contains('registered'))) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This email is already registered. Please login or use another email.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -548,6 +558,8 @@ class _signupState extends State<signup> {
     TextInputType keyboardType = TextInputType.text,
   }) {
     final isFocused = focusNode.hasFocus;
+    final isPasswordField = label == 'PASSWORD'; // ✅ Check if password field
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -561,42 +573,63 @@ class _signupState extends State<signup> {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          focusNode: focusNode,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          style: GoogleFonts.montserrat(
-            color: const Color(0xFFDCE4E5),
-            fontSize: 16,
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
           ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: GoogleFonts.montserrat(
-              color: Colors.white24,
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            obscureText: isPasswordField ? _obscurePassword : obscureText,
+            keyboardType: keyboardType,
+            style: GoogleFonts.montserrat(
+              color: const Color(0xFFDCE4E5),
               fontSize: 16,
             ),
-            prefixIcon: Icon(
-              icon,
-              color: isFocused
-                  ? const Color(0xFF00E5FF)
-                  : const Color(0xFF849396),
-            ),
-            filled: true,
-            fillColor: const Color(0xFF05080B),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 18,
-              horizontal: 16,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF59DBC7),
-                width: 1.5,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: GoogleFonts.montserrat(
+                color: Colors.white24,
+                fontSize: 16,
+              ),
+              prefixIcon: Icon(
+                icon,
+                color: isFocused
+                    ? const Color(0xFF00E5FF)
+                    : const Color(0xFF849396),
+              ),
+              // ✅ Password visibility toggle
+              suffixIcon: isPasswordField
+                  ? IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: isFocused
+                            ? const Color(0xFF00E5FF)
+                            : const Color(0xFF849396),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: const Color(0xFF05080B),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 18,
+                horizontal: 16,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFF59DBC7),
+                  width: 1.5,
+                ),
               ),
             ),
           ),
