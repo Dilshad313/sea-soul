@@ -5,6 +5,11 @@ const { sendNotificationEmail } = require('../services/emailService');
 // ==================== CREATE NOTIFICATION ====================
 exports.createNotification = async (userId, title, message, type, relatedId = null, imageUrl = null, data = {}) => {
   try {
+    console.log('📢 Creating notification for user:', userId);
+    console.log('📢 Title:', title);
+    console.log('📢 Message:', message);
+    console.log('📢 Type:', type);
+
     const notification = new Notification({
       userId,
       title,
@@ -13,14 +18,22 @@ exports.createNotification = async (userId, title, message, type, relatedId = nu
       relatedId,
       imageUrl,
       data,
+      isRead: false,
+      isDeleted: false,
     });
 
     await notification.save();
+    console.log('✅ Notification saved to database:', notification._id);
 
-    // ✅ Send email notification
-    const user = await User.findById(userId);
-    if (user) {
-      await sendNotificationEmail(user, title, message);
+    // Send email notification
+    try {
+      const user = await User.findById(userId);
+      if (user && user.email) {
+        await sendNotificationEmail(user, title, message);
+        console.log('✅ Email sent to:', user.email);
+      }
+    } catch (emailError) {
+      console.error('❌ Email send error:', emailError);
     }
 
     return notification;
@@ -36,6 +49,9 @@ exports.getUserNotifications = async (req, res) => {
     const userId = req.user.id;
     const { limit = 50, offset = 0, unreadOnly = false } = req.query;
 
+    console.log('📱 Fetching notifications for user:', userId);
+    console.log('📱 Limit:', limit, 'Offset:', offset);
+
     let query = { userId, isDeleted: false };
     if (unreadOnly === 'true') {
       query.isRead = false;
@@ -47,7 +63,14 @@ exports.getUserNotifications = async (req, res) => {
       .limit(parseInt(limit));
 
     const totalCount = await Notification.countDocuments(query);
-    const unreadCount = await Notification.countDocuments({ userId, isRead: false, isDeleted: false });
+    const unreadCount = await Notification.countDocuments({ 
+      userId, 
+      isRead: false, 
+      isDeleted: false 
+    });
+
+    console.log('✅ Found', notifications.length, 'notifications');
+    console.log('📊 Unread count:', unreadCount);
 
     res.status(200).json({
       success: true,
@@ -73,6 +96,8 @@ exports.markAsRead = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
+    console.log('📖 Marking notification as read:', id);
+
     const notification = await Notification.findOne({ _id: id, userId });
     if (!notification) {
       return res.status(404).json({
@@ -83,6 +108,8 @@ exports.markAsRead = async (req, res) => {
 
     notification.isRead = true;
     await notification.save();
+
+    console.log('✅ Notification marked as read');
 
     res.status(200).json({
       success: true,
@@ -104,14 +131,19 @@ exports.markAllAsRead = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    await Notification.updateMany(
+    console.log('📖 Marking all notifications as read for user:', userId);
+
+    const result = await Notification.updateMany(
       { userId, isRead: false },
       { isRead: true }
     );
 
+    console.log('✅ Marked', result.modifiedCount, 'notifications as read');
+
     res.status(200).json({
       success: true,
       message: 'All notifications marked as read',
+      count: result.modifiedCount,
     });
   } catch (error) {
     console.error('❌ Error marking all as read:', error);
@@ -129,6 +161,8 @@ exports.deleteNotification = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
+    console.log('🗑️ Deleting notification:', id);
+
     const notification = await Notification.findOne({ _id: id, userId });
     if (!notification) {
       return res.status(404).json({
@@ -139,6 +173,8 @@ exports.deleteNotification = async (req, res) => {
 
     notification.isDeleted = true;
     await notification.save();
+
+    console.log('✅ Notification deleted');
 
     res.status(200).json({
       success: true,
@@ -159,14 +195,19 @@ exports.deleteAllNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    await Notification.updateMany(
+    console.log('🗑️ Deleting all notifications for user:', userId);
+
+    const result = await Notification.updateMany(
       { userId },
       { isDeleted: true }
     );
 
+    console.log('✅ Deleted', result.modifiedCount, 'notifications');
+
     res.status(200).json({
       success: true,
       message: 'All notifications deleted',
+      count: result.modifiedCount,
     });
   } catch (error) {
     console.error('❌ Error deleting all notifications:', error);
@@ -188,6 +229,8 @@ exports.getUnreadCount = async (req, res) => {
       isRead: false,
       isDeleted: false,
     });
+
+    console.log('📊 Unread count for user', userId, ':', count);
 
     res.status(200).json({
       success: true,

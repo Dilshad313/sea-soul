@@ -43,4 +43,12 @@ class ApiConstants {
   static String get markAllAsRead => '$baseUrl/api/notifications/read-all';
   static String deleteNotification(String id) => '$baseUrl/api/notifications/$id';
   static String get deleteAllNotifications => '$baseUrl/api/notifications';
+
+  // Review APIs
+  static String get reviews => '$baseUrl/api/reviews';
+  static String itemReviews(String itemId, String itemType) => '$baseUrl/api/reviews/item/$itemType/$itemId';
+  static String get userReviews => '$baseUrl/api/reviews/user';
+  static String reviewHelpful(String id) => '$baseUrl/api/reviews/$id/helpful';
+  static String deleteReview(String id) => '$baseUrl/api/reviews/$id';
+
 }
