@@ -3,229 +3,18 @@ const router = express.Router();
 const User = require('../models/User');
 const Product = require('../models/Product');
 const Activity = require('../models/Activity');
+const Booking = require('../models/Booking');
+const Payment = require('../models/Payment');
+const Notification = require('../models/Notification');
 const { isAdmin } = require('../middleware/adminMiddleware');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const upload = require('../middleware/upload');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
-
-// ==================== Admin Profile Controller Functions ====================
 const cloudinary = require('../config/cloudinary');
-
-// Get Admin Profile
-const getAdminProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-    res.status(200).json({
-      success: true,
-      user: user
-    });
-  } catch (error) {
-    console.error('Error in getAdminProfile:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
-  }
-};
-
-// Update Admin Profile
-const updateAdminProfile = async (req, res) => {
-  try {
-    const { fullName, phone, bio, location } = req.body;
-    const userId = req.user.id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    if (fullName) user.fullName = fullName;
-    if (phone) user.phone = phone;
-    if (bio !== undefined) user.bio = bio;
-    if (location !== undefined) user.location = location;
-
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Profile updated successfully',
-      user: {
-        _id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        phone: user.phone,
-        profileImage: user.profileImage,
-        bio: user.bio,
-        location: user.location,
-        role: user.role,
-      }
-    });
-  } catch (error) {
-    console.error('Error in updateAdminProfile:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
-  }
-};
-
-// Upload Admin Profile Image
-const uploadAdminProfileImage = async (req, res) => {
-  try {
-    console.log('📤 Admin Upload request received');
-    console.log('📤 Request file:', req.file);
-
-    const userId = req.user.id;
-
-    if (!req.file) {
-      console.log('❌ No file in request');
-      return res.status(400).json({
-        success: false,
-        message: 'No image file provided'
-      });
-    }
-
-    console.log('📤 File received:', req.file.path);
-
-    const user = await User.findById(userId);
-    if (!user) {
-      console.log('❌ User not found');
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Upload to Cloudinary
-    console.log('📤 Uploading to Cloudinary...');
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'seasoul/admin-profiles',
-      width: 500,
-      height: 500,
-      crop: 'fill',
-      gravity: 'face',
-    });
-
-    console.log('✅ Cloudinary upload successful:', result.secure_url);
-
-    // Delete old image from Cloudinary if not default
-    if (user.profileImage && !user.profileImage.includes('default-avatar')) {
-      try {
-        const publicId = user.profileImage.split('/').pop().split('.')[0];
-        await cloudinary.uploader.destroy(`seasoul/admin-profiles/${publicId}`);
-        console.log('✅ Old image deleted from Cloudinary');
-      } catch (err) {
-        console.log('⚠️ Could not delete old image:', err.message);
-      }
-    }
-
-    // Update user profile image
-    user.profileImage = result.secure_url;
-    await user.save();
-
-    // Delete temporary file
-    try {
-      fs.unlinkSync(req.file.path);
-      console.log('✅ Temporary file deleted');
-    } catch (err) {
-      console.log('⚠️ Could not delete temp file:', err.message);
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Profile image uploaded successfully',
-      profileImage: result.secure_url,
-      user: {
-        _id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        profileImage: user.profileImage,
-        role: user.role,
-      }
-    });
-  } catch (error) {
-    console.error('❌ Error in uploadAdminProfileImage:', error);
-    
-    // Delete temp file if exists
-    if (req.file && req.file.path) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (err) {
-        console.log('⚠️ Could not delete temp file:', err.message);
-      }
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
-  }
-};
-
-// Delete Admin Profile Image
-const deleteAdminProfileImage = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Delete image from Cloudinary if not default
-    if (user.profileImage && !user.profileImage.includes('default-avatar')) {
-      try {
-        const publicId = user.profileImage.split('/').pop().split('.')[0];
-        await cloudinary.uploader.destroy(`seasoul/admin-profiles/${publicId}`);
-        console.log('✅ Old image deleted from Cloudinary');
-      } catch (err) {
-        console.log('⚠️ Could not delete old image:', err.message);
-      }
-    }
-
-    // Set to default
-    user.profileImage = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Profile image removed',
-      profileImage: user.profileImage,
-      user: {
-        _id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        profileImage: user.profileImage,
-        role: user.role,
-      }
-    });
-  } catch (error) {
-    console.error('Error in deleteAdminProfileImage:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
-  }
-};
+const { createNotificationForAllUsers } = require('../utils/createNotification');
+require('dotenv').config();
 
 // ==================== Token Generation ====================
 const generateToken = (id) => {
@@ -303,16 +92,16 @@ router.post('/login', async (req, res) => {
 });
 
 // ==================== Admin Profile Routes ====================
-// Get admin profile
+const {
+  getAdminProfile,
+  updateAdminProfile,
+  uploadAdminProfileImage,
+  deleteAdminProfileImage
+} = require('../controllers/adminProfileController');
+
 router.get('/profile', isAdmin, getAdminProfile);
-
-// Update admin profile
 router.put('/profile', isAdmin, updateAdminProfile);
-
-// Upload admin profile image
 router.post('/profile/upload-image', isAdmin, upload.single('image'), uploadAdminProfileImage);
-
-// Delete admin profile image
 router.delete('/profile/image', isAdmin, deleteAdminProfileImage);
 
 // ==================== IMAGE UPLOAD ROUTE (for products/activities) ====================
@@ -328,8 +117,6 @@ router.post('/upload', isAdmin, upload.single('image'), async (req, res) => {
       });
     }
 
-    // File is already saved locally by multer
-    // Return the file URL
     const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
     const imageUrl = `${baseUrl}/uploads/${path.basename(req.file.path)}`;
 
@@ -344,7 +131,6 @@ router.post('/upload', isAdmin, upload.single('image'), async (req, res) => {
   } catch (error) {
     console.error('❌ Upload error:', error);
     
-    // Clean up local file if exists
     if (req.file && req.file.path && fs.existsSync(req.file.path)) {
       try {
         fs.unlinkSync(req.file.path);
@@ -364,9 +150,26 @@ router.post('/upload', isAdmin, upload.single('image'), async (req, res) => {
 router.get('/stats', isAdmin, async (req, res) => {
   try {
     const products = await Product.countDocuments();
-    const users = await User.countDocuments();
+    const users = await User.countDocuments({ role: 'user' });
     const activities = await Activity.countDocuments();
-    res.json({ products, bookings: 0, users, revenue: 0, activities });
+    const bookings = await Booking.countDocuments();
+    const payments = await Payment.countDocuments();
+    
+    // Calculate total revenue
+    const revenueData = await Payment.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const revenue = revenueData.length > 0 ? revenueData[0].total : 0;
+
+    res.json({ 
+      products, 
+      bookings, 
+      users, 
+      revenue, 
+      activities,
+      payments 
+    });
   } catch (error) {
     console.error('❌ Stats error:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -397,14 +200,38 @@ router.get('/products/:id', isAdmin, async (req, res) => {
   }
 });
 
+// ✅ CREATE PRODUCT - With Notification for all users
 router.post('/products', isAdmin, async (req, res) => {
   try {
+    console.log('📦 Creating new product...');
     const product = new Product(req.body);
     await product.save();
-    res.status(201).json({ success: true, product });
+    console.log('✅ Product created:', product._id);
+
+    // ✅ Send notification to ALL users about new product
+    const imageUrl = product.images && product.images.length > 0 ? product.images[0] : null;
+    
+    const notificationCount = await createNotificationForAllUsers(
+      '🌟 New Package Added!',
+      `🌴 ${product.name} - ₹${product.price} in ${product.location}. Book now!`,
+      'product',
+      imageUrl,
+      product._id
+    );
+    
+    console.log(`✅ Notification sent to ${notificationCount} users`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully',
+      product,
+    });
   } catch (error) {
     console.error('❌ Product creation error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 });
 
@@ -462,14 +289,38 @@ router.get('/activities/:id', isAdmin, async (req, res) => {
   }
 });
 
+// ✅ CREATE ACTIVITY - With Notification for all users
 router.post('/activities', isAdmin, async (req, res) => {
   try {
+    console.log('⚡ Creating new activity...');
     const activity = new Activity(req.body);
     await activity.save();
-    res.status(201).json({ success: true, activity });
+    console.log('✅ Activity created:', activity._id);
+
+    // ✅ Send notification to ALL users about new activity
+    const imageUrl = activity.images && activity.images.length > 0 ? activity.images[0] : null;
+    
+    const notificationCount = await createNotificationForAllUsers(
+      '⚡ New Activity Added!',
+      `🏄 ${activity.name} - ₹${activity.price} in ${activity.location}. Try it now!`,
+      'activity',
+      imageUrl,
+      activity._id
+    );
+    
+    console.log(`✅ Notification sent to ${notificationCount} users`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Activity created successfully',
+      activity,
+    });
   } catch (error) {
     console.error('❌ Activity creation error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 });
 
@@ -506,7 +357,7 @@ router.delete('/activities/:id', isAdmin, async (req, res) => {
 // ==================== Users Management ====================
 router.get('/users', isAdmin, async (req, res) => {
   try {
-    // ✅ Filter out admin users from the list
+    // ✅ Filter out admin users
     const users = await User.find({ role: { $ne: 'admin' } })
       .select('-password')
       .sort({ createdAt: -1 });
@@ -539,21 +390,50 @@ router.put('/users/:id/status', isAdmin, async (req, res) => {
 });
 
 // ==================== Bookings Management ====================
-// Note: Booking model not yet created, placeholder routes
 router.get('/bookings', isAdmin, async (req, res) => {
   try {
-    // Placeholder - return empty array
-    res.json({ success: true, bookings: [] });
+    const bookings = await Booking.find()
+      .populate('userId', 'fullName email phone')
+      .populate('productId', 'name price')
+      .populate('activityId', 'name price')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, bookings });
   } catch (error) {
     console.error('❌ Bookings fetch error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
+router.get('/bookings/:id', isAdmin, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+      .populate('userId', 'fullName email phone')
+      .populate('productId', 'name price location')
+      .populate('activityId', 'name price location');
+    
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    res.json({ success: true, booking });
+  } catch (error) {
+    console.error('❌ Booking fetch error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.put('/bookings/:id/status', isAdmin, async (req, res) => {
   try {
-    // Placeholder
-    res.json({ success: true, message: 'Booking status updated' });
+    const { status } = req.body;
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+    
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    res.json({ success: true, booking });
   } catch (error) {
     console.error('❌ Booking status update error:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -561,13 +441,45 @@ router.put('/bookings/:id/status', isAdmin, async (req, res) => {
 });
 
 // ==================== Payments Management ====================
-// Note: Payment model not yet created, placeholder routes
 router.get('/payments', isAdmin, async (req, res) => {
   try {
-    // Placeholder - return empty array
-    res.json({ success: true, payments: [] });
+    const payments = await Payment.find()
+      .populate('userId', 'fullName email phone')
+      .populate('bookingId')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, payments });
   } catch (error) {
     console.error('❌ Payments fetch error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/payments/:id', isAdmin, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id)
+      .populate('userId', 'fullName email phone')
+      .populate('bookingId');
+    
+    if (!payment) {
+      return res.status(404).json({ success: false, message: 'Payment not found' });
+    }
+    res.json({ success: true, payment });
+  } catch (error) {
+    console.error('❌ Payment fetch error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ==================== Notifications Management ====================
+router.get('/notifications', isAdmin, async (req, res) => {
+  try {
+    const notifications = await Notification.find()
+      .populate('userId', 'fullName email')
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json({ success: true, notifications });
+  } catch (error) {
+    console.error('❌ Notifications fetch error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

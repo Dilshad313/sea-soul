@@ -1,18 +1,17 @@
 const Product = require('../models/Product');
+const { createNotificationForAllUsers } = require('../utils/createNotification');
 
-// Get all products with sorting and filtering
+// ✅ Get all products with sorting and filtering
 exports.getProducts = async (req, res) => {
   try {
     const { sort, category, search, limit } = req.query;
     
     let query = {};
     
-    // Category filter
     if (category && category !== 'All') {
       query.category = category;
     }
     
-    // Search filter
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -21,7 +20,6 @@ exports.getProducts = async (req, res) => {
       ];
     }
     
-    // Build sort object
     let sortOptions = {};
     switch (sort) {
       case 'price-low':
@@ -47,7 +45,6 @@ exports.getProducts = async (req, res) => {
     
     let productsQuery = Product.find(query).sort(sortOptions);
     
-    // Limit results
     if (limit && !isNaN(limit)) {
       productsQuery = productsQuery.limit(parseInt(limit));
     }
@@ -69,7 +66,7 @@ exports.getProducts = async (req, res) => {
   }
 };
 
-// Get single product by ID
+// ✅ Get single product by ID
 exports.getProductById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -97,7 +94,7 @@ exports.getProductById = async (req, res) => {
   }
 };
 
-// Get featured products (for home page hero)
+// ✅ Get featured products
 exports.getFeaturedProducts = async (req, res) => {
   try {
     const products = await Product.find({ isFeatured: true })
@@ -118,7 +115,7 @@ exports.getFeaturedProducts = async (req, res) => {
   }
 };
 
-// Get trending products (for home page)
+// ✅ Get trending products
 exports.getTrendingProducts = async (req, res) => {
   try {
     const products = await Product.find({ isTrending: true })
@@ -139,7 +136,7 @@ exports.getTrendingProducts = async (req, res) => {
   }
 };
 
-// Get products by category
+// ✅ Get products by category
 exports.getProductsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
@@ -158,6 +155,96 @@ exports.getProductsByCategory = async (req, res) => {
       success: false,
       message: 'Server error',
       error: error.message,
+    });
+  }
+};
+
+// ✅ CREATE PRODUCT - With Notification for all users
+exports.createProduct = async (req, res) => {
+  try {
+    console.log('📦 Creating new product...');
+    const product = new Product(req.body);
+    await product.save();
+    console.log('✅ Product created:', product._id);
+
+    // ✅ Send notification to ALL users about new product
+    const imageUrl = product.images && product.images.length > 0 ? product.images[0] : null;
+    
+    const notificationCount = await createNotificationForAllUsers(
+      '🌟 New Package Added!',
+      `🌴 ${product.name} - ₹${product.price} in ${product.location}. Book now!`,
+      'product',
+      imageUrl,
+      product._id
+    );
+    
+    console.log(`✅ Notification sent to ${notificationCount} users`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully',
+      product,
+    });
+  } catch (error) {
+    console.error('❌ Product creation error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ✅ UPDATE PRODUCT
+exports.updateProduct = async (req, res) => {
+  try {
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Product updated successfully',
+      product,
+    });
+  } catch (error) {
+    console.error('❌ Product update error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ✅ DELETE PRODUCT
+exports.deleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findByIdAndDelete(req.params.id);
+    
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Product deleted successfully',
+    });
+  } catch (error) {
+    console.error('❌ Product delete error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
     });
   }
 };

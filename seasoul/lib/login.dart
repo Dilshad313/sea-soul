@@ -24,6 +24,7 @@ class _loginState extends State<login> {
   bool _isPasswordFocused = false;
   bool _isLoading = false;
   bool _isSuccess = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -46,73 +47,86 @@ class _loginState extends State<login> {
   }
 
   void _handleLogin() async {
-  if (_isLoading) return;
-  setState(() {
-    _isLoading = true;
-    _isSuccess = false;
-  });
-
-  final identifier = _identifierController.text.trim();
-  final password = _passwordController.text.trim();
-
-  if (identifier.isEmpty || password.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please enter email/phone and password'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    setState(() => _isLoading = false);
-    return;
-  }
-
-  try {
-    final data = {
-      'identifier': identifier,
-      'password': password,
-    };
-
-    final response = await ApiService.post(ApiConstants.login, data);
-
-    // Save token
-    await ApiService.saveToken(response['token']);
-    
-    // Save complete user data
-    await ApiService.saveUserData({
-      '_id': response['_id'],
-      'fullName': response['fullName'],
-      'email': response['email'],
-      'phone': response['phone'],
-      'profileImage': response['profileImage'] ?? 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png',
-      'bio': response['bio'] ?? '',
-      'location': response['location'] ?? '',
-    });
-
+    if (_isLoading) return;
     setState(() {
-      _isSuccess = true;
-      _isLoading = false;
-    });
-
-    if (mounted) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const UserHome()),
-      );
-    }
-  } catch (e) {
-    setState(() {
-      _isLoading = false;
+      _isLoading = true;
       _isSuccess = false;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Login Failed: ${e.toString()}'),
-        backgroundColor: Colors.red,
-      ),
-    );
+
+    final identifier = _identifierController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (identifier.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter email/phone and password'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    final isEmail = identifier.contains('@');
+    
+    if (isEmail && !emailRegex.hasMatch(identifier)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email address'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final data = {
+        'identifier': identifier,
+        'password': password,
+      };
+
+      final response = await ApiService.post(ApiConstants.login, data);
+
+      await ApiService.saveToken(response['token']);
+      
+      await ApiService.saveUserData({
+        '_id': response['_id'],
+        'fullName': response['fullName'],
+        'email': response['email'],
+        'phone': response['phone'],
+        'profileImage': response['profileImage'] ?? 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png',
+        'bio': response['bio'] ?? '',
+        'location': response['location'] ?? '',
+      });
+
+      setState(() {
+        _isSuccess = true;
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const UserHome()),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _isSuccess = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login Failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -154,8 +168,8 @@ class _loginState extends State<login> {
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(
-                horizontal: 20.0,
-                vertical: 48.0,
+                horizontal: 16.0,
+                vertical: 30.0,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -163,249 +177,217 @@ class _loginState extends State<login> {
                   Text(
                     'SeaSoul',
                     style: GoogleFonts.montserrat(
-                      fontSize: 36,
+                      fontSize: 32,
                       fontWeight: FontWeight.w700,
                       color: colorPrimaryContainer,
                       letterSpacing: -0.02,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     'LUXURIOUS ISLAND GETAWAYS',
                     style: GoogleFonts.montserrat(
-                      fontSize: 12,
+                      fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: colorOutline,
-                      letterSpacing: 2.4,
+                      letterSpacing: 2.0,
                     ),
                   ),
-                  const SizedBox(height: 40),
-                  AnimatedScale(
-                    scale: (_isIdentifierFocused || _isPasswordFocused)
-                        ? 1.01
-                        : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOutCubic,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                        child: Container(
-                          width: double.infinity,
-                          constraints: const BoxConstraints(maxWidth: 440),
-                          padding: const EdgeInsets.all(32.0),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.1),
-                              width: 1,
-                            ),
+                  const SizedBox(height: 32),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                      child: Container(
+                        width: double.infinity,
+                        constraints: const BoxConstraints(maxWidth: 440),
+                        padding: const EdgeInsets.all(24.0),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.1),
+                            width: 1,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Welcome Back',
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorOnSurface,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome Back',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w600,
+                                color: colorOnSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Please enter your details to continue your journey.',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 13,
+                                color: colorOnSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            _buildFormLabel('Email or Phone', colorOutline),
+                            const SizedBox(height: 6),
+                            _buildInputField(
+                              controller: _identifierController,
+                              focusNode: _identifierFocus,
+                              hintText: 'marina@example.com',
+                              icon: Icons.person_outline,
+                              isFocused: _isIdentifierFocused,
+                              lowestBg: colorLowestSurface,
+                              activeTint: colorPrimaryContainer,
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                _buildFormLabel('Password', colorOutline),
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const ForgotPasswordPage(),
+                                      ),
+                                    );
+                                  },
+                                  child: Text(
+                                    'Forgot Password?',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: colorPrimaryContainer,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Please enter your details to continue your journey.',
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 14,
-                                  color: colorOnSurfaceVariant,
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            _buildPasswordField(
+                              controller: _passwordController,
+                              focusNode: _passwordFocus,
+                              hintText: '••••••••',
+                              isFocused: _isPasswordFocused,
+                              lowestBg: colorLowestSurface,
+                              activeTint: colorPrimaryContainer,
+                            ),
+                            const SizedBox(height: 28),
+                            _buildSubmitButton(
+                              colorPrimaryContainer,
+                              colorSecondary,
+                            ),
+                            const SizedBox(height: 28),
+                            // ✅ FIXED: Divider with Container
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    height: 1,
+                                    color: colorOutlineVariant.withOpacity(0.5),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 32),
-                              _buildFormLabel('Email or Phone', colorOutline),
-                              const SizedBox(height: 8),
-                              _buildInputField(
-                                controller: _identifierController,
-                                focusNode: _identifierFocus,
-                                hintText: 'marina@example.com',
-                                icon: Icons.person_outline,
-                                isFocused: _isIdentifierFocused,
-                                lowestBg: colorLowestSurface,
-                                activeTint: colorPrimaryContainer,
-                              ),
-                              const SizedBox(height: 24),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _buildFormLabel('Password', colorOutline),
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const ForgotPasswordPage(),
-                                        ),
-                                      );
-                                    },
-                                    child: MouseRegion(
-                                      cursor: SystemMouseCursors.click,
-                                      child: Text(
-                                        'Forgot Password?',
-                                        style: GoogleFonts.montserrat(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: colorPrimaryContainer,
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12.0,
+                                  ),
+                                  child: Text(
+                                    'OR CONTINUE WITH',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: colorOutline,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Container(
+                                    height: 1,
+                                    color: colorOutlineVariant.withOpacity(0.5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            // ✅ FIXED: Social buttons with Flexible
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildSocialButton(
+                                    text: 'Google',
+                                    borderColor: colorOutlineVariant,
+                                    child: Image.network(
+                                      'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                                      width: 18,
+                                      height: 18,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return const Icon(
+                                          Icons.g_mobiledata,
+                                          color: Colors.white,
+                                          size: 24,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildSocialButton(
+                                    text: 'Apple',
+                                    borderColor: colorOutlineVariant,
+                                    child: const Icon(
+                                      Icons.apple,
+                                      size: 20,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            Center(
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const signup(),
+                                    ),
+                                  );
+                                },
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13,
+                                      color: colorOnSurfaceVariant,
+                                    ),
+                                    children: const [
+                                      TextSpan(text: 'New to SeaSoul? '),
+                                      TextSpan(
+                                        text: 'Register',
+                                        style: TextStyle(
+                                          color: Color(0xFF00E5FF),
+                                          fontWeight: FontWeight.w600,
                                           decoration: TextDecoration.underline,
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              _buildInputField(
-                                controller: _passwordController,
-                                focusNode: _passwordFocus,
-                                hintText: '••••••••',
-                                icon: Icons.lock_outline,
-                                isFocused: _isPasswordFocused,
-                                obscureText: true,
-                                lowestBg: colorLowestSurface,
-                                activeTint: colorPrimaryContainer,
-                              ),
-                              const SizedBox(height: 32),
-                              _buildSubmitButton(
-                                colorPrimaryContainer,
-                                colorSecondary,
-                              ),
-                              const SizedBox(height: 32),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Divider(
-                                      color: colorOutlineVariant.withOpacity(
-                                        0.5,
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0,
-                                    ),
-                                    child: Text(
-                                      'OR CONTINUE WITH',
-                                      style: GoogleFonts.montserrat(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: colorOutline,
-                                        letterSpacing: 1.0,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Divider(
-                                      color: colorOutlineVariant.withOpacity(
-                                        0.5,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 32),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildSocialButton(
-                                      text: 'Google',
-                                      borderColor: colorOutlineVariant,
-                                      child: Image.network(
-                                        'https://lh3.googleusercontent.com/aida-public/AB6AXuAOta294P336wxTwzddMVlIH1_Phq3nTNUDNgsDEk6lISqz6YhPGCp9bVRZNMjosjS-V3IfpeYunBHZ-5KAwvZzDDaH-aDEYM2KOyexjsaWxoyCX1XWJ_jJ8WRfMOoZiCLNtFnYKhYuG7cLSr6WVQ6yEPe6JIwaxcgkTqJHs80GpOdAP-P35v6bN_NIoiKRwCD6iDA4lZ9MdaqgRaEi3Kz6iMLLv4wG9gDq7UYJ0wjiIA7YaoIZsuJqjNjbYTQuI5ack3_KBMQQZTM',
-                                        width: 20,
-                                        height: 20,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildSocialButton(
-                                      text: 'Apple',
-                                      borderColor: colorOutlineVariant,
-                                      child: const Icon(
-                                        Icons.apps,
-                                        size: 20,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 32),
-                              Center(
-                                child: MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const signup(),
-                                        ),
-                                      );
-                                    },
-                                    child: RichText(
-                                      text: TextSpan(
-                                        style: GoogleFonts.montserrat(
-                                          fontSize: 14,
-                                          color: colorOnSurfaceVariant,
-                                        ),
-                                        children: const [
-                                          TextSpan(text: 'New to SeaSoul? '),
-                                          TextSpan(
-                                            text: 'Register',
-                                            style: TextStyle(
-                                              color: colorPrimaryContainer,
-                                              fontWeight: FontWeight.w600,
-                                              decoration: TextDecoration.underline,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                    ],
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 48),
-                  Container(
-                    constraints: const BoxConstraints(maxWidth: 960),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (constraints.maxWidth < 600)
-                          return const SizedBox.shrink();
-                        return Row(
-                          children: [
-                            Expanded(
-                              child: _buildFooterImageCard(
-                                'https://lh3.googleusercontent.com/aida-public/AB6AXuCGj63d9p8qo_Tv3HPaUmsgiC_LDQ_T2VPjhCWvchdhhIzGDALQ4fB6qbeJb1ptgy4jcOGdDfJZOG7oPqZPg5E73kt3AKRfnls9gvqIRmGi_-M6kwRfv9wKLfBr0kbJLcP8KIKtuPpPQmM8H8FDGT2BBaZ7qb_Ee3ju8mIKUdlKb-0RVlD3rutPwaoIrNf2ruoKaZlLz4z-JTb0oeC-uLpjuL7xhjn9ShmMmJZGY8A-LThk-XCyzRLD2M2jEXDK20JFIsXzQ48aV-4',
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildFooterImageCard(
-                                'https://lh3.googleusercontent.com/aida-public/AB6AXuAumpLrAwm0xReKTRBe2o-QCM2r79e8mkp2FF9X66NxdJWMPo2g3sfxKF4BqJBBUrc-fYB2OTaxqez_ro4F3_e28Hmje7Vww-fhHUaJlK2s2zD5aUDiW56DEHgnfUkYYqFrjXK7ArWFX8i9zb7EnCk0WCixLxIwEy4hsq1e0-tMeHpooHqZOJHr4Bt4L-A4z5-VqsellPw0XW4g-6g1YA2aH6oEYfQBVx6cIKRv8revvI_zVEHCY8TVzndVvaSZIh-2yIkKCaTTZNg',
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
@@ -419,10 +401,10 @@ class _loginState extends State<login> {
     return Text(
       label.toUpperCase(),
       style: GoogleFonts.montserrat(
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: FontWeight.w700,
         color: color,
-        letterSpacing: 1.0,
+        letterSpacing: 0.8,
       ),
     );
   }
@@ -435,7 +417,6 @@ class _loginState extends State<login> {
     required bool isFocused,
     required Color lowestBg,
     required Color activeTint,
-    bool obscureText = false,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -447,23 +428,85 @@ class _loginState extends State<login> {
       child: TextField(
         controller: controller,
         focusNode: focusNode,
-        obscureText: obscureText,
-        style: GoogleFonts.montserrat(color: Colors.white, fontSize: 16),
+        style: GoogleFonts.montserrat(color: Colors.white, fontSize: 15),
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: GoogleFonts.montserrat(
             color: Colors.white24,
-            fontSize: 16,
+            fontSize: 15,
           ),
           prefixIcon: Icon(
             icon,
             color: isFocused ? activeTint : const Color(0xFF849396),
+            size: 20,
           ),
           filled: true,
           fillColor: lowestBg,
           contentPadding: const EdgeInsets.symmetric(
-            vertical: 18,
-            horizontal: 16,
+            vertical: 16,
+            horizontal: 14,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: activeTint, width: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String hintText,
+    required bool isFocused,
+    required Color lowestBg,
+    required Color activeTint,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: isFocused
+            ? [BoxShadow(color: activeTint.withOpacity(0.15), blurRadius: 15)]
+            : null,
+      ),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        obscureText: _obscurePassword,
+        style: GoogleFonts.montserrat(color: Colors.white, fontSize: 15),
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: GoogleFonts.montserrat(
+            color: Colors.white24,
+            fontSize: 15,
+          ),
+          prefixIcon: Icon(
+            Icons.lock_outline,
+            color: isFocused ? activeTint : const Color(0xFF849396),
+            size: 20,
+          ),
+          suffixIcon: IconButton(
+            icon: Icon(
+              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+              color: isFocused ? activeTint : const Color(0xFF849396),
+              size: 20,
+            ),
+            onPressed: () {
+              setState(() {
+                _obscurePassword = !_obscurePassword;
+              });
+            },
+          ),
+          filled: true,
+          fillColor: lowestBg,
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 16,
+            horizontal: 14,
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -481,7 +524,7 @@ class _loginState extends State<login> {
   Widget _buildSubmitButton(Color fromGradient, Color toGradient) {
     return Container(
       width: double.infinity,
-      height: 58,
+      height: 52,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(99),
         gradient: LinearGradient(
@@ -490,8 +533,8 @@ class _loginState extends State<login> {
         boxShadow: [
           BoxShadow(
             color: fromGradient.withOpacity(0.15),
-            blurRadius: 40,
-            offset: const Offset(0, 20),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
           ),
         ],
       ),
@@ -505,31 +548,18 @@ class _loginState extends State<login> {
         ),
         onPressed: _isLoading ? null : _handleLogin,
         child: _isLoading
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Colors.white54,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Authenticating...',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            ? SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white54,
+                ),
               )
             : Text(
                 _isSuccess ? 'Success!' : 'Login',
                 style: GoogleFonts.montserrat(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
@@ -544,7 +574,7 @@ class _loginState extends State<login> {
     required Widget child,
   }) {
     return Container(
-      height: 48,
+      height: 44,
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.02),
         borderRadius: BorderRadius.circular(12),
@@ -560,20 +590,13 @@ class _loginState extends State<login> {
             const SizedBox(width: 8),
             Text(
               text,
-              style: GoogleFonts.montserrat(color: Colors.white, fontSize: 14),
+              style: GoogleFonts.montserrat(
+                color: Colors.white,
+                fontSize: 13,
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildFooterImageCard(String url) {
-    return Container(
-      height: 128,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        image: DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
       ),
     );
   }

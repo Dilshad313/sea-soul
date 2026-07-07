@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:seasoul/bottomnav.dart';
 import 'package:seasoul/explore.dart';
 import 'package:seasoul/profile.dart';
@@ -10,6 +11,8 @@ import 'package:seasoul/activity_details.dart';
 import 'package:seasoul/services/product_service.dart';
 import 'package:seasoul/services/activity_service.dart';
 import 'package:seasoul/services/wishlist_service.dart';
+import 'package:seasoul/providers/notification_provider.dart';
+import 'package:seasoul/notification_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UserHome extends StatefulWidget {
@@ -77,6 +80,23 @@ class _UserHomeState extends State<UserHome> {
     _packagePageController = PageController();
     _activityPageController = PageController();
     _loadAllData();
+    
+    // ✅ Add test notification after 3 seconds (for testing)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(seconds: 3), () {
+        _addTestNotification();
+      });
+    });
+  }
+
+  // ✅ Test notification - Remove this after testing
+  void _addTestNotification() {
+    final provider = Provider.of<NotificationProvider>(context, listen: false);
+    provider.addNotification(
+      title: '👋 Welcome to SeaSoul!',
+      message: 'Explore the pristine islands of Lakshadweep with us.',
+      type: 'general',
+    );
   }
 
   @override
@@ -342,12 +362,53 @@ class _UserHomeState extends State<UserHome> {
                 ],
               ),
               actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 12.0),
-                  child: IconButton(
-                    icon: const Icon(Icons.notifications_none, color: deepNavy),
-                    onPressed: () {},
-                  ),
+                // ✅ Notification Icon with Badge
+                Consumer<NotificationProvider>(
+                  builder: (context, provider, child) {
+                    return Stack(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12.0),
+                          child: IconButton(
+                            icon: const Icon(Icons.notifications_none, color: deepNavy),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const NotificationPage(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        if (provider.unreadCount > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              child: Text(
+                                provider.unreadCount > 9 ? '9+' : '${provider.unreadCount}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ],
             )
@@ -557,7 +618,6 @@ class _UserHomeState extends State<UserHome> {
                     ),
                   ),
                 ).then((_) {
-                  // Refresh wishlist status when returning
                   _loadAllData();
                 });
               } else {
@@ -1669,13 +1729,11 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  // Add this method in UserHome class
-static Future<void> navigateToHome(BuildContext context) async {
-  Navigator.pushAndRemoveUntil(
-    context,
-    MaterialPageRoute(builder: (context) => const UserHome()),
-    (route) => false,
-  );
- }
+  static Future<void> navigateToHome(BuildContext context) async {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const UserHome()),
+      (route) => false,
+    );
+  }
 }
-

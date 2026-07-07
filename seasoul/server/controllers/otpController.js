@@ -88,7 +88,17 @@ exports.sendOTP = async (req, res) => {
       });
     }
 
-    // ✅ CHECK: Email already registered? (NEW - IMPORTANT)
+    // ✅ CHECK: Valid email format using regex
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      console.log('❌ Invalid email format:', email);
+      return res.status(400).json({ 
+        success: false,
+        message: 'Please enter a valid email address (e.g., name@domain.com)' 
+      });
+    }
+
+    // ✅ CHECK: Email already registered?
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       console.log('❌ Email already registered:', email);

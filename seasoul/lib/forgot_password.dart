@@ -34,58 +34,81 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   void _sendOTP() async {
-    if (_isLoading) return;
+  if (_isLoading) return;
 
-    final email = _emailController.text.trim();
+  final email = _emailController.text.trim();
 
-    if (email.isEmpty) {
+  if (email.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please enter your email address'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  // ✅ CHECK: Valid email format
+  final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+  if (!emailRegex.hasMatch(email)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please enter a valid email address (e.g., name@domain.com)'),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 3),
+      ),
+    );
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    final data = {'email': email};
+    final response = await ApiService.post(ApiConstants.forgotPassword, data);
+
+    if (response['success'] == true) {
+      setState(() {
+        _otpSent = true;
+        _isLoading = false;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter your email address'),
-          backgroundColor: Colors.red,
+          content: Text('✅ OTP sent to your email'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
         ),
       );
-      return;
+    } else {
+      throw Exception(response['message'] ?? 'Failed to send OTP');
     }
-
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+  } catch (e) {
+    setState(() {
+      _isLoading = false;
+    });
+    
+    // ✅ Check error and show appropriate message
+    final errorMsg = e.toString().toLowerCase();
+    if (errorMsg.contains('invalid email') || errorMsg.contains('valid email')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter a valid email address'),
           backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
         ),
       );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final data = {'email': email};
-      final response = await ApiService.post(ApiConstants.forgotPassword, data);
-
-      if (response['success'] == true) {
-        setState(() {
-          _otpSent = true;
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ OTP sent to your email'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      } else {
-        throw Exception(response['message'] ?? 'Failed to send OTP');
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+    } else if (errorMsg.contains('not found') || errorMsg.contains('no user')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No account found with this email'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -94,6 +117,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       );
     }
   }
+}
 
   void _resetPassword() async {
     if (_isLoading) return;
