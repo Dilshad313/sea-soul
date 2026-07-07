@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:seasoul/payment.dart';
 import 'package:seasoul/services/activity_service.dart';
 import 'package:seasoul/services/wishlist_service.dart';
+import 'package:seasoul/services/review_service.dart';
+import 'package:seasoul/models/review_model.dart';
+import 'package:seasoul/widgets/review_card.dart';
+import 'package:seasoul/widgets/star_rating.dart';
 import 'package:share_plus/share_plus.dart';
 
 class ActivityDetailsPage extends StatefulWidget {
@@ -212,6 +216,7 @@ ${activity['description'] ?? ''}
                 _buildStatsMetricsSection(activity),
                 _buildDescriptionSection(activity),
                 _buildGallerySection(images),
+                _buildReviewsSection(), // ✅ Reviews section
                 _buildIncludesSection(activity),
                 _buildRequirementsSection(activity),
                 const SizedBox(height: 140),
@@ -429,12 +434,12 @@ ${activity['description'] ?? ''}
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.access_time, color: oceanBlue, size: 18),
+                      const Icon(Icons.star, color: sunsetOrange, size: 18),
                       const SizedBox(width: 4),
                       Text(
-                        activity['duration'] ?? '2 hours',
+                        activity['rating']?.toString() ?? '4.9',
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: deepNavy,
                         ),
@@ -442,11 +447,11 @@ ${activity['description'] ?? ''}
                     ],
                   ),
                   const SizedBox(height: 2),
-                  const Text(
-                    'DURATION',
+                  Text(
+                    '${activity['reviews'] ?? 0} REVIEWS',
                     style: TextStyle(
                       fontSize: 10,
-                      color: outline,
+                      color: outline.withOpacity(0.8),
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.8,
                     ),
@@ -461,12 +466,12 @@ ${activity['description'] ?? ''}
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.people_outline, color: oceanBlue, size: 18),
+                      const Icon(Icons.location_on_outlined, color: oceanBlue, size: 18),
                       const SizedBox(width: 4),
                       Text(
-                        '${activity['maxParticipants'] ?? 10}',
+                        '459 km',
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: deepNavy,
                         ),
@@ -474,11 +479,11 @@ ${activity['description'] ?? ''}
                     ],
                   ),
                   const SizedBox(height: 2),
-                  const Text(
-                    'MAX PARTICIPANTS',
+                  Text(
+                    'FROM ${activity['location']?.toUpperCase() ?? 'KOCHI'}',
                     style: TextStyle(
                       fontSize: 10,
-                      color: outline,
+                      color: outline.withOpacity(0.8),
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.8,
                     ),
@@ -646,6 +651,129 @@ ${activity['description'] ?? ''}
           ),
         ),
       ],
+    );
+  }
+
+  // ==================== REVIEWS SECTION ====================
+  Widget _buildReviewsSection() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: ReviewService.getItemReviews(
+        itemId: widget.activityId,
+        itemType: 'activity',
+        limit: 5,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: Text(
+                'Error loading reviews: ${snapshot.error}',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          );
+        }
+
+        final data = snapshot.data;
+        if (data == null || data['success'] != true) {
+          return const SizedBox.shrink();
+        }
+
+        final reviews = (data['reviews'] as List)
+            .map((r) => ReviewModel.fromJson(r))
+            .toList();
+
+        final averageRating = data['averageRating'] ?? 0;
+        final totalReviews = data['totalReviews'] ?? 0;
+
+        if (reviews.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                const Icon(Icons.rate_review, size: 48, color: Colors.grey),
+                const SizedBox(height: 8),
+                const Text(
+                  'No reviews yet',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Be the first to review this activity!',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Rating summary
+              Row(
+                children: [
+                  const Text(
+                    'Reviews',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A2B49),
+                    ),
+                  ),
+                  const Spacer(),
+                  StarRating(
+                    rating: averageRating,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '($totalReviews)',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF6E7880),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Reviews list
+              ...reviews.map((review) => ReviewCard(
+                review: review,
+                onHelpfulTap: () async {
+                  try {
+                    await ReviewService.toggleHelpful(review.id);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✅ Marked as helpful'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+              )),
+            ],
+          ),
+        );
+      },
     );
   }
 

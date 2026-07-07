@@ -204,29 +204,114 @@ class ApiService {
     }
   }
 
-  // ==================== IMAGE UPLOAD (Web + Mobile) ====================
+  // ✅ GET with Token
+  static Future<Map<String, dynamic>> getWithToken(String url) async {
+    try {
+      final token = await getToken();
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('📤 GET Request with Token: $url');
+      print('📥 Response Status: ${response.statusCode}');
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return responseData;
+      } else {
+        throw Exception(responseData['message'] ?? 'Something went wrong');
+      }
+    } catch (e) {
+      print('❌ Network Error: $e');
+      throw Exception('Network Error: $e');
+    }
+  }
+
+  // ✅ PUT with Token
+  static Future<Map<String, dynamic>> putWithToken(String url, Map<String, dynamic> data) async {
+    try {
+      final token = await getToken();
+      
+      final response = await http.put(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(data),
+      );
+
+      print('📤 PUT Request with Token: $url');
+      print('📤 Data: $data');
+      print('📥 Response Status: ${response.statusCode}');
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return responseData;
+      } else {
+        throw Exception(responseData['message'] ?? 'Something went wrong');
+      }
+    } catch (e) {
+      print('❌ Network Error: $e');
+      throw Exception('Network Error: $e');
+    }
+  }
+
+  // ✅ DELETE with Token
+  static Future<Map<String, dynamic>> deleteWithToken(String url) async {
+    try {
+      final token = await getToken();
+      
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('📤 DELETE Request with Token: $url');
+      print('📥 Response Status: ${response.statusCode}');
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return responseData;
+      } else {
+        throw Exception(responseData['message'] ?? 'Something went wrong');
+      }
+    } catch (e) {
+      print('❌ Network Error: $e');
+      throw Exception('Network Error: $e');
+    }
+  }
+
+  // ==================== IMAGE UPLOAD ====================
 
   static Future<Map<String, dynamic>> uploadImage(String url, String filePath) async {
     try {
       final token = await getToken();
       
-      // For Web: Use multipart request with proper filename and content type
       if (kIsWeb) {
         print('🌐 Uploading from Web');
         print('📤 File path: $filePath');
         
-        // For web, filePath is a blob URL
         final bytes = await http.readBytes(Uri.parse(filePath));
         print('📤 File size: ${bytes.length} bytes');
         
         final request = http.MultipartRequest('POST', Uri.parse(url));
         request.headers['Authorization'] = 'Bearer $token';
         
-        // Determine file extension and content type
         String filename = 'profile_image.jpg';
         String contentType = 'image/jpeg';
         
-        // Try to determine from filePath
         if (filePath.contains('data:image/png')) {
           filename = 'profile_image.png';
           contentType = 'image/png';
@@ -238,9 +323,7 @@ class ApiService {
           contentType = 'image/webp';
         }
         
-        // If it's a blob URL, try to get extension from path
         if (filePath.startsWith('blob:')) {
-          // Default to jpg for blob URLs
           filename = 'profile_image.jpg';
           contentType = 'image/jpeg';
         }
@@ -270,7 +353,6 @@ class ApiService {
           throw Exception(jsonError['message'] ?? 'Upload failed');
         }
       } else {
-        // For Mobile: Use file path
         print('📱 Uploading from Mobile');
         print('📤 File path: $filePath');
         
@@ -300,11 +382,11 @@ class ApiService {
   // ==================== PROFILE METHODS ====================
 
   static Future<Map<String, dynamic>> getProfile() async {
-    return await get(ApiConstants.profile);
+    return await getWithToken(ApiConstants.profile);
   }
 
   static Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
-    return await put(ApiConstants.profile, data);
+    return await putWithToken(ApiConstants.profile, data);
   }
 
   static Future<Map<String, dynamic>> uploadProfileImage(String filePath) async {
@@ -312,6 +394,6 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> deleteProfileImage() async {
-    return await delete(ApiConstants.deleteProfileImage);
+    return await deleteWithToken(ApiConstants.deleteProfileImage);
   }
 }

@@ -15,9 +15,9 @@ class _NotificationPageState extends State<NotificationPage> {
   @override
   void initState() {
     super.initState();
-    // Fetch notifications when page opens
+    // ✅ Fetch notifications when page opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NotificationProvider>().fetchNotifications();
+      context.read<NotificationProvider>().refresh();
     });
   }
 
@@ -83,13 +83,16 @@ class _NotificationPageState extends State<NotificationPage> {
             return _buildEmptyState();
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: provider.notifications.length,
-            itemBuilder: (context, index) {
-              final notification = provider.notifications[index];
-              return _buildNotificationItem(notification, provider);
-            },
+          return RefreshIndicator(
+            onRefresh: () => provider.refresh(),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: provider.notifications.length,
+              itemBuilder: (context, index) {
+                final notification = provider.notifications[index];
+                return _buildNotificationItem(notification, provider);
+              },
+            ),
           );
         },
       ),
@@ -132,6 +135,29 @@ class _NotificationPageState extends State<NotificationPage> {
               fontFamily: 'Inter',
             ),
           ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {
+              context.read<NotificationProvider>().refresh();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0099CC),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 32,
+                vertical: 12,
+              ),
+            ),
+            child: const Text(
+              'Refresh',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -149,13 +175,25 @@ class _NotificationPageState extends State<NotificationPage> {
         iconColor = const Color(0xFFFFB84D);
         icon = Icons.confirmation_number_outlined;
         break;
+      case 'payment':
+        iconColor = const Color(0xFF2ECC71);
+        icon = Icons.payment_outlined;
+        break;
+      case 'product':
+        iconColor = const Color(0xFF00E5FF);
+        icon = Icons.local_offer_outlined;
+        break;
+      case 'activity':
+        iconColor = const Color(0xFFFF6B35);
+        icon = Icons.kayaking;
+        break;
+      case 'profile':
+        iconColor = const Color(0xFF9B59B6);
+        icon = Icons.person_outline;
+        break;
       case 'promotion':
         iconColor = const Color(0xFF00C2A8);
         icon = Icons.local_offer_outlined;
-        break;
-      case 'update':
-        iconColor = const Color(0xFF0099CC);
-        icon = Icons.update_outlined;
         break;
       default:
         iconColor = const Color(0xFF6E7880);
@@ -164,7 +202,9 @@ class _NotificationPageState extends State<NotificationPage> {
 
     return GestureDetector(
       onTap: () {
-        provider.markAsRead(notification.id);
+        if (!notification.isRead) {
+          provider.markAsRead(notification.id);
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -188,7 +228,7 @@ class _NotificationPageState extends State<NotificationPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon
+            // ✅ Icon
             Container(
               width: 44,
               height: 44,
@@ -199,7 +239,7 @@ class _NotificationPageState extends State<NotificationPage> {
               child: Icon(icon, color: iconColor, size: 22),
             ),
             const SizedBox(width: 14),
-            // Content
+            // ✅ Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,15 +286,35 @@ class _NotificationPageState extends State<NotificationPage> {
                           ),
                         ),
                       ],
+                      // ✅ Type badge
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: iconColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          notification.type.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                            color: iconColor,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
-            // Delete button
+            // ✅ Delete button
             GestureDetector(
               onTap: () {
-                provider.removeNotification(notification.id);
+                _showDeleteConfirmation(context, notification.id, provider);
               },
               child: Container(
                 padding: const EdgeInsets.all(4),
@@ -271,6 +331,68 @@ class _NotificationPageState extends State<NotificationPage> {
     );
   }
 
+  // ✅ Show delete confirmation dialog
+  void _showDeleteConfirmation(
+    BuildContext context,
+    String id,
+    NotificationProvider provider,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Delete Notification',
+          style: TextStyle(
+            color: Color(0xFF1A2B49),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to delete this notification?',
+          style: TextStyle(
+            color: Color(0xFF6E7880),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: Color(0xFF6E7880),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              provider.removeNotification(id);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('🗑️ Notification deleted'),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Time ago formatter
   String _timeAgo(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);

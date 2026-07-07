@@ -2,9 +2,25 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:seasoul/review_page.dart';
 
 class payment_success extends StatefulWidget {
-  const payment_success({super.key});
+  final String? bookingId;
+  final String? productId;
+  final String? activityId;
+  final String itemName;
+  final String itemType;
+  final double amount;
+
+  const payment_success({
+    super.key,
+    this.bookingId,
+    this.productId,
+    this.activityId,
+    this.itemName = 'Package',
+    this.itemType = 'product',
+    this.amount = 0,
+  });
 
   @override
   State<payment_success> createState() => _payment_successState();
@@ -135,6 +151,12 @@ class _payment_successState extends State<payment_success>
                         _buildSuccessCard(),
                         const SizedBox(height: 24),
                         _buildHelpfulTipsGrid(),
+                        // ✅ Review Button - Show after payment success
+                        if (widget.bookingId != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: _buildReviewButton(),
+                          ),
                       ],
                     ),
                   ),
@@ -216,23 +238,24 @@ class _payment_successState extends State<payment_success>
               ),
               const SizedBox(height: 20),
               const Text(
-                'Booking Confirmed!',
+                'Payment Successful!',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: deepNavy,
                 ),
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               Center(
                 child: Text(
-                  "Pack your bags, Agatti is waiting for you. We've sent your itinerary to your email.",
+                  "Your payment of ₹${widget.amount} has been processed successfully. We've sent the receipt to your email.",
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 15,
                     color: outline,
                     height: 1.5,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
               const SizedBox(height: 24),
@@ -329,7 +352,6 @@ class _payment_successState extends State<payment_success>
                 child: Divider(color: Colors.white30, thickness: 1),
               ),
 
-              // Support Elements Row Container Interface
               const Text(
                 'Need help? Our experts are online.',
                 style: TextStyle(
@@ -549,6 +571,73 @@ class _payment_successState extends State<payment_success>
           ),
         );
       }).toList(),
+    );
+  }
+
+  // ✅ Review Button Widget
+  Widget _buildReviewButton() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.white.withOpacity(0.9),
+        border: Border.all(color: Colors.white.withOpacity(0.4)),
+        boxShadow: [
+          BoxShadow(
+            color: deepNavy.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ReviewPage(
+                bookingId: widget.bookingId!,
+                productId: widget.productId,
+                activityId: widget.activityId,
+                itemName: widget.itemName,
+                itemType: widget.itemType,
+              ),
+            ),
+          ).then((result) {
+            if (result == true) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✅ Thank you for your review!'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          });
+        },
+        icon: const Icon(
+          Icons.star_border,
+          color: Colors.white,
+          size: 24,
+        ),
+        label: const Text(
+          'Write a Review',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFFB84D),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          elevation: 0,
+        ),
+      ),
     );
   }
 }

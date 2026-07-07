@@ -7,13 +7,21 @@ class NotificationProvider extends ChangeNotifier {
   List<NotificationModel> _notifications = [];
   bool _isLoading = false;
   int _unreadCount = 0;
+  bool _isInitialized = false;
 
   List<NotificationModel> get notifications => _notifications;
   bool get isLoading => _isLoading;
   int get unreadCount => _unreadCount;
 
   NotificationProvider() {
-    fetchNotifications();
+    // Initialize and fetch notifications
+    _init();
+  }
+
+  Future<void> _init() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+    await fetchNotifications();
   }
 
   // ✅ Fetch notifications from API
@@ -22,16 +30,30 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      print('📱 Fetching notifications from API...');
       final response = await NotificationApiService.getNotifications();
+      
+      print('📥 Response received: ${response['success']}');
+      print('📊 Total notifications: ${response['notifications']?.length ?? 0}');
+      print('📊 Unread count: ${response['unreadCount'] ?? 0}');
+
       if (response['success'] == true) {
-        _notifications = (response['notifications'] as List)
+        final List<dynamic> notificationData = response['notifications'] ?? [];
+        
+        _notifications = notificationData
             .map((n) => NotificationModel.fromJson(n))
             .toList();
+        
         _unreadCount = response['unreadCount'] ?? 0;
+        
+        print('✅ Loaded ${_notifications.length} notifications');
+        print('✅ Unread count: $_unreadCount');
+      } else {
+        print('❌ API returned success: false');
+        _loadDummyNotifications();
       }
     } catch (e) {
       print('❌ Error fetching notifications: $e');
-      // Fallback to dummy data if API fails
       _loadDummyNotifications();
     } finally {
       _isLoading = false;
@@ -41,20 +63,21 @@ class NotificationProvider extends ChangeNotifier {
 
   // ✅ Load dummy notifications (Fallback)
   void _loadDummyNotifications() {
+    print('📱 Loading dummy notifications...');
     _notifications = [
       NotificationModel(
         id: '1',
-        title: '🎉 New Offer!',
-        message: 'Get 20% off on all scuba diving packages this weekend!',
-        type: 'promotion',
+        title: '🎉 Welcome to SeaSoul!',
+        message: 'Explore the pristine islands of Lakshadweep with us.',
+        type: 'general',
         timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
         isRead: false,
-        imageUrl: 'https://via.placeholder.com/50',
+        imageUrl: null,
       ),
       NotificationModel(
         id: '2',
         title: '📅 Booking Confirmed',
-        message: 'Your Luxury Beach Resort booking has been confirmed for Oct 15-20.',
+        message: 'Your Luxury Beach Resort booking has been confirmed.',
         type: 'booking',
         timestamp: DateTime.now().subtract(const Duration(hours: 2)),
         isRead: false,
@@ -68,7 +91,8 @@ class NotificationProvider extends ChangeNotifier {
         isRead: false,
       ),
     ];
-    _updateUnreadCount();
+    _unreadCount = _notifications.where((n) => !n.isRead).length;
+    notifyListeners();
   }
 
   void _updateUnreadCount() {
@@ -79,6 +103,7 @@ class NotificationProvider extends ChangeNotifier {
   // ✅ Mark as read
   void markAsRead(String id) async {
     try {
+      print('📖 Marking notification as read: $id');
       await NotificationApiService.markAsRead(id);
       
       final index = _notifications.indexWhere((n) => n.id == id);
@@ -94,6 +119,7 @@ class NotificationProvider extends ChangeNotifier {
         );
         _updateUnreadCount();
         notifyListeners();
+        print('✅ Notification marked as read locally');
       }
     } catch (e) {
       print('❌ Error marking as read: $e');
@@ -103,6 +129,7 @@ class NotificationProvider extends ChangeNotifier {
   // ✅ Mark all as read
   void markAllAsRead() async {
     try {
+      print('📖 Marking all notifications as read...');
       await NotificationApiService.markAllAsRead();
       
       for (int i = 0; i < _notifications.length; i++) {
@@ -118,20 +145,25 @@ class NotificationProvider extends ChangeNotifier {
       }
       _updateUnreadCount();
       notifyListeners();
+      print('✅ All notifications marked as read');
     } catch (e) {
       print('❌ Error marking all as read: $e');
     }
   }
 
-  // ✅ Add new notification (with sound)
+  // ✅ Add new notification (with sound) - Called from backend
   Future<void> addNotification({
     required String title,
     required String message,
     String type = 'general',
     String? imageUrl,
+    String? id,
   }) async {
+    print('🔔 Adding new notification: $title');
+    print('🔔 Message: $message');
+    
     final newNotification = NotificationModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
       message: message,
       type: type,
@@ -144,22 +176,29 @@ class NotificationProvider extends ChangeNotifier {
     _updateUnreadCount();
     notifyListeners();
 
-    // ✅ Show system notification with sound
-    await NotificationService.showNotification(
-      title: title,
-      body: message,
-      payload: newNotification.id,
-    );
+    // ✅ Play sound and show system notification
+    try {
+      await NotificationService.showNotification(
+        title: title,
+        body: message,
+        payload: newNotification.id,
+      );
+      print('✅ Sound played and notification shown');
+    } catch (e) {
+      print('❌ Error playing sound: $e');
+    }
   }
 
   // ✅ Remove notification
   void removeNotification(String id) async {
     try {
+      print('🗑️ Removing notification: $id');
       await NotificationApiService.deleteNotification(id);
       
       _notifications.removeWhere((n) => n.id == id);
       _updateUnreadCount();
       notifyListeners();
+      print('✅ Notification removed');
     } catch (e) {
       print('❌ Error removing notification: $e');
     }
@@ -168,11 +207,13 @@ class NotificationProvider extends ChangeNotifier {
   // ✅ Clear all notifications
   void clearAll() async {
     try {
+      print('🗑️ Clearing all notifications...');
       await NotificationApiService.deleteAllNotifications();
       
       _notifications.clear();
       _unreadCount = 0;
       notifyListeners();
+      print('✅ All notifications cleared');
     } catch (e) {
       print('❌ Error clearing all: $e');
     }
@@ -180,6 +221,21 @@ class NotificationProvider extends ChangeNotifier {
 
   // ✅ Refresh notifications
   Future<void> refresh() async {
+    print('🔄 Refreshing notifications...');
     await fetchNotifications();
+  }
+
+  // ✅ Force update unread count
+  Future<void> updateUnreadCount() async {
+    try {
+      final count = await NotificationApiService.getUnreadCount();
+      if (count != _unreadCount) {
+        _unreadCount = count;
+        notifyListeners();
+        print('📊 Updated unread count: $_unreadCount');
+      }
+    } catch (e) {
+      print('❌ Error updating unread count: $e');
+    }
   }
 }

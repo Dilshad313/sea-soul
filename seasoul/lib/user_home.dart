@@ -11,6 +11,9 @@ import 'package:seasoul/activity_details.dart';
 import 'package:seasoul/services/product_service.dart';
 import 'package:seasoul/services/activity_service.dart';
 import 'package:seasoul/services/wishlist_service.dart';
+import 'package:seasoul/services/review_service.dart';
+import 'package:seasoul/models/review_model.dart';
+import 'package:seasoul/widgets/review_card.dart';
 import 'package:seasoul/providers/notification_provider.dart';
 import 'package:seasoul/notification_page.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -81,22 +84,16 @@ class _UserHomeState extends State<UserHome> {
     _activityPageController = PageController();
     _loadAllData();
     
-    // ✅ Add test notification after 3 seconds (for testing)
+    // ✅ Auto refresh notifications on page load
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(seconds: 3), () {
-        _addTestNotification();
+      final provider = Provider.of<NotificationProvider>(context, listen: false);
+      provider.refresh();
+      
+      // ✅ Update unread count periodically
+      Future.delayed(const Duration(seconds: 5), () {
+        provider.updateUnreadCount();
       });
     });
-  }
-
-  // ✅ Test notification - Remove this after testing
-  void _addTestNotification() {
-    final provider = Provider.of<NotificationProvider>(context, listen: false);
-    provider.addNotification(
-      title: '👋 Welcome to SeaSoul!',
-      message: 'Explore the pristine islands of Lakshadweep with us.',
-      type: 'general',
-    );
   }
 
   @override
@@ -455,6 +452,8 @@ class _UserHomeState extends State<UserHome> {
           _buildActivitiesSection(),
           const SizedBox(height: 32),
           _buildBentoGridSection(),
+          const SizedBox(height: 32),
+          _buildRecentReviewsSection(), // ✅ Added recent reviews
           const SizedBox(height: 100),
         ],
       ),
@@ -1638,6 +1637,83 @@ class _UserHomeState extends State<UserHome> {
           ],
         ),
       ],
+    );
+  }
+
+  // ==================== RECENT REVIEWS SECTION ====================
+  Widget _buildRecentReviewsSection() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: ReviewService.getRecentReviews(limit: 3),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: Text(
+                'Error loading reviews: ${snapshot.error}',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          );
+        }
+
+        final data = snapshot.data;
+        if (data == null || data['success'] != true) {
+          return const SizedBox.shrink();
+        }
+
+        final reviews = (data['reviews'] as List)
+            .map((r) => ReviewModel.fromJson(r))
+            .toList();
+
+        if (reviews.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Recent Reviews',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1A2B49),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...reviews.map((review) => ReviewCard(
+              review: review,
+              onHelpfulTap: () async {
+                try {
+                  await ReviewService.toggleHelpful(review.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Marked as helpful'),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+            )),
+          ],
+        );
+      },
     );
   }
 

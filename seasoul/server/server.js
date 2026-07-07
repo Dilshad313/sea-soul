@@ -41,6 +41,8 @@ app.use('/api/bookings', require('./routes/bookingRoutes'));
 
 app.use('/api/payments', require('./routes/paymentRoutes'));
 
+app.use('/api/reviews', require('./routes/reviewRoutes'));
+
 app.get('/', (req, res) => {
   res.send('SeaSoul API is running...');
 });
