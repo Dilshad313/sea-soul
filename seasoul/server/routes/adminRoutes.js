@@ -104,7 +104,7 @@ router.put('/profile', isAdmin, updateAdminProfile);
 router.post('/profile/upload-image', isAdmin, upload.single('image'), uploadAdminProfileImage);
 router.delete('/profile/image', isAdmin, deleteAdminProfileImage);
 
-// ==================== IMAGE UPLOAD ROUTE (for products/activities) ====================
+// ==================== IMAGE UPLOAD ROUTE ====================
 router.post('/upload', isAdmin, upload.single('image'), async (req, res) => {
   try {
     console.log('📤 Upload request received');
@@ -200,7 +200,6 @@ router.get('/products/:id', isAdmin, async (req, res) => {
   }
 });
 
-// ✅ CREATE PRODUCT - With Notification for all users
 router.post('/products', isAdmin, async (req, res) => {
   try {
     console.log('📦 Creating new product...');
@@ -208,7 +207,6 @@ router.post('/products', isAdmin, async (req, res) => {
     await product.save();
     console.log('✅ Product created:', product._id);
 
-    // ✅ Send notification to ALL users about new product
     const imageUrl = product.images && product.images.length > 0 ? product.images[0] : null;
     
     const notificationCount = await createNotificationForAllUsers(
@@ -289,7 +287,6 @@ router.get('/activities/:id', isAdmin, async (req, res) => {
   }
 });
 
-// ✅ CREATE ACTIVITY - With Notification for all users
 router.post('/activities', isAdmin, async (req, res) => {
   try {
     console.log('⚡ Creating new activity...');
@@ -297,7 +294,6 @@ router.post('/activities', isAdmin, async (req, res) => {
     await activity.save();
     console.log('✅ Activity created:', activity._id);
 
-    // ✅ Send notification to ALL users about new activity
     const imageUrl = activity.images && activity.images.length > 0 ? activity.images[0] : null;
     
     const notificationCount = await createNotificationForAllUsers(
@@ -357,7 +353,6 @@ router.delete('/activities/:id', isAdmin, async (req, res) => {
 // ==================== Users Management ====================
 router.get('/users', isAdmin, async (req, res) => {
   try {
-    // ✅ Filter out admin users
     const users = await User.find({ role: { $ne: 'admin' } })
       .select('-password')
       .sort({ createdAt: -1 });
@@ -368,7 +363,6 @@ router.get('/users', isAdmin, async (req, res) => {
   }
 });
 
-// Update user status (activate/deactivate)
 router.put('/users/:id/status', isAdmin, async (req, res) => {
   try {
     const { isActive } = req.body;
@@ -389,13 +383,13 @@ router.put('/users/:id/status', isAdmin, async (req, res) => {
   }
 });
 
-// ==================== Bookings Management ====================
+// ==================== Bookings Management (FIXED) ====================
 router.get('/bookings', isAdmin, async (req, res) => {
   try {
     const bookings = await Booking.find()
-      .populate('userId', 'fullName email phone')
-      .populate('productId', 'name price')
-      .populate('activityId', 'name price')
+      .populate('userId', 'fullName email phone profileImage')
+      .populate('productId', 'name price images location')
+      .populate('activityId', 'name price images location')
       .sort({ createdAt: -1 });
     res.json({ success: true, bookings });
   } catch (error) {
@@ -407,9 +401,9 @@ router.get('/bookings', isAdmin, async (req, res) => {
 router.get('/bookings/:id', isAdmin, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-      .populate('userId', 'fullName email phone')
-      .populate('productId', 'name price location')
-      .populate('activityId', 'name price location');
+      .populate('userId', 'fullName email phone profileImage')
+      .populate('productId', 'name price location images')
+      .populate('activityId', 'name price location images');
     
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
@@ -428,7 +422,9 @@ router.put('/bookings/:id/status', isAdmin, async (req, res) => {
       req.params.id,
       { status },
       { new: true }
-    );
+    ).populate('userId', 'fullName email phone')
+     .populate('productId', 'name price')
+     .populate('activityId', 'name price');
     
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
@@ -440,12 +436,19 @@ router.put('/bookings/:id/status', isAdmin, async (req, res) => {
   }
 });
 
-// ==================== Payments Management ====================
+// ==================== Payments Management (FIXED) ====================
 router.get('/payments', isAdmin, async (req, res) => {
   try {
     const payments = await Payment.find()
-      .populate('userId', 'fullName email phone')
-      .populate('bookingId')
+      .populate('userId', 'fullName email phone profileImage')
+      .populate({
+        path: 'bookingId',
+        populate: [
+          { path: 'productId', select: 'name price' },
+          { path: 'activityId', select: 'name price' },
+          { path: 'userId', select: 'fullName email' }
+        ]
+      })
       .sort({ createdAt: -1 });
     res.json({ success: true, payments });
   } catch (error) {
@@ -457,8 +460,15 @@ router.get('/payments', isAdmin, async (req, res) => {
 router.get('/payments/:id', isAdmin, async (req, res) => {
   try {
     const payment = await Payment.findById(req.params.id)
-      .populate('userId', 'fullName email phone')
-      .populate('bookingId');
+      .populate('userId', 'fullName email phone profileImage')
+      .populate({
+        path: 'bookingId',
+        populate: [
+          { path: 'productId', select: 'name price' },
+          { path: 'activityId', select: 'name price' },
+          { path: 'userId', select: 'fullName email' }
+        ]
+      });
     
     if (!payment) {
       return res.status(404).json({ success: false, message: 'Payment not found' });

@@ -14,6 +14,7 @@ import 'package:seasoul/services/wishlist_service.dart';
 import 'package:seasoul/services/review_service.dart';
 import 'package:seasoul/models/review_model.dart';
 import 'package:seasoul/widgets/review_card.dart';
+import 'package:seasoul/widgets/star_rating.dart';
 import 'package:seasoul/providers/notification_provider.dart';
 import 'package:seasoul/notification_page.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -39,6 +40,13 @@ class _UserHomeState extends State<UserHome> {
   List<dynamic> _trendingProducts = [];
   List<dynamic> _featuredActivities = [];
   List<dynamic> _allProducts = [];
+
+  // ✅ Store ratings for products and activities
+  Map<String, double> _productRatings = {};
+  Map<String, int> _productReviewCounts = {};
+  Map<String, double> _activityRatings = {};
+  Map<String, int> _activityReviewCounts = {};
+  bool _isLoadingRatings = true;
 
   // Auto-slide controllers
   late PageController _packagePageController;
@@ -84,12 +92,10 @@ class _UserHomeState extends State<UserHome> {
     _activityPageController = PageController();
     _loadAllData();
     
-    // ✅ Auto refresh notifications on page load
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<NotificationProvider>(context, listen: false);
       provider.refresh();
       
-      // ✅ Update unread count periodically
       Future.delayed(const Duration(seconds: 5), () {
         provider.updateUnreadCount();
       });
@@ -112,10 +118,54 @@ class _UserHomeState extends State<UserHome> {
       _loadTrendingProducts(),
       _loadActivities(),
       _loadFeaturedActivities(),
+      _loadAllRatings(), // ✅ Load all ratings
     ]);
     
     _startPackageAutoSlide();
     _startActivityAutoSlide();
+  }
+
+  // ✅ Load ratings for all products and activities
+  Future<void> _loadAllRatings() async {
+    setState(() => _isLoadingRatings = true);
+    
+    try {
+      // Load ratings for products
+      for (var product in _allProducts) {
+        final productId = product['_id'];
+        if (productId != null) {
+          final response = await ReviewService.getItemReviews(
+            itemId: productId,
+            itemType: 'product',
+            limit: 1,
+          );
+          if (response['success'] == true) {
+            _productRatings[productId] = (response['averageRating'] ?? 0).toDouble();
+            _productReviewCounts[productId] = response['totalReviews'] ?? 0;
+          }
+        }
+      }
+
+      // Load ratings for activities
+      for (var activity in _activities) {
+        final activityId = activity['_id'];
+        if (activityId != null) {
+          final response = await ReviewService.getItemReviews(
+            itemId: activityId,
+            itemType: 'activity',
+            limit: 1,
+          );
+          if (response['success'] == true) {
+            _activityRatings[activityId] = (response['averageRating'] ?? 0).toDouble();
+            _activityReviewCounts[activityId] = response['totalReviews'] ?? 0;
+          }
+        }
+      }
+    } catch (e) {
+      print('❌ Error loading ratings: $e');
+    }
+    
+    setState(() => _isLoadingRatings = false);
   }
 
   void _startPackageAutoSlide() {
@@ -359,7 +409,6 @@ class _UserHomeState extends State<UserHome> {
                 ],
               ),
               actions: [
-                // ✅ Notification Icon with Badge
                 Consumer<NotificationProvider>(
                   builder: (context, provider, child) {
                     return Stack(
@@ -453,7 +502,7 @@ class _UserHomeState extends State<UserHome> {
           const SizedBox(height: 32),
           _buildBentoGridSection(),
           const SizedBox(height: 32),
-          _buildRecentReviewsSection(), // ✅ Added recent reviews
+          _buildRecentReviewsSection(),
           const SizedBox(height: 100),
         ],
       ),
@@ -576,6 +625,17 @@ class _UserHomeState extends State<UserHome> {
     final itemDescription = featuredItem['description'] ?? '';
     final itemDuration = featuredItem['duration'] ?? '4 Days / 3 Nights';
     final itemPrice = featuredItem['price'] ?? 0;
+
+    // ✅ Get rating for featured item
+    double rating = 0;
+    int reviewCount = 0;
+    if (isProduct) {
+      rating = _productRatings[itemId] ?? 0;
+      reviewCount = _productReviewCounts[itemId] ?? 0;
+    } else {
+      rating = _activityRatings[itemId] ?? 0;
+      reviewCount = _activityReviewCounts[itemId] ?? 0;
+    }
 
     return Column(
       children: [
@@ -713,7 +773,36 @@ class _UserHomeState extends State<UserHome> {
                                   fontFamily: 'Inter',
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 12),
+                              // ✅ Star Rating
+                              Row(
+                                children: [
+                                  StarRating(
+                                    rating: rating,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    rating > 0 
+                                        ? rating.toStringAsFixed(1)
+                                        : '0.0',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: deepNavy,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '($reviewCount)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: outline,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -867,6 +956,7 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
+  // ==================== PACKAGES SECTION WITH RATING ====================
   Widget _buildPackagesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -907,7 +997,7 @@ class _UserHomeState extends State<UserHome> {
           )
         else
           SizedBox(
-            height: 280,
+            height: 310,
             child: Column(
               children: [
                 Expanded(
@@ -926,6 +1016,11 @@ class _UserHomeState extends State<UserHome> {
                       final images = pkg['images'] ?? [];
                       final imageUrl = images.isNotEmpty ? images[0] : 
                           'https://via.placeholder.com/300x200';
+                      
+                      // ✅ Get rating for this package
+                      final pkgId = pkg['_id'];
+                      final rating = _productRatings[pkgId] ?? 0;
+                      final reviewCount = _productReviewCounts[pkgId] ?? 0;
                       
                       return GestureDetector(
                         onTap: () {
@@ -973,39 +1068,30 @@ class _UserHomeState extends State<UserHome> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    // ✅ Star Rating with stars
                                     Row(
                                       children: [
-                                        const Icon(
-                                          Icons.star,
-                                          color: sunsetOrange,
-                                          size: 16,
+                                        StarRating(
+                                          rating: rating,
+                                          size: 14,
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: 6),
                                         Text(
-                                          pkg['rating']?.toString() ?? '4.5',
+                                          rating > 0 
+                                              ? rating.toStringAsFixed(1)
+                                              : '0.0',
                                           style: const TextStyle(
                                             color: Colors.white,
-                                            fontSize: 14,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: sunsetOrange.withOpacity(0.3),
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                          child: Text(
-                                            pkg['category'] ?? 'Package',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '($reviewCount)',
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 10,
                                           ),
                                         ),
                                       ],
@@ -1112,6 +1198,7 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
+  // ==================== ACTIVITIES SECTION WITH RATING ====================
   Widget _buildActivitiesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1152,7 +1239,7 @@ class _UserHomeState extends State<UserHome> {
           )
         else
           SizedBox(
-            height: 270,
+            height: 300,
             child: Column(
               children: [
                 Expanded(
@@ -1171,6 +1258,11 @@ class _UserHomeState extends State<UserHome> {
                       final images = activity['images'] ?? [];
                       final imageUrl = images.isNotEmpty ? images[0] : 
                           'https://via.placeholder.com/300x200';
+                      
+                      // ✅ Get rating for this activity
+                      final activityId = activity['_id'];
+                      final rating = _activityRatings[activityId] ?? 0;
+                      final reviewCount = _activityReviewCounts[activityId] ?? 0;
                       
                       return GestureDetector(
                         onTap: () {
@@ -1262,6 +1354,35 @@ class _UserHomeState extends State<UserHome> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    // ✅ Star Rating with stars
+                                    Row(
+                                      children: [
+                                        StarRating(
+                                          rating: rating,
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          rating > 0 
+                                              ? rating.toStringAsFixed(1)
+                                              : '0.0',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '($reviewCount)',
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
                                     Text(
                                       activity['name'] ?? 'Activity',
                                       maxLines: 1,
@@ -1370,6 +1491,7 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
+  // ==================== BENTO GRID SECTION WITH RATING ====================
   Widget _buildBentoGridSection() {
     List<dynamic> latestProducts = List.from(_allProducts);
     latestProducts.sort((a, b) => (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''));
@@ -1440,6 +1562,35 @@ class _UserHomeState extends State<UserHome> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // ✅ Star Rating
+                      Row(
+                        children: [
+                          StarRating(
+                            rating: _productRatings[latestProducts[0]['_id']] ?? 0,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            (_productRatings[latestProducts[0]['_id']] ?? 0) > 0 
+                                ? (_productRatings[latestProducts[0]['_id']] ?? 0).toStringAsFixed(1)
+                                : '0.0',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '(${_productReviewCounts[latestProducts[0]['_id']] ?? 0})',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
                       Text(
                         latestProducts[0]['name'] ?? 'Product',
                         style: const TextStyle(
@@ -1535,6 +1686,27 @@ class _UserHomeState extends State<UserHome> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // ✅ Star Rating for product 2
+                              Row(
+                                children: [
+                                  StarRating(
+                                    rating: _productRatings[latestProducts[1]['_id']] ?? 0,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    (_productRatings[latestProducts[1]['_id']] ?? 0) > 0 
+                                        ? (_productRatings[latestProducts[1]['_id']] ?? 0).toStringAsFixed(1)
+                                        : '0.0',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
                               Text(
                                 latestProducts[1]['name'] ?? 'Product',
                                 style: const TextStyle(
@@ -1610,6 +1782,27 @@ class _UserHomeState extends State<UserHome> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // ✅ Star Rating for product 3
+                              Row(
+                                children: [
+                                  StarRating(
+                                    rating: _productRatings[latestProducts[2]['_id']] ?? 0,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    (_productRatings[latestProducts[2]['_id']] ?? 0) > 0 
+                                        ? (_productRatings[latestProducts[2]['_id']] ?? 0).toStringAsFixed(1)
+                                        : '0.0',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
                               Text(
                                 latestProducts[2]['name'] ?? 'Product',
                                 style: const TextStyle(

@@ -43,9 +43,21 @@ export default function PaymentsList() {
   };
 
   const filteredPayments = payments.filter(payment => {
+    // ✅ Get customer name properly
+    const customerName = payment.userId?.fullName || payment.user?.fullName || '';
+    const customerEmail = payment.userId?.email || payment.user?.email || '';
+    
+    // ✅ Get item name from booking
+    const itemName = payment.bookingId?.productId?.name || 
+                     payment.bookingId?.activityId?.name || '';
+    
     const matchStatus = filterStatus === 'all' || payment.status === filterStatus;
-    const matchSearch = payment._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        payment.user?.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch = 
+      payment._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.transactionId?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchStatus && matchSearch;
   });
 
@@ -84,7 +96,7 @@ export default function PaymentsList() {
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by transaction ID or customer name..."
+            placeholder="Search by transaction ID, customer name, or item..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00E5FF] focus:border-transparent"
@@ -127,6 +139,7 @@ export default function PaymentsList() {
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Transaction ID</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Item</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Method</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
@@ -140,16 +153,28 @@ export default function PaymentsList() {
                   const StatusIcon = statusConfig.icon;
                   const MethodIcon = getPaymentMethodIcon(payment.method);
                   
+                  // ✅ Get customer name properly
+                  const customerName = payment.userId?.fullName || payment.user?.fullName || 'Unknown User';
+                  const customerEmail = payment.userId?.email || payment.user?.email || '';
+                  
+                  // ✅ Get item name from booking
+                  const itemName = payment.bookingId?.productId?.name || 
+                                   payment.bookingId?.activityId?.name || 
+                                   'Unknown Item';
+                  
                   return (
                     <tr key={payment._id} className="hover:bg-gray-50/50 transition">
                       <td className="px-6 py-4 font-mono text-sm text-gray-600">
-                        #{payment._id?.slice(-8)}
+                        #{payment.transactionId || payment._id?.slice(-8)}
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium text-[#1A2B49]">{payment.user?.fullName || 'Unknown'}</p>
-                          <p className="text-sm text-gray-500">{payment.user?.email}</p>
+                          <p className="font-medium text-[#1A2B49]">{customerName}</p>
+                          <p className="text-sm text-gray-500">{customerEmail}</p>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-medium text-[#1A2B49]">{itemName}</p>
                       </td>
                       <td className="px-6 py-4 font-bold text-[#1A2B49]">₹{payment.amount}</td>
                       <td className="px-6 py-4">
@@ -190,15 +215,24 @@ export default function PaymentsList() {
               const StatusIcon = statusConfig.icon;
               const MethodIcon = getPaymentMethodIcon(payment.method);
               
+              // ✅ Get customer name properly
+              const customerName = payment.userId?.fullName || payment.user?.fullName || 'Unknown User';
+              const customerEmail = payment.userId?.email || payment.user?.email || '';
+              
+              // ✅ Get item name from booking
+              const itemName = payment.bookingId?.productId?.name || 
+                               payment.bookingId?.activityId?.name || 
+                               'Unknown Item';
+              
               return (
                 <div key={payment._id} className="p-4 border-b border-gray-100 hover:bg-gray-50/50 transition">
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-mono text-sm text-gray-600">
-                        #{payment._id?.slice(-8)}
+                        #{payment.transactionId || payment._id?.slice(-8)}
                       </p>
-                      <p className="font-medium text-[#1A2B49]">{payment.user?.fullName || 'Unknown'}</p>
-                      <p className="text-sm text-gray-500">{payment.user?.email}</p>
+                      <p className="font-medium text-[#1A2B49]">{customerName}</p>
+                      <p className="text-sm text-gray-500">{customerEmail}</p>
                     </div>
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
                       <StatusIcon size={14} />
@@ -207,6 +241,10 @@ export default function PaymentsList() {
                   </div>
                   
                   <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-xs text-gray-400">Item</p>
+                      <p className="font-medium text-[#1A2B49]">{itemName}</p>
+                    </div>
                     <div>
                       <p className="text-xs text-gray-400">Amount</p>
                       <p className="font-bold text-[#1A2B49]">₹{payment.amount}</p>
@@ -228,11 +266,11 @@ export default function PaymentsList() {
                         })}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button className="p-2 text-gray-400 hover:text-[#1A2B49] hover:bg-gray-100 rounded-lg transition">
-                        <Eye size={17} />
-                      </button>
-                    </div>
+                  </div>
+                  <div className="mt-2 flex justify-end">
+                    <button className="p-2 text-gray-400 hover:text-[#1A2B49] hover:bg-gray-100 rounded-lg transition">
+                      <Eye size={17} />
+                    </button>
                   </div>
                 </div>
               );

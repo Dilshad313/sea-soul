@@ -4,6 +4,7 @@ import 'package:seasoul/payment.dart';
 import 'package:seasoul/services/activity_service.dart';
 import 'package:seasoul/services/wishlist_service.dart';
 import 'package:seasoul/services/review_service.dart';
+import 'package:seasoul/services/location_service.dart';
 import 'package:seasoul/models/review_model.dart';
 import 'package:seasoul/widgets/review_card.dart';
 import 'package:seasoul/widgets/star_rating.dart';
@@ -27,6 +28,17 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   bool _isSaving = false;
   Map<String, dynamic>? _activity;
 
+  // ✅ Distance related variables
+  double _distanceInKm = 0.0;
+  String _distanceText = 'Loading...';
+  String _fromLocation = 'Your Location';
+  bool _isDistanceLoading = true;
+
+  // ✅ Review related variables
+  double _averageRating = 0.0;
+  int _totalReviews = 0;
+  bool _isLoadingReviews = true;
+
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
   static const Color sunsetOrange = Color(0xFFFFB84D);
@@ -34,11 +46,27 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   static const Color outline = Color(0xFF6E7880);
   static const Color sandWhite = Color(0xFFF8FBFF);
 
+  // ✅ Island coordinates for Lakshadweep
+  final Map<String, Map<String, double>> islandCoordinates = {
+    'Agatti': {'lat': 10.8327, 'lng': 72.2067},
+    'Kavaratti': {'lat': 10.5667, 'lng': 72.6333},
+    'Minicoy': {'lat': 8.2856, 'lng': 73.0459},
+    'Kalpeni': {'lat': 10.0692, 'lng': 73.6400},
+    'Androth': {'lat': 10.8150, 'lng': 73.6800},
+    'Bangaram': {'lat': 10.9100, 'lng': 72.2900},
+    'Kadmat': {'lat': 11.2200, 'lng': 72.7800},
+    'Kiltan': {'lat': 11.4800, 'lng': 72.9600},
+    'Chetlat': {'lat': 11.7000, 'lng': 72.7000},
+    'Bitra': {'lat': 11.5500, 'lng': 72.1500},
+    'Amini': {'lat': 11.1300, 'lng': 72.7200},
+  };
+
   @override
   void initState() {
     super.initState();
     _loadActivity();
     _checkWishlistStatus();
+    _loadReviews(); // ✅ Load reviews
   }
 
   Future<void> _checkWishlistStatus() async {
@@ -60,6 +88,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
             _activity = response['activity'];
             _isLoading = false;
           });
+          _calculateDistance();
         }
       }
     } catch (e) {
@@ -67,6 +96,89 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         setState(() => _isLoading = false);
       }
       print('❌ Error loading activity: $e');
+    }
+  }
+
+  // ✅ Load reviews and update rating
+  Future<void> _loadReviews() async {
+    setState(() => _isLoadingReviews = true);
+    try {
+      final response = await ReviewService.getItemReviews(
+        itemId: widget.activityId,
+        itemType: 'activity',
+        limit: 10,
+      );
+      
+      if (response['success'] == true) {
+        setState(() {
+          _averageRating = (response['averageRating'] ?? 0).toDouble();
+          _totalReviews = response['totalReviews'] ?? 0;
+          _isLoadingReviews = false;
+        });
+        print('✅ Loaded reviews: $_averageRating stars, $_totalReviews reviews');
+      } else {
+        setState(() {
+          _averageRating = 0.0;
+          _totalReviews = 0;
+          _isLoadingReviews = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _averageRating = 0.0;
+        _totalReviews = 0;
+        _isLoadingReviews = false;
+      });
+      print('❌ Error loading reviews: $e');
+    }
+  }
+
+  Future<void> _calculateDistance() async {
+    if (_activity == null) return;
+    
+    final Map<String, dynamic> activity = _activity!;
+    String location = activity['location'] ?? '';
+    String islandKey = '';
+    
+    for (var key in islandCoordinates.keys) {
+      if (location.toLowerCase().contains(key.toLowerCase())) {
+        islandKey = key;
+        break;
+      }
+    }
+
+    if (islandKey.isEmpty) {
+      islandKey = 'Agatti';
+    }
+
+    final destLat = islandCoordinates[islandKey]!['lat']!;
+    final destLon = islandCoordinates[islandKey]!['lng']!;
+
+    setState(() => _isDistanceLoading = true);
+
+    try {
+      final result = await LocationService.getDistanceToDestination(
+        destLat: destLat,
+        destLon: destLon,
+        destName: islandKey,
+      );
+
+      setState(() {
+        if (result['success'] == true) {
+          _distanceInKm = result['distance'] ?? 0;
+          _distanceText = result['formattedDistance'] ?? '--';
+          _fromLocation = result['fromLocation'] ?? 'Your Location';
+        } else {
+          _distanceText = '--';
+        }
+        _isDistanceLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _distanceText = '--';
+        _isDistanceLoading = false;
+      });
+      print('❌ Error calculating distance: $e');
     }
   }
 
@@ -135,6 +247,8 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
 🌊 SeaSoul - ${activity['name'] ?? 'Amazing Activity'}
 
 📍 Location: ${activity['location'] ?? 'Lakshadweep'}
+📏 Distance: $_distanceText from $_fromLocation
+⭐ Rating: ${_averageRating > 0 ? _averageRating.toStringAsFixed(1) : '0.0'} ★ (${_totalReviews} reviews)
 💰 Price: ₹${activity['price'] ?? 0} / person
 ⏰ Duration: ${activity['duration'] ?? '2 hours'}
 
@@ -216,7 +330,7 @@ ${activity['description'] ?? ''}
                 _buildStatsMetricsSection(activity),
                 _buildDescriptionSection(activity),
                 _buildGallerySection(images),
-                _buildReviewsSection(), // ✅ Reviews section
+                _buildReviewsSection(),
                 _buildIncludesSection(activity),
                 _buildRequirementsSection(activity),
                 const SizedBox(height: 140),
@@ -409,6 +523,7 @@ ${activity['description'] ?? ''}
     );
   }
 
+  // ✅ Updated: _buildStatsMetricsSection with real distance and star rating
   Widget _buildStatsMetricsSection(Map<String, dynamic> activity) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -428,27 +543,46 @@ ${activity['description'] ?? ''}
         ),
         child: Row(
           children: [
+            // ✅ STAR RATING SECTION
             Expanded(
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.star, color: sunsetOrange, size: 18),
-                      const SizedBox(width: 4),
-                      Text(
-                        activity['rating']?.toString() ?? '4.9',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: deepNavy,
-                        ),
+                  if (_isLoadingReviews)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: oceanBlue,
                       ),
-                    ],
-                  ),
+                    )
+                  else
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // ✅ Show stars based on average rating
+                        StarRating(
+                          rating: _averageRating,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _averageRating > 0 
+                              ? _averageRating.toStringAsFixed(1)
+                              : '0.0',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: deepNavy,
+                          ),
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 2),
                   Text(
-                    '${activity['reviews'] ?? 0} REVIEWS',
+                    _totalReviews > 0 
+                        ? '$_totalReviews REVIEWS'
+                        : 'NO REVIEWS YET',
                     style: TextStyle(
                       fontSize: 10,
                       color: outline.withOpacity(0.8),
@@ -460,6 +594,7 @@ ${activity['description'] ?? ''}
               ),
             ),
             Container(height: 30, width: 1, color: outline.withOpacity(0.2)),
+            // ✅ DISTANCE SECTION
             Expanded(
               child: Column(
                 children: [
@@ -468,19 +603,29 @@ ${activity['description'] ?? ''}
                     children: [
                       const Icon(Icons.location_on_outlined, color: oceanBlue, size: 18),
                       const SizedBox(width: 4),
-                      Text(
-                        '459 km',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: deepNavy,
+                      if (_isDistanceLoading)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: oceanBlue,
+                          ),
+                        )
+                      else
+                        Text(
+                          _distanceText,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: deepNavy,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'FROM ${activity['location']?.toUpperCase() ?? 'KOCHI'}',
+                    'FROM ${_fromLocation.toUpperCase()}',
                     style: TextStyle(
                       fontSize: 10,
                       color: outline.withOpacity(0.8),
@@ -691,8 +836,19 @@ ${activity['description'] ?? ''}
             .map((r) => ReviewModel.fromJson(r))
             .toList();
 
+        // ✅ Update average rating and total reviews from API
         final averageRating = data['averageRating'] ?? 0;
         final totalReviews = data['totalReviews'] ?? 0;
+
+        // ✅ Update state variables
+        if (_averageRating != averageRating || _totalReviews != totalReviews) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            setState(() {
+              _averageRating = averageRating.toDouble();
+              _totalReviews = totalReviews;
+            });
+          });
+        }
 
         if (reviews.isEmpty) {
           return Padding(
@@ -760,6 +916,8 @@ ${activity['description'] ?? ''}
                         duration: Duration(seconds: 2),
                       ),
                     );
+                    // ✅ Refresh reviews after helpful toggle
+                    _loadReviews();
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -883,6 +1041,9 @@ ${activity['description'] ?? ''}
 
   Widget _buildStickyBookingFooter(Map<String, dynamic> activity) {
     final price = activity['price'] ?? 0;
+    final images = activity['images'] ?? [];
+    final imageUrl = images.isNotEmpty ? images[0] : '';
+    final name = activity['name'] ?? 'Activity';
 
     return Positioned(
       bottom: 0,
@@ -953,8 +1114,19 @@ ${activity['description'] ?? ''}
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const payment()),
-                    );
+                      MaterialPageRoute(
+                        builder: (context) => payment(
+                          activityId: activity['_id'],
+                          itemName: name,
+                          itemType: 'activity',
+                          amount: price.toDouble(),
+                          itemImage: imageUrl,
+                        ),
+                      ),
+                    ).then((_) {
+                      // ✅ Refresh reviews when coming back from payment
+                      _loadReviews();
+                    });
                   },
                   icon: const Icon(Icons.bolt, color: Colors.white, size: 18),
                   label: const Text(

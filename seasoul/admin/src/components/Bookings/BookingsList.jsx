@@ -67,10 +67,17 @@ export default function BookingsList() {
   };
 
   const filteredBookings = bookings.filter(booking => {
+    // ✅ Get customer name properly
+    const customerName = booking.userId?.fullName || booking.user?.fullName || '';
+    const customerEmail = booking.userId?.email || booking.user?.email || '';
+    const itemName = booking.productId?.name || booking.activityId?.name || '';
+    
     const matchStatus = filterStatus === 'all' || booking.status === filterStatus;
-    const matchSearch = booking._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        booking.user?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        booking.item?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch = 
+      booking._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customerEmail.toLowerCase().includes(searchTerm.toLowerCase());
     return matchStatus && matchSearch;
   });
 
@@ -164,6 +171,14 @@ export default function BookingsList() {
                   const statusConfig = getStatusConfig(booking.status);
                   const StatusIcon = statusConfig.icon;
                   
+                  // ✅ Get customer name properly
+                  const customerName = booking.userId?.fullName || booking.user?.fullName || 'Unknown User';
+                  const customerEmail = booking.userId?.email || booking.user?.email || '';
+                  
+                  // ✅ Get item name properly
+                  const itemName = booking.productId?.name || booking.activityId?.name || 'Unknown Item';
+                  const itemCategory = booking.productId?.category || booking.activityId?.category || '';
+                  
                   return (
                     <tr key={booking._id} className="hover:bg-gray-50/50 transition">
                       <td className="px-6 py-4 font-mono text-sm text-gray-600">
@@ -171,13 +186,13 @@ export default function BookingsList() {
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium text-[#1A2B49]">{booking.user?.fullName || 'Unknown'}</p>
-                          <p className="text-sm text-gray-500">{booking.user?.email}</p>
+                          <p className="font-medium text-[#1A2B49]">{customerName}</p>
+                          <p className="text-sm text-gray-500">{customerEmail}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="font-medium text-[#1A2B49]">{booking.item?.name || 'Unknown'}</p>
-                        <p className="text-sm text-gray-500">{booking.item?.category}</p>
+                        <p className="font-medium text-[#1A2B49]">{itemName}</p>
+                        <p className="text-sm text-gray-500">{itemCategory}</p>
                       </td>
                       <td className="px-6 py-4 font-bold text-[#1A2B49]">₹{booking.totalAmount}</td>
                       <td className="px-6 py-4">
@@ -231,6 +246,13 @@ export default function BookingsList() {
               const statusConfig = getStatusConfig(booking.status);
               const StatusIcon = statusConfig.icon;
               
+              // ✅ Get customer name properly
+              const customerName = booking.userId?.fullName || booking.user?.fullName || 'Unknown User';
+              const customerEmail = booking.userId?.email || booking.user?.email || '';
+              
+              // ✅ Get item name properly
+              const itemName = booking.productId?.name || booking.activityId?.name || 'Unknown Item';
+              
               return (
                 <div key={booking._id} className="p-4 border-b border-gray-100 hover:bg-gray-50/50 transition">
                   <div className="flex items-start justify-between">
@@ -238,8 +260,8 @@ export default function BookingsList() {
                       <p className="font-mono text-sm text-gray-600">
                         #{booking._id?.slice(-8)}
                       </p>
-                      <p className="font-medium text-[#1A2B49]">{booking.user?.fullName || 'Unknown'}</p>
-                      <p className="text-sm text-gray-500">{booking.user?.email}</p>
+                      <p className="font-medium text-[#1A2B49]">{customerName}</p>
+                      <p className="text-sm text-gray-500">{customerEmail}</p>
                     </div>
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
                       <StatusIcon size={14} />
@@ -250,7 +272,7 @@ export default function BookingsList() {
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <div>
                       <p className="text-xs text-gray-400">Item</p>
-                      <p className="font-medium text-[#1A2B49]">{booking.item?.name || 'Unknown'}</p>
+                      <p className="font-medium text-[#1A2B49]">{itemName}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400">Amount</p>
