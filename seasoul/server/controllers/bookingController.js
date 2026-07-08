@@ -15,7 +15,7 @@ exports.createBooking = async (req, res) => {
       checkIn, 
       checkOut, 
       totalAmount,
-      itemType // 'product' or 'activity'
+      itemType 
     } = req.body;
     
     const userId = req.user.id;
@@ -25,7 +25,7 @@ exports.createBooking = async (req, res) => {
     console.log('📝 Activity ID:', activityId);
     console.log('📝 Total Amount:', totalAmount);
 
-    // Create booking
+    // ✅ Create booking with all required fields
     const booking = new Booking({
       userId,
       productId: productId || null,
@@ -35,7 +35,8 @@ exports.createBooking = async (req, res) => {
       checkOut: checkOut || new Date(Date.now() + 86400000 * 3),
       totalAmount: totalAmount || 0,
       status: 'pending',
-      itemType: itemType || 'product',
+      paymentStatus: 'pending',
+      itemType: itemType || (productId ? 'product' : 'activity'),
     });
 
     await booking.save();
@@ -105,7 +106,7 @@ exports.createBooking = async (req, res) => {
   }
 };
 
-// ✅ Get all bookings
+// ✅ Get all bookings for user
 exports.getBookings = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -237,6 +238,29 @@ exports.updateBookingStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Booking status update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// ✅ Admin: Get all bookings
+exports.getAllBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate('userId', 'fullName email phone')
+      .populate('productId', 'name price')
+      .populate('activityId', 'name price')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      bookings,
+    });
+  } catch (error) {
+    console.error('❌ Error getting all bookings:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',

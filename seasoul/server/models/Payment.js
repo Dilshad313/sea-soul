@@ -92,6 +92,14 @@ PaymentSchema.index({ transactionId: 1 });
 PaymentSchema.index({ bookingId: 1 });
 PaymentSchema.index({ status: 1 });
 
+// ✅ FIXED: Pre-save middleware - Using async function without next
+PaymentSchema.pre('save', async function() {
+  // This is async function, no next parameter needed
+  if (!this.paymentDate) {
+    this.paymentDate = new Date();
+  }
+});
+
 // Method to get payment summary
 PaymentSchema.methods.getSummary = function() {
   return {
@@ -120,13 +128,5 @@ PaymentSchema.statics.getTotalRevenue = async function() {
   ]);
   return result.length > 0 ? result[0].total : 0;
 };
-
-// Pre-save middleware to set payment date
-PaymentSchema.pre('save', function(next) {
-  if (!this.paymentDate) {
-    this.paymentDate = new Date();
-  }
-  next();
-});
 
 module.exports = mongoose.model('Payment', PaymentSchema);

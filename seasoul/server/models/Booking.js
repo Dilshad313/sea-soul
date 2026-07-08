@@ -81,6 +81,16 @@ BookingSchema.index({ userId: 1, createdAt: -1 });
 BookingSchema.index({ bookingReference: 1 });
 BookingSchema.index({ status: 1 });
 
+// ✅ ALTERNATIVE FIX: Using pre-save without next parameter
+BookingSchema.pre('save', async function() {
+  // This is async function, no next parameter needed
+  if (this.productId) {
+    this.itemType = 'product';
+  } else if (this.activityId) {
+    this.itemType = 'activity';
+  }
+});
+
 // Virtual for item details
 BookingSchema.virtual('item').get(function() {
   return this.productId || this.activityId;
@@ -98,15 +108,5 @@ BookingSchema.methods.getItemName = async function() {
   }
   return 'Unknown';
 };
-
-// Pre-save middleware to set itemType
-BookingSchema.pre('save', function(next) {
-  if (this.productId) {
-    this.itemType = 'product';
-  } else if (this.activityId) {
-    this.itemType = 'activity';
-  }
-  next();
-});
 
 module.exports = mongoose.model('Booking', BookingSchema);
