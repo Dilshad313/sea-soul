@@ -145,16 +145,13 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // ✅ FIXED: Get user initial
   String _getUserInitial(String name) {
     if (name.isEmpty) return '?';
-    return name.trim()[0].toUpperCase(); // ✅ Use [0] instead of charAt(0)
+    return name.trim()[0].toUpperCase();
   }
 
-  // ✅ Check if user has profile image
   bool _hasProfileImage(String? imageUrl) {
     if (imageUrl == null || imageUrl.isEmpty) return false;
-    // Check if it's default avatar
     if (imageUrl.contains('default-avatar')) return false;
     return true;
   }
@@ -182,9 +179,9 @@ class _ProfilePageState extends State<ProfilePage> {
     return Container(
       color: sandWhite,
       child: SafeArea(
-        bottom: false,
+        bottom: true,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 120.0),
+          padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -211,7 +208,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             userData: _userData ?? {},
                           ),
                         ),
-                      ).then((_) => _loadUserData());
+                      ).then((_) => _loadUserData()); // ✅ Refresh after pop
                     },
                   ),
                   _buildListActionRow(
@@ -235,21 +232,15 @@ class _ProfilePageState extends State<ProfilePage> {
                 items: [
                   _buildListActionRow(
                     label: 'Help Center',
-                    onTap: () {
-                      // Navigate to Help Center
-                    },
+                    onTap: () {},
                   ),
                   _buildListActionRow(
                     label: 'Terms & Conditions',
-                    onTap: () {
-                      // Navigate to Terms
-                    },
+                    onTap: () {},
                   ),
                   _buildListActionRow(
                     label: 'Privacy Policy',
-                    onTap: () {
-                      // Navigate to Privacy Policy
-                    },
+                    onTap: () {},
                   ),
                 ],
               ),
@@ -272,7 +263,6 @@ class _ProfilePageState extends State<ProfilePage> {
   ) {
     return Column(
       children: [
-        // ✅ FIXED: Profile Avatar with fallback to initial
         Stack(
           alignment: Alignment.bottomRight,
           children: [
@@ -294,14 +284,11 @@ class _ProfilePageState extends State<ProfilePage> {
                   image: DecorationImage(
                     image: NetworkImage(profileImage),
                     fit: BoxFit.cover,
-                    onError: (exception, stackTrace) {
-                      // If image fails, show initial
-                    },
+                    onError: (exception, stackTrace) {},
                   ),
                 ),
               )
             else
-              // ✅ Show initial when no profile image
               Container(
                 width: 110,
                 height: 110,
@@ -328,7 +315,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
               ),
-            // Edit icon
             Positioned(
               bottom: 0,
               right: 0,
@@ -341,7 +327,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         userData: _userData ?? {},
                       ),
                     ),
-                  ).then((_) => _loadUserData());
+                  ).then((_) => _loadUserData()); // ✅ Refresh after pop
                 },
                 child: Container(
                   padding: const EdgeInsets.all(8),
