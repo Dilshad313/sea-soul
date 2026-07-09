@@ -1,8 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../services/api_service.dart';
 import '../constants/api_constants.dart';
+import '../services/google_signin_service.dart';
 import '../user_home.dart';
 import '../signup.dart';
 import '../forgot_password.dart';
@@ -23,6 +26,7 @@ class _loginState extends State<login> {
   bool _isIdentifierFocused = false;
   bool _isPasswordFocused = false;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   bool _isSuccess = false;
   bool _obscurePassword = true;
 
@@ -46,6 +50,7 @@ class _loginState extends State<login> {
     super.dispose();
   }
 
+  // ✅ Normal Login
   void _handleLogin() async {
     if (_isLoading) return;
     setState(() {
@@ -69,7 +74,7 @@ class _loginState extends State<login> {
 
     final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
     final isEmail = identifier.contains('@');
-    
+
     if (isEmail && !emailRegex.hasMatch(identifier)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -91,13 +96,14 @@ class _loginState extends State<login> {
       final response = await ApiService.post(ApiConstants.login, data);
 
       await ApiService.saveToken(response['token']);
-      
+
       await ApiService.saveUserData({
         '_id': response['_id'],
         'fullName': response['fullName'],
         'email': response['email'],
         'phone': response['phone'],
-        'profileImage': response['profileImage'] ?? 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png',
+        'profileImage': response['profileImage'] ??
+            'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png',
         'bio': response['bio'] ?? '',
         'location': response['location'] ?? '',
       });
@@ -126,6 +132,72 @@ class _loginState extends State<login> {
         ),
       );
     }
+  }
+
+  // ✅ Google Sign-In
+  Future<void> _handleGoogleSignIn() async {
+    if (_isGoogleLoading) return;
+
+    setState(() => _isGoogleLoading = true);
+
+    try {
+      final result = await GoogleSignInService.signInWithBackend();
+
+      if (result == null) {
+        setState(() => _isGoogleLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('❌ Google sign in failed. Please try again.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      print('✅ User signed in: ${result['email']}');
+      print('✅ Name: ${result['fullName']}');
+      print('✅ Token: ${result['token']}');
+
+      await _saveUserData(result);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Welcome ${result['fullName']}!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const UserHome()),
+        );
+      }
+    } catch (e) {
+      setState(() => _isGoogleLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // ✅ Save user data locally
+  Future<void> _saveUserData(Map<String, dynamic> userData) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('auth_token', userData['token'] ?? '');
+
+    final user = userData['user'] ?? {};
+    await prefs.setString('user_data', jsonEncode(user));
+
+    await ApiService.saveToken(userData['token'] ?? '');
+    await ApiService.saveUserData(user);
+
+    print('✅ User data saved locally');
   }
 
   @override
@@ -252,7 +324,8 @@ class _loginState extends State<login> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => const ForgotPasswordPage(),
+                                        builder: (context) =>
+                                            const ForgotPasswordPage(),
                                       ),
                                     );
                                   },
@@ -283,13 +356,14 @@ class _loginState extends State<login> {
                               colorSecondary,
                             ),
                             const SizedBox(height: 28),
-                            // ✅ FIXED: Divider with Container
+                            // ✅ Divider with OR
                             Row(
                               children: [
                                 Expanded(
                                   child: Container(
                                     height: 1,
-                                    color: colorOutlineVariant.withOpacity(0.5),
+                                    color:
+                                        colorOutlineVariant.withOpacity(0.5),
                                   ),
                                 ),
                                 Padding(
@@ -309,47 +383,15 @@ class _loginState extends State<login> {
                                 Expanded(
                                   child: Container(
                                     height: 1,
-                                    color: colorOutlineVariant.withOpacity(0.5),
+                                    color:
+                                        colorOutlineVariant.withOpacity(0.5),
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 24),
-                            // ✅ FIXED: Social buttons with Flexible
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildSocialButton(
-                                    text: 'Google',
-                                    borderColor: colorOutlineVariant,
-                                    child: Image.network(
-                                      'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                                      width: 18,
-                                      height: 18,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return const Icon(
-                                          Icons.g_mobiledata,
-                                          color: Colors.white,
-                                          size: 24,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildSocialButton(
-                                    text: 'Apple',
-                                    borderColor: colorOutlineVariant,
-                                    child: const Icon(
-                                      Icons.apple,
-                                      size: 20,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                            // ✅ Google Sign-In Button
+                            _buildGoogleButton(),
                             const SizedBox(height: 24),
                             Center(
                               child: GestureDetector(
@@ -568,35 +610,55 @@ class _loginState extends State<login> {
     );
   }
 
-  Widget _buildSocialButton({
-    required String text,
-    required Color borderColor,
-    required Widget child,
-  }) {
-    return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor.withOpacity(0.3)),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {},
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            child,
-            const SizedBox(width: 8),
-            Text(
-              text,
-              style: GoogleFonts.montserrat(
-                color: Colors.white,
-                fontSize: 13,
-              ),
-            ),
-          ],
+  // ✅ Google Sign-In Button (Web + Mobile)
+  Widget _buildGoogleButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: OutlinedButton(
+        onPressed: _isGoogleLoading ? null : _handleGoogleSignIn,
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Colors.grey),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
+        child: _isGoogleLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.blue,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // ✅ Google Icon - Works for both Web & Mobile
+                  Image.network(
+                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                    width: 24,
+                    height: 24,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(
+                        Icons.g_mobiledata,
+                        color: Colors.blue,
+                        size: 24,
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Sign in with Google',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

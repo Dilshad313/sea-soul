@@ -17,13 +17,15 @@ const UserSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: true,
-      unique: true,
+      required: false,
+      default: '',
+      sparse: true,
     },
     password: {
       type: String,
-      required: true,
-      minlength: 6,
+      required: false,
+      default: '',
+      // ✅ Remove minlength validation
     },
     profileImage: {
       type: String,
@@ -55,12 +57,23 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isGoogleUser: {
+      type: Boolean,
+      default: false,
+    },
+    googleId: {
+      type: String,
+      default: null,
+      sparse: true,
+    },
   },
   { timestamps: true }
 );
 
+// ✅ Only hash password if it exists and modified
 UserSchema.pre('save', async function() {
-  if (!this.isModified('password')) {
+  // ✅ Skip if password is empty or not modified
+  if (!this.password || !this.isModified('password')) {
     return;
   }
   const salt = await bcrypt.genSalt(10);
@@ -68,6 +81,8 @@ UserSchema.pre('save', async function() {
 });
 
 UserSchema.methods.comparePassword = async function(enteredPassword) {
+  // ✅ If no password (Google user), return false
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
