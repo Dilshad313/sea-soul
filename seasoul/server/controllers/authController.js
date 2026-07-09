@@ -1,24 +1,18 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const OTP = require('../models/OTP');
-const nodemailer = require('nodemailer');
+// ✅ Import email service
+const { 
+  sendPasswordResetOTPEmail, 
+  sendPasswordChangedEmail 
+} = require('../services/emailService');
 require('dotenv').config();
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// Nodemailer Transporter
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD,
-  },
-});
-
-// ==================== FORGOT PASSWORD (Send OTP to Email) ====================
-
+// ==================== FORGOT PASSWORD ====================
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -43,51 +37,16 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    // Generate OTP for password reset (6 digits)
+    // Generate OTP (6 digits)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const otpExpiry = Date.now() + 10 * 60 * 1000;
 
-    // Save OTP to user
     user.resetPasswordOTP = otp;
     user.resetPasswordExpires = otpExpiry;
     await user.save();
 
-    // Send OTP email
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'SeaSoul - Password Reset OTP',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0D1516; color: #DCE4E5; border-radius: 10px;">
-          <div style="text-align: center; padding: 20px 0;">
-            <h1 style="color: #00E5FF; font-size: 32px;">🌊 SeaSoul</h1>
-            <p style="color: #BAC9CC; font-size: 14px;">LUXURIOUS ISLAND GETAWAYS</p>
-          </div>
-          <div style="background-color: #1A2B49; padding: 30px; border-radius: 10px;">
-            <h2 style="color: #FFFFFF; text-align: center;">Password Reset OTP</h2>
-            <p style="color: #BAC9CC; text-align: center; font-size: 16px;">
-              Use the following OTP to reset your password:
-            </p>
-            <div style="text-align: center; padding: 20px 0;">
-              <span style="display: inline-block; background-color: #0D1516; color: #00E5FF; font-size: 36px; font-weight: bold; padding: 15px 40px; border-radius: 8px; letter-spacing: 8px; border: 1px solid #00E5FF;">
-                ${otp}
-              </span>
-            </div>
-            <p style="color: #849396; text-align: center; font-size: 14px;">
-              This OTP is valid for 10 minutes.
-            </p>
-            <p style="color: #849396; text-align: center; font-size: 12px; margin-top: 20px;">
-              If you didn't request this, please ignore this email.
-            </p>
-          </div>
-          <div style="text-align: center; padding: 20px 0; color: #849396; font-size: 12px;">
-            <p>© 2024 SeaSoul Holidays. All rights reserved.</p>
-          </div>
-        </div>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
+    // ✅ Send OTP email using email service
+    await sendPasswordResetOTPEmail(email, otp);
 
     console.log('✅ Password reset OTP sent to:', email);
 
@@ -105,8 +64,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// ==================== VERIFY OTP AND RESET PASSWORD ====================
-
+// ==================== RESET PASSWORD ====================
 exports.resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
@@ -144,40 +102,14 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Update password
     user.password = newPassword;
     user.resetPasswordOTP = null;
     user.resetPasswordExpires = null;
     await user.save();
 
-    // Send confirmation email
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: user.email,
-      subject: 'SeaSoul - Password Changed Successfully',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0D1516; color: #DCE4E5; border-radius: 10px;">
-          <div style="text-align: center; padding: 20px 0;">
-            <h1 style="color: #00E5FF; font-size: 32px;">🌊 SeaSoul</h1>
-            <p style="color: #BAC9CC; font-size: 14px;">LUXURIOUS ISLAND GETAWAYS</p>
-          </div>
-          <div style="background-color: #1A2B49; padding: 30px; border-radius: 10px;">
-            <h2 style="color: #00E5FF; text-align: center;">✅ Password Changed Successfully</h2>
-            <p style="color: #BAC9CC; text-align: center; font-size: 16px;">
-              Your SeaSoul account password has been changed successfully.
-            </p>
-            <p style="color: #849396; text-align: center; font-size: 14px; margin-top: 20px;">
-              If you didn't make this change, please contact support immediately.
-            </p>
-          </div>
-          <div style="text-align: center; padding: 20px 0; color: #849396; font-size: 12px;">
-            <p>© 2024 SeaSoul Holidays. All rights reserved.</p>
-          </div>
-        </div>
-      `,
-    };
+    // ✅ Send confirmation email using email service
+    await sendPasswordChangedEmail(user.email);
 
-    await transporter.sendMail(mailOptions);
     console.log('✅ Password change confirmation email sent to:', user.email);
 
     res.status(200).json({
@@ -194,8 +126,7 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// ==================== CHANGE PASSWORD (Logged In User) ====================
-
+// ==================== CHANGE PASSWORD ====================
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -228,7 +159,6 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Verify current password
     const isPasswordMatch = await user.comparePassword(currentPassword);
     if (!isPasswordMatch) {
       return res.status(401).json({
@@ -237,38 +167,12 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Update password
     user.password = newPassword;
     await user.save();
 
-    // Send confirmation email
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: user.email,
-      subject: 'SeaSoul - Password Changed Successfully',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0D1516; color: #DCE4E5; border-radius: 10px;">
-          <div style="text-align: center; padding: 20px 0;">
-            <h1 style="color: #00E5FF; font-size: 32px;">🌊 SeaSoul</h1>
-            <p style="color: #BAC9CC; font-size: 14px;">LUXURIOUS ISLAND GETAWAYS</p>
-          </div>
-          <div style="background-color: #1A2B49; padding: 30px; border-radius: 10px;">
-            <h2 style="color: #00E5FF; text-align: center;">✅ Password Changed Successfully</h2>
-            <p style="color: #BAC9CC; text-align: center; font-size: 16px;">
-              Your SeaSoul account password has been changed successfully.
-            </p>
-            <p style="color: #849396; text-align: center; font-size: 14px; margin-top: 20px;">
-              If you didn't make this change, please contact support immediately.
-            </p>
-          </div>
-          <div style="text-align: center; padding: 20px 0; color: #849396; font-size: 12px;">
-            <p>© 2024 SeaSoul Holidays. All rights reserved.</p>
-          </div>
-        </div>
-      `,
-    };
+    // ✅ Send confirmation email using email service
+    await sendPasswordChangedEmail(user.email);
 
-    await transporter.sendMail(mailOptions);
     console.log('✅ Password change confirmation email sent to:', user.email);
 
     res.status(200).json({
@@ -286,7 +190,6 @@ exports.changePassword = async (req, res) => {
 };
 
 // ==================== REGISTER ====================
-
 exports.register = async (req, res) => {
   try {
     const { fullName, email, phone, password } = req.body;
@@ -305,7 +208,6 @@ exports.register = async (req, res) => {
       });
     }
 
-    // ✅ CHECK: Email already registered? (NEW)
     const userExists = await User.findOne({ email });
     if (userExists) {
       console.log('❌ Email already registered:', email);
@@ -315,7 +217,6 @@ exports.register = async (req, res) => {
       });
     }
 
-    // ✅ CHECK: Phone already registered? (NEW)
     const phoneExists = await User.findOne({ phone });
     if (phoneExists) {
       console.log('❌ Phone already registered:', phone);
@@ -342,7 +243,6 @@ exports.register = async (req, res) => {
     });
 
     await user.save();
-
     await OTP.deleteOne({ _id: otpRecord._id });
 
     console.log('✅ User Registered Successfully!');
@@ -372,7 +272,6 @@ exports.register = async (req, res) => {
 };
 
 // ==================== LOGIN ====================
-
 exports.login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
@@ -389,7 +288,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Find user by email OR phone
     const user = await User.findOne({
       $or: [{ email: identifier }, { phone: identifier }],
     });

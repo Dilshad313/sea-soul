@@ -1,5 +1,6 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+// ✅ Import email service
 const { sendNotificationEmail } = require('../services/emailService');
 
 // ==================== CREATE NOTIFICATION ====================
@@ -25,7 +26,7 @@ exports.createNotification = async (userId, title, message, type, relatedId = nu
     await notification.save();
     console.log('✅ Notification saved to database:', notification._id);
 
-    // Send email notification
+    // ✅ Send email notification using email service
     try {
       const user = await User.findById(userId);
       if (user && user.email) {
