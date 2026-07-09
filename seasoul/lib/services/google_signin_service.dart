@@ -10,10 +10,10 @@ import 'dart:html' if (dart.library.html) 'dart:html' as html;
 class GoogleSignInService {
   // ✅ Your Actual Client IDs - Replace with yours
   static const String _androidClientId =
-      '218977812664-unsu8t9u9orr7bicqstbsdssue7qckkq.apps.googleusercontent.com';
+      '982762507474-cns94029a218jbghi6sagk118igk49pr.apps.googleusercontent.com';
 
   static const String _webClientId =
-      '218977812664-0b0lqmrokdvj3npojl32s1p6dl1m4qql.apps.googleusercontent.com';
+      '982762507474-6blv3lmb1s32akhth9fv3kg2fa38betr.apps.googleusercontent.com';
 
   static String get _clientId {
     if (kIsWeb) {
