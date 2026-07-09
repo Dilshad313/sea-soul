@@ -20,6 +20,19 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
 
+   <!-- ✅ Google Identity Services - Required for Web -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+   <!-- ✅ Google One Tap Script -->
+ <script>
+    window.addEventListener('load', function() {
+      if (typeof google !== 'undefined' && google.accounts) {
+        console.log('✅ Google Identity Services loaded');
+        console.log('📍 Current URL:', window.location.origin);
+      }
+    });
+  </script>
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
