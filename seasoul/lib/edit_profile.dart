@@ -70,14 +70,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _selectedImagePath = image.path;
         });
         
-        print('📤 Uploading image from path: ${image.path}');
-        
         final response = await ApiService.uploadImage(
           ApiConstants.uploadProfileImage,
           image.path,
         );
-
-        print('📥 Upload response: $response');
 
         if (response['success'] == true) {
           setState(() {
@@ -97,7 +93,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         }
       }
     } catch (e) {
-      print('❌ Upload Error: $e');
       setState(() {
         _isImageLoading = false;
         _selectedImagePath = null;
@@ -166,13 +161,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
         );
 
-        // Use pushReplacement to maintain bottom nav
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ProfilePage(),
-          ),
-        );
+        // ✅ FIX: Pop back to ProfilePage (preserves bottom nav bar)
+        Navigator.pop(context, true);
       } else {
         throw Exception(response['message'] ?? 'Update failed');
       }
@@ -239,9 +229,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         ? DecorationImage(
                             image: NetworkImage(_profileImage),
                             fit: BoxFit.cover,
-                            onError: (exception, stackTrace) {
-                              print('❌ Image load error: $exception');
-                            },
+                            onError: (exception, stackTrace) {},
                           )
                         : null,
                     border: Border.all(
@@ -323,7 +311,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             const SizedBox(height: 24),
             
-            // Full Name - Using TextField (no validator to avoid yellow underline)
+            // Full Name
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -336,35 +324,38 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: _fullNameController,
-                  style: const TextStyle(color: deepNavy),
-                  decoration: InputDecoration(
-                    hintText: 'Enter your full name',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon: const Icon(Icons.person_outline, color: oceanBlue),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 16,
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: TextField(
+                    controller: _fullNameController,
+                    style: const TextStyle(color: deepNavy),
+                    decoration: const InputDecoration(
+                      hintText: 'Enter your full name',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      prefixIcon: Icon(Icons.person_outline, color: oceanBlue),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 16,
+                      ),
+                      // ✅ Explicitly prevent error styling
+                      errorText: null,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: oceanBlue, width: 1.5),
-                    ),
-                    // Removed errorBorder to avoid yellow underline
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             
-            // Phone - Using TextField
+            // Phone
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -377,27 +368,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: _phoneController,
-                  style: const TextStyle(color: deepNavy),
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your phone number',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon: const Icon(Icons.phone_outlined, color: oceanBlue),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 16,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: oceanBlue, width: 1.5),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: TextField(
+                    controller: _phoneController,
+                    style: const TextStyle(color: deepNavy),
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      hintText: 'Enter your phone number',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      prefixIcon: Icon(Icons.phone_outlined, color: oceanBlue),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 16,
+                      ),
+                      errorText: null,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                     ),
                   ),
                 ),
@@ -405,7 +399,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             const SizedBox(height: 16),
             
-            // Location - Using TextField
+            // Location
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -418,26 +412,29 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: _locationController,
-                  style: const TextStyle(color: deepNavy),
-                  decoration: InputDecoration(
-                    hintText: 'Enter your location',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon: const Icon(Icons.location_on_outlined, color: oceanBlue),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 16,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: oceanBlue, width: 1.5),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: TextField(
+                    controller: _locationController,
+                    style: const TextStyle(color: deepNavy),
+                    decoration: const InputDecoration(
+                      hintText: 'Enter your location',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      prefixIcon: Icon(Icons.location_on_outlined, color: oceanBlue),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 16,
+                      ),
+                      errorText: null,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                     ),
                   ),
                 ),
@@ -445,7 +442,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             const SizedBox(height: 16),
             
-            // Bio - Using TextField
+            // Bio
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -458,28 +455,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  controller: _bioController,
-                  style: const TextStyle(color: deepNavy),
-                  maxLines: 4,
-                  maxLength: 500,
-                  decoration: InputDecoration(
-                    hintText: 'Tell us about yourself',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon: const Icon(Icons.description_outlined, color: oceanBlue),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 16,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: oceanBlue, width: 1.5),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: TextField(
+                    controller: _bioController,
+                    style: const TextStyle(color: deepNavy),
+                    maxLines: 4,
+                    maxLength: 500,
+                    decoration: const InputDecoration(
+                      hintText: 'Tell us about yourself',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      prefixIcon: Icon(Icons.description_outlined, color: oceanBlue),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 16,
+                      ),
+                      errorText: null,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                     ),
                   ),
                 ),
