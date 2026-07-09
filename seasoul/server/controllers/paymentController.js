@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const Activity = require('../models/Activity');
 const User = require('../models/User');
 const { createNotification } = require('../utils/createNotification');
+// ✅ Import email service
 const { sendPaymentReceiptEmail } = require('../services/emailService');
 
 // ✅ Process Payment
@@ -17,7 +18,6 @@ exports.processPayment = async (req, res) => {
     console.log('💰 Amount:', amount);
     console.log('💰 Method:', method);
 
-    // Process payment
     const payment = new Payment({
       userId,
       bookingId,
@@ -30,7 +30,6 @@ exports.processPayment = async (req, res) => {
     await payment.save();
     console.log('✅ Payment saved:', payment._id);
 
-    // Update booking status
     const booking = await Booking.findByIdAndUpdate(
       bookingId, 
       { status: 'confirmed' },
@@ -38,7 +37,6 @@ exports.processPayment = async (req, res) => {
     );
     console.log('✅ Booking updated:', bookingId);
 
-    // Get item details for email
     let itemName = 'Package';
     let itemImage = null;
 
@@ -58,7 +56,7 @@ exports.processPayment = async (req, res) => {
       }
     }
 
-    // ✅ Send payment receipt email
+    // ✅ Send payment receipt email using email service
     const user = await User.findById(userId);
     if (user) {
       await sendPaymentReceiptEmail(user, payment, booking, { name: itemName });

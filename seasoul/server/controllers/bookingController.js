@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Activity = require('../models/Activity');
 const User = require('../models/User');
 const { createNotification } = require('../utils/createNotification');
+// ✅ Import email service
 const { sendBookingConfirmationEmail } = require('../services/emailService');
 
 // ✅ Create Booking
@@ -25,7 +26,6 @@ exports.createBooking = async (req, res) => {
     console.log('📝 Activity ID:', activityId);
     console.log('📝 Total Amount:', totalAmount);
 
-    // ✅ Create booking with all required fields
     const booking = new Booking({
       userId,
       productId: productId || null,
@@ -42,7 +42,6 @@ exports.createBooking = async (req, res) => {
     await booking.save();
     console.log('✅ Booking saved:', booking._id);
 
-    // Get item details for email
     let item = null;
     let itemName = 'Package';
     let itemLocation = '';
@@ -64,7 +63,7 @@ exports.createBooking = async (req, res) => {
       }
     }
 
-    // ✅ Send booking confirmation email
+    // ✅ Send booking confirmation email using email service
     const user = await User.findById(userId);
     if (user) {
       await sendBookingConfirmationEmail(user, booking, { name: itemName, location: itemLocation });
@@ -177,7 +176,6 @@ exports.cancelBooking = async (req, res) => {
     booking.status = 'cancelled';
     await booking.save();
 
-    // ✅ Create notification for cancellation
     await createNotification(
       userId,
       '❌ Booking Cancelled',
@@ -220,7 +218,6 @@ exports.updateBookingStatus = async (req, res) => {
     booking.status = status;
     await booking.save();
 
-    // ✅ Create notification for status update
     await createNotification(
       booking.userId,
       `📅 Booking ${status.charAt(0).toUpperCase() + status.slice(1)}`,

@@ -25,6 +25,8 @@ app.use(express.urlencoded({ extended: true }));
 // ✅ Add this line - to serve uploaded images
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.use('/assets', express.static(path.join(__dirname, '../assets')));
+
 // API Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api', require('./routes/productRoutes'));

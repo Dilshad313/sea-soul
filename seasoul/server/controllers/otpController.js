@@ -1,7 +1,8 @@
 const OTP = require('../models/OTP');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+// ✅ Import email service
+const { sendOTPEmail } = require('../services/emailService');
 require('dotenv').config();
 
 const generateOTP = () => {
@@ -18,60 +19,7 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// Nodemailer Transporter - ഇങ്ങനെ ഉപയോഗിക്കുക
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD,
-  },
-});
-
-const sendOTPEmail = async (email, otp) => {
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: email,
-    subject: 'SeaSoul - Your OTP for Registration',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0D1516; color: #DCE4E5; border-radius: 10px;">
-        <div style="text-align: center; padding: 20px 0;">
-          <h1 style="color: #00E5FF; font-size: 32px;">🌊 SeaSoul</h1>
-          <p style="color: #BAC9CC; font-size: 14px;">LUXURIOUS ISLAND GETAWAYS</p>
-        </div>
-        <div style="background-color: #1A2B49; padding: 30px; border-radius: 10px;">
-          <h2 style="color: #FFFFFF; text-align: center;">Verify Your Email</h2>
-          <p style="color: #BAC9CC; text-align: center; font-size: 16px;">
-            Thank you for choosing SeaSoul. Use the following OTP to complete your registration:
-          </p>
-          <div style="text-align: center; padding: 20px 0;">
-            <span style="display: inline-block; background-color: #0D1516; color: #00E5FF; font-size: 36px; font-weight: bold; padding: 15px 40px; border-radius: 8px; letter-spacing: 8px; border: 1px solid #00E5FF;">
-              ${otp}
-            </span>
-          </div>
-          <p style="color: #849396; text-align: center; font-size: 14px;">
-            This OTP is valid for 10 minutes.
-          </p>
-          <p style="color: #849396; text-align: center; font-size: 12px; margin-top: 20px;">
-            If you didn't request this, please ignore this email.
-          </p>
-        </div>
-        <div style="text-align: center; padding: 20px 0; color: #849396; font-size: 12px;">
-          <p>© 2024 SeaSoul Holidays. All rights reserved.</p>
-        </div>
-      </div>
-    `,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    console.log('✅ OTP email sent successfully to:', email);
-  } catch (error) {
-    console.error('❌ Error sending OTP email:', error);
-    throw new Error('Failed to send OTP email');
-  }
-};
-
-// Send OTP to Email
+// ✅ Send OTP to Email
 exports.sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
@@ -125,7 +73,7 @@ exports.sendOTP = async (req, res) => {
       verified: false,
     });
 
-    // Send email
+    // ✅ Send email using email service
     try {
       await sendOTPEmail(email, otp);
       console.log('✅ OTP email sent successfully');
@@ -147,7 +95,7 @@ exports.sendOTP = async (req, res) => {
   }
 };
 
-// Verify OTP
+// ✅ Verify OTP
 exports.verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -204,7 +152,7 @@ exports.verifyOTP = async (req, res) => {
   }
 };
 
-// Resend OTP
+// ✅ Resend OTP
 exports.resendOTP = async (req, res) => {
   try {
     const { email } = req.body;
@@ -228,6 +176,7 @@ exports.resendOTP = async (req, res) => {
       verified: false,
     });
 
+    // ✅ Send email using email service
     await sendOTPEmail(email, otp);
 
     console.log('✅ OTP Resent Successfully to:', email);
@@ -246,7 +195,7 @@ exports.resendOTP = async (req, res) => {
   }
 };
 
-// Register User
+// ✅ Register User
 exports.register = async (req, res) => {
   try {
     const { fullName, email, phone, password } = req.body;

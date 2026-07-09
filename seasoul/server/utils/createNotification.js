@@ -1,5 +1,6 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+// ✅ Import email service
 const { sendNotificationEmail } = require('../services/emailService');
 
 // ✅ Create notification for single user
@@ -25,7 +26,7 @@ const createNotification = async (userId, title, message, type, relatedId = null
     await notification.save();
     console.log('✅ Notification saved to database:', notification._id);
 
-    // Send email notification
+    // ✅ Send email notification using email service
     try {
       const user = await User.findById(userId);
       if (user && user.email) {
@@ -73,7 +74,7 @@ const createNotificationForAllUsers = async (title, message, type, imageUrl = nu
       });
       notifications.push(notification);
       
-      // Send email to each user
+      // ✅ Send email to each user using email service
       try {
         await sendNotificationEmail(user, title, message);
         console.log(`✅ Email sent to: ${user.email}`);
