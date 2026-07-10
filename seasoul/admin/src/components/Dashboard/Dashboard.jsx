@@ -4,7 +4,6 @@ import {
   BookOpen, 
   Users, 
   DollarSign, 
-  Activity, 
   TrendingUp, 
   Calendar, 
   CreditCard,
@@ -57,34 +56,35 @@ const UserAvatar = ({ user, size = 'w-10 h-10' }) => {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ 
-    products: 0, 
+    packages: 0, 
     bookings: 0, 
     users: 0, 
-    revenue: 0,
-    activities: 0 
+    revenue: 0
   });
   const [loading, setLoading] = useState(true);
   const [recentUsers, setRecentUsers] = useState([]);
-  const [recentProducts, setRecentProducts] = useState([]);
-  const [recentActivities, setRecentActivities] = useState([]);
+  const [recentPackages, setRecentPackages] = useState([]);
   const [recentBookings, setRecentBookings] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [loadingActivities, setLoadingActivities] = useState(true);
+  const [loadingPackages, setLoadingPackages] = useState(true);
   const [loadingBookings, setLoadingBookings] = useState(true);
 
   useEffect(() => {
     fetchStats();
     fetchRecentUsers();
-    fetchRecentProducts();
-    fetchRecentActivities();
+    fetchRecentPackages();
     fetchRecentBookings();
   }, []);
 
   const fetchStats = async () => {
     try {
       const response = await api.get('/admin/stats');
-      setStats(response.data);
+      setStats({
+        packages: response.data.products || 0,
+        bookings: response.data.bookings || 0,
+        users: response.data.users || 0,
+        revenue: response.data.revenue || 0
+      });
     } catch (error) {
       console.error('Error fetching stats:', error);
       toast.error('Failed to load dashboard stats');
@@ -96,7 +96,6 @@ export default function Dashboard() {
   const fetchRecentUsers = async () => {
     try {
       const response = await api.get('/admin/users?limit=5');
-      // Backend already filters admin users
       setRecentUsers(response.data.users || []);
     } catch (error) {
       console.error('Error fetching recent users:', error);
@@ -105,25 +104,14 @@ export default function Dashboard() {
     }
   };
 
-  const fetchRecentProducts = async () => {
+  const fetchRecentPackages = async () => {
     try {
       const response = await api.get('/admin/products?limit=5');
-      setRecentProducts(response.data.products || []);
+      setRecentPackages(response.data.products || []);
     } catch (error) {
-      console.error('Error fetching recent products:', error);
+      console.error('Error fetching recent packages:', error);
     } finally {
-      setLoadingProducts(false);
-    }
-  };
-
-  const fetchRecentActivities = async () => {
-    try {
-      const response = await api.get('/admin/activities?limit=5');
-      setRecentActivities(response.data.activities || []);
-    } catch (error) {
-      console.error('Error fetching recent activities:', error);
-    } finally {
-      setLoadingActivities(false);
+      setLoadingPackages(false);
     }
   };
 
@@ -172,31 +160,33 @@ export default function Dashboard() {
       }
     });
 
-    // Add recent products
-    recentProducts.slice(0, 2).forEach(product => {
-      if (product.createdAt) {
+    // Add recent packages
+    recentPackages.slice(0, 2).forEach(pkg => {
+      if (pkg.createdAt) {
         activities.push({
-          id: `product-${product._id}`,
-          type: 'product',
-          title: `New product added: ${product.name}`,
-          time: timeAgo(product.createdAt),
-          icon: 'product',
-          link: '/products',
+          id: `package-${pkg._id}`,
+          type: 'package',
+          title: `New package added: ${pkg.name}`,
+          time: timeAgo(pkg.createdAt),
+          icon: 'package',
+          link: '/packages',
           isNew: true
         });
       }
     });
 
-    // Add recent activities
-    recentActivities.slice(0, 2).forEach(activity => {
-      if (activity.createdAt) {
+    // Add recent bookings
+    recentBookings.slice(0, 2).forEach(booking => {
+      if (booking.createdAt) {
+        const customerName = booking.userId?.fullName || booking.user?.fullName || 'User';
+        const itemName = booking.productId?.name || booking.activityId?.name || 'Package';
         activities.push({
-          id: `activity-${activity._id}`,
-          type: 'activity',
-          title: `New activity added: ${activity.name}`,
-          time: timeAgo(activity.createdAt),
-          icon: 'activity',
-          link: '/activities',
+          id: `booking-${booking._id}`,
+          type: 'booking',
+          title: `New booking: ${customerName} booked ${itemName}`,
+          time: timeAgo(booking.createdAt),
+          icon: 'booking',
+          link: '/bookings',
           isNew: true
         });
       }
@@ -216,24 +206,16 @@ export default function Dashboard() {
     return activities.slice(0, 5);
   };
 
+  // ✅ Stats Cards - Removed Activities
   const statsCards = [
     { 
-      title: 'Total Products', 
-      value: stats.products, 
+      title: 'Total Packages', 
+      value: stats.packages, 
       icon: Package, 
       color: '#00E5FF',
       bgColor: 'rgba(0, 229, 255, 0.1)',
       borderColor: 'rgba(0, 229, 255, 0.2)',
-      link: '/products'
-    },
-    { 
-      title: 'Total Activities', 
-      value: stats.activities || 0, 
-      icon: Activity, 
-      color: '#00A694',
-      bgColor: 'rgba(0, 166, 148, 0.1)',
-      borderColor: 'rgba(0, 166, 148, 0.2)',
-      link: '/activities'
+      link: '/packages'
     },
     { 
       title: 'Total Bookings', 
@@ -282,10 +264,10 @@ export default function Dashboard() {
     switch(type) {
       case 'user':
         return <Users size={14} className="text-[#9B59B6]" />;
-      case 'product':
+      case 'package':
         return <Package size={14} className="text-[#00E5FF]" />;
-      case 'activity':
-        return <Activity size={14} className="text-[#00A694]" />;
+      case 'booking':
+        return <Calendar size={14} className="text-[#FFB84D]" />;
       default:
         return <Clock size={14} className="text-[#00E5FF]" />;
     }
@@ -296,10 +278,10 @@ export default function Dashboard() {
     switch(type) {
       case 'user':
         return 'bg-[#9B59B6]/10';
-      case 'product':
+      case 'package':
         return 'bg-[#00E5FF]/10';
-      case 'activity':
-        return 'bg-[#00A694]/10';
+      case 'booking':
+        return 'bg-[#FFB84D]/10';
       default:
         return 'bg-[#00E5FF]/10';
     }
@@ -313,8 +295,8 @@ export default function Dashboard() {
         <p className="text-sm sm:text-base text-gray-500 mt-1">Welcome back! Here's what's happening with your business.</p>
       </div>
 
-      {/* Stats Grid - Responsive */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5 mb-6 md:mb-8">
+      {/* Stats Grid - 4 Cards (Removed Activities) */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 mb-6 md:mb-8">
         {statsCards.map((card, index) => (
           <Link
             key={index}
@@ -342,7 +324,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Recent Users & Products - Side by Side */}
+      {/* Recent Users & Packages - Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
         {/* Recent Users */}
         <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border border-gray-100 shadow-sm">
@@ -397,42 +379,42 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Recent Products */}
+        {/* Recent Packages */}
         <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Package size={18} className="sm:w-[20px] sm:h-[20px] text-[#00E5FF]" />
-              <h3 className="text-sm sm:text-base font-semibold text-[#1A2B49]">Latest Products</h3>
+              <h3 className="text-sm sm:text-base font-semibold text-[#1A2B49]">Latest Packages</h3>
             </div>
             <button
-              onClick={() => navigate('/products')}
+              onClick={() => navigate('/packages')}
               className="text-xs text-[#00E5FF] hover:underline font-medium flex items-center gap-1"
             >
               View All <ArrowRight size={12} />
             </button>
           </div>
           
-          {loadingProducts ? (
+          {loadingPackages ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00E5FF]"></div>
             </div>
-          ) : recentProducts.length === 0 ? (
+          ) : recentPackages.length === 0 ? (
             <div className="text-center py-8 text-gray-400 text-sm">
-              No products added yet
+              No packages added yet
             </div>
           ) : (
             <div className="space-y-3">
-              {recentProducts.slice(0, 4).map((product) => (
+              {recentPackages.slice(0, 4).map((pkg) => (
                 <div 
-                  key={product._id} 
+                  key={pkg._id} 
                   className="flex items-center justify-between p-2 sm:p-3 rounded-xl hover:bg-gray-50 transition group cursor-pointer"
-                  onClick={() => navigate(`/products/edit/${product._id}`)}
+                  onClick={() => navigate(`/packages/edit/${pkg._id}`)}
                 >
                   <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                    {product.images && product.images.length > 0 ? (
+                    {pkg.images && pkg.images.length > 0 ? (
                       <img
-                        src={product.images[0]}
-                        alt={product.name}
+                        src={pkg.images[0]}
+                        alt={pkg.name}
                         className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-lg object-cover border border-gray-200 flex-shrink-0"
                         onError={(e) => {
                           e.target.src = 'https://via.placeholder.com/40x40?text=No+Image';
@@ -445,17 +427,17 @@ export default function Dashboard() {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm font-medium text-[#1A2B49] truncate max-w-[100px] sm:max-w-[150px]">
-                        {product.name}
+                        {pkg.name}
                       </p>
                       <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                        <span className="text-[10px] sm:text-xs font-bold text-[#00E5FF]">₹{product.price}</span>
+                        <span className="text-[10px] sm:text-xs font-bold text-[#00E5FF]">₹{pkg.price}</span>
                         <span className="text-[10px] sm:text-xs text-gray-400">•</span>
-                        <span className="text-[10px] sm:text-xs text-gray-400">{product.category}</span>
+                        <span className="text-[10px] sm:text-xs text-gray-400">{pkg.category}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                    {product.isFeatured && (
+                    {pkg.isFeatured && (
                       <span className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 bg-yellow-400 text-yellow-900 rounded font-bold">
                         FEATURED
                       </span>
@@ -479,7 +461,12 @@ export default function Dashboard() {
               Recent Activity
             </h3>
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => {
+                fetchStats();
+                fetchRecentUsers();
+                fetchRecentPackages();
+                fetchRecentBookings();
+              }}
               className="text-xs text-[#00E5FF] hover:underline font-medium"
             >
               Refresh
@@ -519,23 +506,16 @@ export default function Dashboard() {
         {/* Quick Actions - Working */}
         <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border border-gray-100 shadow-sm">
           <h3 className="text-sm sm:text-base font-semibold text-[#1A2B49] mb-4 flex items-center gap-2">
-            <Activity size={16} className="sm:w-[18px] sm:h-[18px] text-[#00A694]" />
+            <TrendingUp size={16} className="sm:w-[18px] sm:h-[18px] text-[#00A694]" />
             Quick Actions
           </h3>
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <button
-              onClick={() => navigate('/products/add')}
+              onClick={() => navigate('/packages/add')}
               className="p-3 sm:p-4 bg-[#1A2B49]/5 rounded-xl hover:bg-[#1A2B49]/10 transition text-left group"
             >
               <Package size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-[#1A2B49] mb-1 sm:mb-2 group-hover:scale-110 transition" />
-              <p className="text-xs sm:text-sm font-medium text-[#1A2B49]">Add Product</p>
-            </button>
-            <button
-              onClick={() => navigate('/activities/add')}
-              className="p-3 sm:p-4 bg-[#00E5FF]/5 rounded-xl hover:bg-[#00E5FF]/10 transition text-left group"
-            >
-              <Activity size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-[#00E5FF] mb-1 sm:mb-2 group-hover:scale-110 transition" />
-              <p className="text-xs sm:text-sm font-medium text-[#1A2B49]">Add Activity</p>
+              <p className="text-xs sm:text-sm font-medium text-[#1A2B49]">Add Package</p>
             </button>
             <button
               onClick={() => navigate('/bookings')}
@@ -551,23 +531,30 @@ export default function Dashboard() {
               <Users size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-[#2ECC71] mb-1 sm:mb-2 group-hover:scale-110 transition" />
               <p className="text-xs sm:text-sm font-medium text-[#1A2B49]">Manage Users</p>
             </button>
+            <button
+              onClick={() => navigate('/payments')}
+              className="p-3 sm:p-4 bg-[#00E5FF]/5 rounded-xl hover:bg-[#00E5FF]/10 transition text-left group"
+            >
+              <CreditCard size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-[#00E5FF] mb-1 sm:mb-2 group-hover:scale-110 transition" />
+              <p className="text-xs sm:text-sm font-medium text-[#1A2B49]">View Payments</p>
+            </button>
           </div>
 
           {/* Extra Quick Actions - Bottom Row */}
           <div className="mt-3 grid grid-cols-2 gap-2 sm:gap-3">
             <button
-              onClick={() => navigate('/products')}
+              onClick={() => navigate('/packages')}
               className="p-3 sm:p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition text-left group"
             >
               <Package size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-gray-500 mb-1 sm:mb-2 group-hover:scale-110 transition" />
-              <p className="text-xs sm:text-sm font-medium text-gray-600">View Products</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">View Packages</p>
             </button>
             <button
-              onClick={() => navigate('/activities')}
+              onClick={() => navigate('/dashboard')}
               className="p-3 sm:p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition text-left group"
             >
-              <Activity size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-gray-500 mb-1 sm:mb-2 group-hover:scale-110 transition" />
-              <p className="text-xs sm:text-sm font-medium text-gray-600">View Activities</p>
+              <TrendingUp size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-gray-500 mb-1 sm:mb-2 group-hover:scale-110 transition" />
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Refresh Stats</p>
             </button>
           </div>
         </div>

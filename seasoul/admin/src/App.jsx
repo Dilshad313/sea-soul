@@ -5,14 +5,13 @@ import PrivateRoute from './components/Common/PrivateRoute';
 import Login from './components/Common/Login';
 import Layout from './components/Layout/Layout';
 import Dashboard from './components/Dashboard/Dashboard';
-import ProductsList from './components/Products/ProductsList';
-import ProductForm from './components/Products/ProductForm';
-import ActivitiesList from './components/Activities/ActivitiesList';
-import ActivityForm from './components/Activities/ActivityForm';
+import PackagesList from './components/Packages/PackagesList';
+import PackageForm from './components/Packages/PackageForm';
+// ✅ Activity imports removed
 import BookingsList from './components/Bookings/BookingsList';
 import PaymentsList from './components/Payments/PaymentsList';
 import UsersList from './components/Users/UsersList';
-import AdminProfile from './components/AdminProfile/AdminProfile'; // ✅ NEW
+import AdminProfile from './components/AdminProfile/AdminProfile';
 
 function App() {
   return (
@@ -50,16 +49,14 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/products" element={<ProductsList />} />
-              <Route path="/products/add" element={<ProductForm />} />
-              <Route path="/products/edit/:id" element={<ProductForm />} />
-              <Route path="/activities" element={<ActivitiesList />} />
-              <Route path="/activities/add" element={<ActivityForm />} />
-              <Route path="/activities/edit/:id" element={<ActivityForm />} />
+              {/* ✅ Only Packages - Activities removed */}
+              <Route path="/packages" element={<PackagesList />} />
+              <Route path="/packages/add" element={<PackageForm />} />
+              <Route path="/packages/edit/:id" element={<PackageForm />} />
               <Route path="/bookings" element={<BookingsList />} />
               <Route path="/payments" element={<PaymentsList />} />
               <Route path="/users" element={<UsersList />} />
-              <Route path="/admin-profile" element={<AdminProfile />} /> {/* ✅ NEW */}
+              <Route path="/admin-profile" element={<AdminProfile />} />
             </Route>
           </Route>
         </Routes>
