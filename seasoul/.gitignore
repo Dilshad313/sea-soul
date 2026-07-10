@@ -44,6 +44,8 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 node_modules/
+/admin/node_modules/
+/server/node_modules/
 dist/
 build/
 .env
