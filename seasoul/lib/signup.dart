@@ -1,8 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:seasoul/login.dart';
-import 'package:seasoul/otp.dart';
+import '../services/api_service.dart';
+import '../constants/api_constants.dart';
+import '../otp.dart';
+import '../login.dart';
 
 class signup extends StatefulWidget {
   const signup({super.key});
@@ -18,6 +20,8 @@ class _signupState extends State<signup> {
   final _passwordController = TextEditingController();
 
   bool _termsAccepted = false;
+  bool _isLoading = false;
+  bool _obscurePassword = true; // ✅ Password visibility toggle
 
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
@@ -44,6 +48,137 @@ class _signupState extends State<signup> {
     _phoneFocus.dispose();
     _passwordFocus.dispose();
     super.dispose();
+  }
+
+  void _sendOTP() async {
+    if (_isLoading) return;
+
+    final fullName = _fullNameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (fullName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // ✅ CHECK: Valid email format
+    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    if (!emailRegex.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email address (e.g., name@domain.com)'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // Phone validation (basic)
+    if (phone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid phone number'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!_termsAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please accept Terms & Conditions'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final data = {'email': email};
+      final response = await ApiService.post(ApiConstants.sendOTP, data);
+
+      print('📱 API Response: $response');
+
+      // ✅ Check response from backend
+      if (response['success'] == false) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Something went wrong'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Success - OTP sent
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ OTP has been sent to your email address'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OTPPage(
+              email: email,
+              fullName: fullName,
+              phone: phone,
+              password: password,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error: $e');
+      
+      // ✅ Check error message and show appropriate toast
+      final errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('invalid email') || errorMsg.contains('valid email')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid email address'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else if (errorMsg.contains('already registered') || 
+                 errorMsg.contains('exists') ||
+                 (errorMsg.contains('email') && errorMsg.contains('registered'))) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This email is already registered. Please login or use another email.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -82,7 +217,6 @@ class _signupState extends State<signup> {
               ),
             ),
           ),
-
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(
@@ -113,7 +247,6 @@ class _signupState extends State<signup> {
                       ),
                     ),
                     const SizedBox(height: 32),
-
                     ClipRRect(
                       borderRadius: BorderRadius.circular(32),
                       child: BackdropFilter(
@@ -149,7 +282,6 @@ class _signupState extends State<signup> {
                                 ),
                               ),
                               const SizedBox(height: 32),
-
                               _buildInputField(
                                 label: 'FULL NAME',
                                 icon: Icons.person_outline,
@@ -167,7 +299,6 @@ class _signupState extends State<signup> {
                                 keyboardType: TextInputType.emailAddress,
                               ),
                               const SizedBox(height: 24),
-
                               LayoutBuilder(
                                 builder: (context, constraints) {
                                   if (constraints.maxWidth > 400) {
@@ -179,7 +310,7 @@ class _signupState extends State<signup> {
                                           child: _buildInputField(
                                             label: 'PHONE NUMBER',
                                             icon: Icons.call_outlined,
-                                            hint: '+1 (555) 000-0000',
+                                            hint: '+91 9876543210',
                                             controller: _phoneController,
                                             focusNode: _phoneFocus,
                                             keyboardType: TextInputType.phone,
@@ -204,7 +335,7 @@ class _signupState extends State<signup> {
                                         _buildInputField(
                                           label: 'PHONE NUMBER',
                                           icon: Icons.call_outlined,
-                                          hint: '+1 (555) 000-0000',
+                                          hint: '+91 9876543210',
                                           controller: _phoneController,
                                           focusNode: _phoneFocus,
                                           keyboardType: TextInputType.phone,
@@ -224,7 +355,6 @@ class _signupState extends State<signup> {
                                 },
                               ),
                               const SizedBox(height: 24),
-
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -285,7 +415,6 @@ class _signupState extends State<signup> {
                                 ],
                               ),
                               const SizedBox(height: 32),
-
                               Container(
                                 width: double.infinity,
                                 height: 56,
@@ -315,36 +444,38 @@ class _signupState extends State<signup> {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => otp(),
-                                      ),
-                                    );
-                                  },
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'Continue',
-                                        style: GoogleFonts.montserrat(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF001F24),
+                                  onPressed: _isLoading ? null : _sendOTP,
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Color(0xFF001F24),
+                                          ),
+                                        )
+                                      : Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              'Continue',
+                                              style: GoogleFonts.montserrat(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w700,
+                                                color: const Color(0xFF001F24),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Icon(
+                                              Icons.arrow_forward_rounded,
+                                              color: Color(0xFF001F24),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Icon(
-                                        Icons.arrow_forward_rounded,
-                                        color: Color(0xFF001F24),
-                                      ),
-                                    ],
-                                  ),
                                 ),
                               ),
                               const SizedBox(height: 32),
-
                               Container(
                                 padding: const EdgeInsets.only(top: 24),
                                 decoration: BoxDecoration(
@@ -369,7 +500,7 @@ class _signupState extends State<signup> {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (context) => login(),
+                                            builder: (context) => const login(),
                                           ),
                                         );
                                       },
@@ -391,7 +522,6 @@ class _signupState extends State<signup> {
                       ),
                     ),
                     const SizedBox(height: 32),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -428,6 +558,8 @@ class _signupState extends State<signup> {
     TextInputType keyboardType = TextInputType.text,
   }) {
     final isFocused = focusNode.hasFocus;
+    final isPasswordField = label == 'PASSWORD'; // ✅ Check if password field
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -441,42 +573,63 @@ class _signupState extends State<signup> {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          focusNode: focusNode,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          style: GoogleFonts.montserrat(
-            color: const Color(0xFFDCE4E5),
-            fontSize: 16,
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
           ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: GoogleFonts.montserrat(
-              color: Colors.white24,
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            obscureText: isPasswordField ? _obscurePassword : obscureText,
+            keyboardType: keyboardType,
+            style: GoogleFonts.montserrat(
+              color: const Color(0xFFDCE4E5),
               fontSize: 16,
             ),
-            prefixIcon: Icon(
-              icon,
-              color: isFocused
-                  ? const Color(0xFF00E5FF)
-                  : const Color(0xFF849396),
-            ),
-            filled: true,
-            fillColor: const Color(0xFF05080B),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 18,
-              horizontal: 16,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF59DBC7),
-                width: 1.5,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: GoogleFonts.montserrat(
+                color: Colors.white24,
+                fontSize: 16,
+              ),
+              prefixIcon: Icon(
+                icon,
+                color: isFocused
+                    ? const Color(0xFF00E5FF)
+                    : const Color(0xFF849396),
+              ),
+              // ✅ Password visibility toggle
+              suffixIcon: isPasswordField
+                  ? IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: isFocused
+                            ? const Color(0xFF00E5FF)
+                            : const Color(0xFF849396),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: const Color(0xFF05080B),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 18,
+                horizontal: 16,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFF59DBC7),
+                  width: 1.5,
+                ),
               ),
             ),
           ),

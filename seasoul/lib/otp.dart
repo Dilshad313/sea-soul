@@ -3,18 +3,30 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:seasoul/signup.dart';
-import 'package:seasoul/user_home.dart';
+import '../services/api_service.dart';
+import '../constants/api_constants.dart';
+import '../user_home.dart';
+import '../signup.dart'; // ✅ Import signup
 
+class OTPPage extends StatefulWidget {
+  final String email;
+  final String fullName;
+  final String phone;
+  final String password;
 
-class otp extends StatefulWidget {
-  const otp({super.key});
+  const OTPPage({
+    super.key,
+    required this.email,
+    required this.fullName,
+    required this.phone,
+    required this.password,
+  });
 
   @override
-  State<otp> createState() => _otpState();
+  State<OTPPage> createState() => _OTPPageState();
 }
 
-class _otpState extends State<otp> {
+class _OTPPageState extends State<OTPPage> {
   final int _otpLength = 4;
   late List<FocusNode> _focusNodes;
   late List<TextEditingController> _controllers;
@@ -22,6 +34,7 @@ class _otpState extends State<otp> {
   Timer? _countdownTimer;
   int _secondsLeft = 59;
   bool _canResend = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -63,6 +76,154 @@ class _otpState extends State<otp> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  void _verifyOTP() async {
+    if (_isLoading) return;
+
+    String otp = '';
+    for (var controller in _controllers) {
+      otp += controller.text;
+    }
+
+    if (otp.length != _otpLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter complete OTP'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final data = {
+        'email': widget.email,
+        'otp': otp,
+      };
+
+      print('📤 Verifying OTP for email: ${widget.email}');
+      final verifyResponse = await ApiService.post(ApiConstants.verifyOTP, data);
+      print('📥 Verify Response: $verifyResponse');
+
+      if (verifyResponse['success'] == true && verifyResponse['verified'] == true) {
+        print('✅ OTP Verified! Registering user...');
+
+        final registerData = {
+          'fullName': widget.fullName,
+          'email': widget.email,
+          'phone': widget.phone,
+          'password': widget.password,
+        };
+
+        print('📤 Registering user: $registerData');
+        final registerResponse = await ApiService.post(ApiConstants.register, registerData);
+        print('📥 Register Response: $registerResponse');
+
+        if (registerResponse['success'] == true || registerResponse['token'] != null) {
+          await ApiService.saveToken(registerResponse['token']);
+          await ApiService.saveUserData({
+            '_id': registerResponse['_id'],
+            'fullName': registerResponse['fullName'],
+            'email': registerResponse['email'],
+            'phone': registerResponse['phone'],
+          });
+          
+          print('✅ Token and user data saved!');
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Registration successful! Welcome to SeaSoul!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          if (mounted) {
+            await Future.delayed(const Duration(milliseconds: 500));
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const UserHome()),
+            );
+          }
+        } else {
+          throw Exception(registerResponse['message'] ?? 'Registration failed');
+        }
+      } else {
+        throw Exception(verifyResponse['message'] ?? 'OTP verification failed');
+      }
+    } catch (e) {
+      print('❌ Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _resendOTP() async {
+    if (!_canResend || _isLoading) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final data = {'email': widget.email};
+      await ApiService.post(ApiConstants.resendOTP, data);
+
+      // Clear all OTP fields
+      for (var controller in _controllers) {
+        controller.clear();
+      }
+      // Focus on first field
+      _focusNodes[0].requestFocus();
+
+      _startTimer();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ OTP resent successfully to your email'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _handleOtpChange(String value, int index) {
+    if (value.isNotEmpty) {
+      if (index < _otpLength - 1) {
+        _focusNodes[index + 1].requestFocus();
+      } else {
+        _focusNodes[index].unfocus();
+      }
+    } else {
+      if (index > 0) {
+        _focusNodes[index - 1].requestFocus();
+      }
+    }
+  }
+
+  // ✅ NEW: Navigate back to Signup
+  void _goBackToSignup() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const signup(),
+      ),
+    );
   }
 
   @override
@@ -139,20 +300,14 @@ class _otpState extends State<otp> {
                         ),
                       ],
                     ),
+                    // ✅ FIXED: X Icon - Navigate back to Signup
                     IconButton(
                       icon: const Icon(Icons.close, color: colorOnSurface),
                       style: IconButton.styleFrom(
                         backgroundColor: Colors.white.withOpacity(0.05),
                         side: BorderSide(color: Colors.white.withOpacity(0.1)),
                       ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const signup(),
-                          ),
-                        );
-                      },
+                      onPressed: _goBackToSignup, // ✅ Navigate to Signup
                     ),
                   ],
                 ),
@@ -168,7 +323,7 @@ class _otpState extends State<otp> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Verify Phone',
+                      'Verify Email',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.montserrat(
                         fontSize: 24,
@@ -189,7 +344,7 @@ class _otpState extends State<otp> {
                           children: [
                             const TextSpan(text: "We've sent a code to "),
                             TextSpan(
-                              text: "+91 XXXXX XXXXX",
+                              text: widget.email,
                               style: const TextStyle(
                                 color: Color(0xFFC3F5FF),
                                 fontWeight: FontWeight.w500,
@@ -219,7 +374,7 @@ class _otpState extends State<otp> {
                         ),
                         const SizedBox(height: 8),
                         TextButton(
-                          onPressed: _canResend ? _startTimer : null,
+                          onPressed: _canResend ? _resendOTP : null,
                           child: Text(
                             _canResend
                                 ? 'Resend Code'
@@ -258,29 +413,30 @@ class _otpState extends State<otp> {
                           ),
                           elevation: 0,
                         ),
-                        onPressed: () {
-                          // NOW UserHome is defined and accessible
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const UserHome(),
-                            ),
-                          );
-                        },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Verify & Proceed',
-                              style: GoogleFonts.montserrat(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
+                        onPressed: _isLoading ? null : _verifyOTP,
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Color(0xFF001F24),
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Verify & Proceed',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward, size: 20),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward, size: 20),
-                          ],
-                        ),
                       ),
                     ),
                   ],
@@ -332,17 +488,7 @@ class _otpState extends State<otp> {
               ),
             ),
             onChanged: (value) {
-              if (value.isNotEmpty) {
-                if (index < _otpLength - 1) {
-                  _focusNodes[index + 1].requestFocus();
-                } else {
-                  _focusNodes[index].unfocus();
-                }
-              } else {
-                if (index > 0) {
-                  _focusNodes[index - 1].requestFocus();
-                }
-              }
+              _handleOtpChange(value, index);
             },
           ),
         ),

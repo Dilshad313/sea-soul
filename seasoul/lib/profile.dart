@@ -1,16 +1,22 @@
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../login.dart';
+import '../edit_profile.dart';
+import '../change_password.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  State<ProfilePage> createState() => profile();
+  State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class profile extends State<ProfilePage> {
-  bool _isBiometricLoginEnabled = true;
+class _ProfilePageState extends State<ProfilePage> {
+  bool _isLoggingOut = false;
+  bool _isLoading = true;
+  Map<String, dynamic>? _userData;
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -21,119 +27,224 @@ class profile extends State<ProfilePage> {
   static const Color errorColor = Color(0xFFBA1A1A);
 
   @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    setState(() => _isLoading = true);
+    try {
+      final userData = await ApiService.getUserData();
+      setState(() {
+        _userData = userData;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      print('Error loading user data: $e');
+    }
+  }
+
+  void _logout() async {
+    if (_isLoggingOut) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Logout',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: deepNavy,
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(
+            fontSize: 16,
+            color: outline,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: outline,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _performLogout();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: errorColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+            child: const Text(
+              'Logout',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performLogout() async {
+    setState(() {
+      _isLoggingOut = true;
+    });
+
+    try {
+      await ApiService.deleteToken();
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const login()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      print('❌ Error during logout: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error during logout: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoggingOut = false;
+        });
+      }
+    }
+  }
+
+  String _getUserInitial(String name) {
+    if (name.isEmpty) return '?';
+    return name.trim()[0].toUpperCase();
+  }
+
+  bool _hasProfileImage(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return false;
+    if (imageUrl.contains('default-avatar')) return false;
+    return true;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final String userName = _userData?['fullName'] ?? 'User';
+    final String userEmail = _userData?['email'] ?? 'user@email.com';
+    final String profileImage = _userData?['profileImage'] ?? 
+        'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
+    final String userInitial = _getUserInitial(userName);
+    final bool hasImage = _hasProfileImage(profileImage);
+
+    if (_isLoading) {
+      return Container(
+        color: sandWhite,
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: oceanBlue,
+          ),
+        ),
+      );
+    }
+
     return Container(
       color: sandWhite,
       child: SafeArea(
-        bottom: false,
+        bottom: true,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 120.0),
+          padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildProfileHeaderSection(),
+              _buildProfileHeaderSection(
+                userName, 
+                userEmail, 
+                profileImage,
+                userInitial,
+                hasImage,
+              ),
               const SizedBox(height: 32),
-
               _buildBentoSection(
                 icon: Icons.person_outline,
                 iconColor: oceanBlue,
-                title: 'Personal Information',
+                title: 'Account',
                 items: [
-                  _buildListActionRow(label: 'Edit Profile'),
-                  _buildListActionRow(label: 'Saved Travelers'),
+                  _buildListActionRow(
+                    label: 'Edit Profile',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProfilePage(
+                            userData: _userData ?? {},
+                          ),
+                        ),
+                      ).then((_) => _loadUserData()); // ✅ Refresh after pop
+                    },
+                  ),
+                  _buildListActionRow(
+                    label: 'Change Password',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ChangePasswordPage(),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
               _buildBentoSection(
-                icon: Icons.folder_shared_outlined,
+                icon: Icons.support_outlined,
                 iconColor: turquoiseLagoon,
-                title: 'Documents & Permits',
+                title: 'Support',
                 items: [
                   _buildListActionRow(
-                    label: 'ID Vault',
-                    trailingWidget: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE0E8FF),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'ENCRYPTED',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF007262),
-                        ),
-                      ),
-                    ),
+                    label: 'Help Center',
+                    onTap: () {},
                   ),
-                  _buildListActionRow(label: 'Entry Permits'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildBentoSection(
-                icon: Icons.security_outlined,
-                iconColor: sunsetOrange,
-                title: 'Security',
-                items: [
-                  _buildListActionRow(label: 'Change Password'),
                   _buildListActionRow(
-                    label: 'Biometric Login',
-                    hasChevron: false,
-                    trailingWidget: Transform.scale(
-                      scale: 0.85,
-                      child: CupertinoSwitch(
-                        activeColor: turquoiseLagoon,
-                        value: _isBiometricLoginEnabled,
-                        onChanged: (value) {
-                          setState(() {
-                            _isBiometricLoginEnabled = value;
-                          });
-                        },
-                      ),
-                    ),
+                    label: 'Terms & Conditions',
+                    onTap: () {},
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildBentoSection(
-                icon: Icons.tune_outlined,
-                iconColor: deepNavy,
-                title: 'Preferences',
-                items: [
                   _buildListActionRow(
-                    label: 'Language',
-                    trailingWidget: const Padding(
-                      padding: EdgeInsets.only(right: 6.0),
-                      child: Text(
-                        'English',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 14,
-                          color: outline,
-                        ),
-                      ),
-                    ),
+                    label: 'Privacy Policy',
+                    onTap: () {},
                   ),
-                  _buildListActionRow(label: 'Notifications'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildBentoSection(
-                icon: Icons.contact_support_outlined,
-                iconColor: oceanBlue,
-                title: 'Support & Legal',
-                items: [
-                  _buildListActionRow(label: 'Help Center'),
-                  _buildListActionRow(label: 'Terms of Service'),
                 ],
               ),
               const SizedBox(height: 24),
-
               _buildLogoutButton(),
               const SizedBox(height: 24),
             ],
@@ -143,82 +254,113 @@ class profile extends State<ProfilePage> {
     );
   }
 
-  Widget _buildProfileHeaderSection() {
+  Widget _buildProfileHeaderSection(
+    String name,
+    String email,
+    String profileImage,
+    String initial,
+    bool hasImage,
+  ) {
     return Column(
       children: [
         Stack(
           alignment: Alignment.bottomRight,
           children: [
-            Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: deepNavy.withOpacity(0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
+            if (hasImage)
+              Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: deepNavy.withOpacity(0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.white, width: 4),
+                  image: DecorationImage(
+                    image: NetworkImage(profileImage),
+                    fit: BoxFit.cover,
+                    onError: (exception, stackTrace) {},
                   ),
-                ],
-                border: Border.all(color: Colors.white, width: 4),
-                image: const DecorationImage(
-                  image: NetworkImage(
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuB21Ns2GgGECkZFkGlKa0z4kwMPsNR8U3-52cfVLZq0JM4R_075CbbukPbjd8ffMxiqMRN_LP22M9Tvw88iEQ0v-KibFhujIz1AiBXdHERG8tOjRhsK1OsnF9V2C0ARO2dZ-8ssBm_rpbRJo3qBObQOzlRdKVBsLLTCDzV5QM_iipA11Sy_8uqkHXF9fZywtHuiel1FGe5m3h4xX895qIfSwvLQC0abULjweSOBnGyIT6QiIQLzpXo8CkWljejQqbFGaY7bKUmodvI',
+                ),
+              )
+            else
+              Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: oceanBlue.withOpacity(0.15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: deepNavy.withOpacity(0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                  border: Border.all(color: oceanBlue.withOpacity(0.3), width: 4),
+                ),
+                child: Center(
+                  child: Text(
+                    initial,
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: oceanBlue,
+                    ),
                   ),
-                  fit: BoxFit.cover,
                 ),
               ),
-            ),
             Positioned(
-              bottom: 2,
-              right: 2,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: turquoiseLagoon,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.verified,
-                  color: Colors.white,
-                  size: 16,
+              bottom: 0,
+              right: 0,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EditProfilePage(
+                        userData: _userData ?? {},
+                      ),
+                    ),
+                  ).then((_) => _loadUserData()); // ✅ Refresh after pop
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: oceanBlue,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.edit,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 14),
-        const Text(
-          'Alex Johnson',
-          style: TextStyle(
+        Text(
+          name,
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: deepNavy,
           ),
         ),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: oceanBlue.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(99),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.workspace_premium, color: oceanBlue, size: 16),
-              SizedBox(width: 6),
-              Text(
-                'Premium Member',
-                style: TextStyle(
-                  color: oceanBlue,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+        const SizedBox(height: 4),
+        Text(
+          email,
+          style: TextStyle(
+            fontSize: 14,
+            color: outline,
+            fontFamily: 'Inter',
           ),
         ),
       ],
@@ -291,9 +433,10 @@ class profile extends State<ProfilePage> {
     required String label,
     bool hasChevron = true,
     Widget? trailingWidget,
+    VoidCallback? onTap,
   }) {
     return GestureDetector(
-      onTap: () {},
+      onTap: onTap ?? () {},
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -330,11 +473,20 @@ class profile extends State<ProfilePage> {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: () {},
-        icon: const Icon(Icons.logout, color: errorColor, size: 18),
-        label: const Text(
-          'Logout',
-          style: TextStyle(
+        onPressed: _isLoggingOut ? null : _logout,
+        icon: _isLoggingOut
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: errorColor,
+                ),
+              )
+            : const Icon(Icons.logout, color: errorColor, size: 18),
+        label: Text(
+          _isLoggingOut ? 'Logging out...' : 'Logout',
+          style: const TextStyle(
             color: errorColor,
             fontSize: 16,
             fontWeight: FontWeight.bold,

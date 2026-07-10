@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:seasoul/explore_details.dart';
+import 'package:seasoul/product_details.dart';
+import 'package:seasoul/activity_details.dart';
+import 'package:seasoul/services/product_service.dart';
+import 'package:seasoul/services/activity_service.dart';
+import 'package:seasoul/widgets/star_rating.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -10,6 +15,12 @@ class ExplorePage extends StatefulWidget {
 
 class _ExplorePageState extends State<ExplorePage> {
   int _activeCategoryIndex = 0;
+  String _searchQuery = '';
+  List<dynamic> _products = [];
+  List<dynamic> _activities = [];
+  bool _isLoadingProducts = true;
+  bool _isLoadingActivities = true;
+  bool _showProducts = true;
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -17,98 +28,215 @@ class _ExplorePageState extends State<ExplorePage> {
   static const Color outline = Color(0xFF6E7880);
   static const Color sandWhite = Color(0xFFF8FBFF);
 
+  // ✅ Package Categories (Same as Admin)
   final List<String> _categories = [
-    'All Islands',
-    'Lagoons',
-    'Diving Spots',
+    'All',
     'Resorts',
-  ];
-
-  final List<Map<String, String>> _islands = [
-    {
-      'name': 'Kavaratti',
-      'tagline': 'The Administrative Hub',
-      'price': '₹8,500',
-      'image':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuAHOKsCqKcDXNw7U0USBF-1H03oE4dpy95Gy5rroXPKbawm76a1cNg_BxkbAPMO4WWoMvpTQqR6kBvi9T1k34CQTE9O9E4M9nYxKEJDEFPh50m5U7eiWxLG7KxIxesGQlURjIOVlepuuAsXshUDdfekF9d0UCe5EwozrjOEYAm7TiafVozltjzctOs6JHHJblnJ8QZsKkwUAFJvHb4UDCmcgr_HRISTNEB4SPWzN7F0UUwr6vYwQNErfjHD1Nu2GNNVGF3rQOfWTh0',
-      'hasFavorite': 'true',
-    },
-    {
-      'name': 'Agatti',
-      'tagline': 'The Gateway to Isles',
-      'price': '₹12,200',
-      'image':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuAwKQspMUUPk7RZLdz2DJ_Xqzpjccf26KudbRCAsQFFG2jNHcYO0ufir2d4X7YWJ7n-u_u3TLsBn3yqzuYRystArevb8ANtsahgypNZJWT39xPdvvdxQx5GRlh2rjfysVlqyD0kRlXXPCFw4u4OzJeTXwoIBcBKn_1dGSOAa4fC3NM3PzcWZvAOWSPvP4rvxjjwisE_6Tt5-VbigIPomLFqUCKd344Vl71sVX0oXxDEzd5sABY4ua_jlV6qkq-6eFQ0EFJd2lY3OfY',
-      'hasFavorite': 'true',
-    },
-    {
-      'name': 'Bangaram',
-      'tagline': 'The Teardrop Island',
-      'price': '₹15,000',
-      'image':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuAGiwSlQyzqMOah5R2eVIVr4AGJBWQrx_EBaKrOz4ZYG6S0neEH84K3XsgbJaUZy6BRGUhWBsFpwhyzGRTR8Ql4v56I1sqjivXTBySFNiU4elIjN6_hYk72CgbbqUfTsomOKr6jkvZKd6hULWQo87Bc144QZDktE10UY8ds0qW9m02bkHm3IZ-GV9YDN-hY86TKn3J4h6nvNgCmfovZ2A7LfkS2RNmxT0E_2Cyj5DjqXxUgjKtYja_C2XQMl1Ti7vO1ihDRf20lcPE',
-      'hasFavorite': 'false',
-    },
-    {
-      'name': 'Minicoy',
-      'tagline': 'Southern Heritage Isle',
-      'price': '₹9,800',
-      'image':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCxH7Wq_DRGWKFW-XQsxfM5g1IjtnyIJl9ym-MoOWH1bLWXf8c4Gqi33TXOef_vsX4yk4wBVMg4UAkL3cXSnBCljFbiejWpllO-nwXt7ZwA4sqFqGCxq2BnT9A20wZk4CdXQ-ycHeS_TH2TY0RWOm0bXlcjAcYtP3xuOhIKyltDy7QKwQe0T1Jt9JBZuJNac0CSkQBPOdJVJy3TvsSo_JV3ZyUj3wquzOI91QDCZI9LPEF7bnbOmnmmqzX2bjp96kumnc6ddhcmLUc',
-      'hasFavorite': 'false',
-    },
+    'Activities',
+    'Scuba',
+    'Honeymoon',
+    'Dining',
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+    _loadActivities();
+  }
+
+  Future<void> _loadProducts() async {
+    setState(() => _isLoadingProducts = true);
+    try {
+      final response = await ProductService.getProducts();
+      if (response['success'] == true) {
+        setState(() {
+          _products = response['products'] ?? [];
+          _isLoadingProducts = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoadingProducts = false);
+      print('❌ Error loading products: $e');
+    }
+  }
+
+  Future<void> _loadActivities() async {
+    setState(() => _isLoadingActivities = true);
+    try {
+      final response = await ActivityService.getActivities();
+      if (response['success'] == true) {
+        setState(() {
+          _activities = response['activities'] ?? [];
+          _isLoadingActivities = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoadingActivities = false);
+      print('❌ Error loading activities: $e');
+    }
+  }
+
+  List<dynamic> _getFilteredItems() {
+    final items = _showProducts ? _products : _activities;
+    final category = _categories[_activeCategoryIndex];
+    
+    return items.where((item) {
+      // Category filter
+      if (category != 'All' && item['category'] != category) {
+        return false;
+      }
+      // Search filter
+      if (_searchQuery.isNotEmpty) {
+        final name = (item['name'] ?? '').toLowerCase();
+        final location = (item['location'] ?? '').toLowerCase();
+        final query = _searchQuery.toLowerCase();
+        if (!name.contains(query) && !location.contains(query)) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final filteredItems = _getFilteredItems();
+    final isLoading = _showProducts ? _isLoadingProducts : _isLoadingActivities;
+    final emptyMessage = _showProducts ? 'No packages found' : 'No activities found';
+
     return Container(
       color: sandWhite,
       child: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 100.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Explore Destinations',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: deepNavy,
-                ),
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Explore Destinations',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: deepNavy,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Discover the pristine jewels of the Arabian Sea',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      color: outline,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildToggleButtons(),
+                  const SizedBox(height: 12),
+                  _buildSearchBar(),
+                ],
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Discover the pristine jewels of the Arabian Sea',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  color: outline,
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              _buildSearchBar(),
-              const SizedBox(height: 24),
-
-              _buildCategoryChips(),
-              const SizedBox(height: 20),
-
-              _buildIslandGrid(),
-            ],
-          ),
+            ),
+            // Category Chips
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: _buildCategoryChips(),
+            ),
+            const SizedBox(height: 16),
+            // Content
+            Expanded(
+              child: isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: oceanBlue,
+                      ),
+                    )
+                  : filteredItems.isEmpty
+                      ? _buildEmptyState(emptyMessage)
+                      : _buildItemGrid(filteredItems),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildSearchBar() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+  Widget _buildToggleButtons() {
+    return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F3FF), 
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _showProducts = true;
+                  _activeCategoryIndex = 0;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _showProducts ? oceanBlue : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  'Packages',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _showProducts ? Colors.white : deepNavy,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _showProducts = false;
+                  _activeCategoryIndex = 0;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: !_showProducts ? oceanBlue : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  'Activities',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: !_showProducts ? Colors.white : deepNavy,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
             color: deepNavy.withOpacity(0.04),
@@ -117,17 +245,32 @@ class _ExplorePageState extends State<ExplorePage> {
           ),
         ],
       ),
-      child: const TextField(
+      child: TextField(
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+          });
+        },
         decoration: InputDecoration(
-          prefixIcon: Icon(Icons.search, color: outline),
-          hintText: 'Search islands, activities...',
-          hintStyle: TextStyle(
+          prefixIcon: const Icon(Icons.search, color: outline),
+          hintText: 'Search by name or location...',
+          hintStyle: const TextStyle(
             color: outline,
             fontFamily: 'Inter',
             fontSize: 15,
           ),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, color: outline, size: 18),
+                  onPressed: () {
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                  },
+                )
+              : null,
         ),
       ),
     );
@@ -155,9 +298,7 @@ class _ExplorePageState extends State<ExplorePage> {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? oceanBlue
-                      : turquoiseLagoon.withOpacity(0.1),
+                  color: isSelected ? oceanBlue : turquoiseLagoon.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(999),
                   border: isSelected
                       ? null
@@ -189,149 +330,250 @@ class _ExplorePageState extends State<ExplorePage> {
     );
   }
 
-  Widget _buildIslandGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics:
-           NeverScrollableScrollPhysics(),       itemCount: _islands.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 24,
-        childAspectRatio:
-            0.58, 
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _showProducts ? Icons.inventory : Icons.kayaking,
+            size: 64,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[500],
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () {
+              if (_showProducts) {
+                _loadProducts();
+              } else {
+                _loadActivities();
+              }
+            },
+            child: const Text('Retry'),
+          ),
+        ],
       ),
-      itemBuilder: (context, index) {
-        final item = _islands[index];
-        final isFav = item['hasFavorite'] == 'true';
+    );
+  }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
+  Widget _buildItemGrid(List<dynamic> items) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const BouncingScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 24,
+          childAspectRatio: 0.58,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final images = item['images'] ?? [];
+          final imageUrl = images.isNotEmpty ? images[0] : 
+              'https://via.placeholder.com/300x200';
+          final isProduct = _showProducts;
+          final itemId = item['_id'];
+          final itemName = item['name'] ?? 'Item';
+          final itemTagline = item['location'] ?? 'Location';
+          final itemPrice = item['price'] ?? 0;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Stack(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        if (isProduct) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProductDetailsPage(
+                                productId: itemId,
+                              ),
+                            ),
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ActivityDetailsPage(
+                                activityId: itemId,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                          image: DecorationImage(
+                            image: NetworkImage(imageUrl),
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                      ],
-                      image: DecorationImage(
-                        image: NetworkImage(item['image']!),
-                        fit: BoxFit.cover,
                       ),
                     ),
-                  ),
-                  if (isFav)
                     Positioned(
                       top: 12,
                       right: 12,
                       child: Container(
-                        width: 32,
-                        height: 32,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.4),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.favorite,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item['name']!,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: deepNavy,
-                    ),
-                  ),
-                  Text(
-                    item['tagline']!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      color: outline,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'STARTING',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
-                      color: outline.withOpacity(0.7),
-                    ),
-                  ),
-                  Text(
-                    item['price']!,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: oceanBlue,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => explore_details(),
-                          ),
-                        );
-                      },
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: oceanBlue.withOpacity(0.05),
-                        side: BorderSide(color: oceanBlue.withOpacity(0.1)),
-                        shape: RoundedRectangleBorder(
+                          color: Colors.white.withOpacity(0.9),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                      ),
-                      child: const Text(
-                        'View Details',
-                        style: TextStyle(
-                          color: oceanBlue,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                        child: Text(
+                          '₹$itemPrice',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: oceanBlue,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    if (item['isFeatured'] == true)
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFB84D).withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'FEATURED',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        );
-      },
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      itemName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: deepNavy,
+                      ),
+                    ),
+                    Text(
+                      itemTagline,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: outline,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'STARTING',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                        color: outline.withOpacity(0.7),
+                      ),
+                    ),
+                    Text(
+                      '₹$itemPrice',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: oceanBlue,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          if (isProduct) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProductDetailsPage(
+                                  productId: itemId,
+                                ),
+                              ),
+                            );
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ActivityDetailsPage(
+                                  activityId: itemId,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: oceanBlue.withOpacity(0.05),
+                          side: BorderSide(color: oceanBlue.withOpacity(0.1)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        child: const Text(
+                          'View Details',
+                          style: TextStyle(
+                            color: oceanBlue,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
