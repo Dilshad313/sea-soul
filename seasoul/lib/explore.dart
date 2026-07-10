@@ -4,6 +4,7 @@ import 'package:seasoul/product_details.dart';
 import 'package:seasoul/activity_details.dart';
 import 'package:seasoul/services/product_service.dart';
 import 'package:seasoul/services/activity_service.dart';
+import 'package:seasoul/widgets/star_rating.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -19,7 +20,7 @@ class _ExplorePageState extends State<ExplorePage> {
   List<dynamic> _activities = [];
   bool _isLoadingProducts = true;
   bool _isLoadingActivities = true;
-  bool _showProducts = true; // true = products, false = activities
+  bool _showProducts = true;
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -27,6 +28,7 @@ class _ExplorePageState extends State<ExplorePage> {
   static const Color outline = Color(0xFF6E7880);
   static const Color sandWhite = Color(0xFFF8FBFF);
 
+  // ✅ Package Categories (Same as Admin)
   final List<String> _categories = [
     'All',
     'Resorts',
@@ -101,7 +103,7 @@ class _ExplorePageState extends State<ExplorePage> {
   Widget build(BuildContext context) {
     final filteredItems = _getFilteredItems();
     final isLoading = _showProducts ? _isLoadingProducts : _isLoadingActivities;
-    final emptyMessage = _showProducts ? 'No products found' : 'No activities found';
+    final emptyMessage = _showProducts ? 'No packages found' : 'No activities found';
 
     return Container(
       color: sandWhite,
@@ -334,7 +336,7 @@ class _ExplorePageState extends State<ExplorePage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            _showProducts ? Icons.inventory : Icons.kayaking, // Fixed: Icons.package -> Icons.inventory
+            _showProducts ? Icons.inventory : Icons.kayaking,
             size: 64,
             color: Colors.grey[300],
           ),

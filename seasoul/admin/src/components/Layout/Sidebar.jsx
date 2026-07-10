@@ -3,7 +3,6 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Package, 
-  Activity,
   BookOpen,
   CreditCard,
   Users,
@@ -11,13 +10,12 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-// ✅ Import logo
 import logo from '../../assets/images/logo.png';
 
+// ✅ Removed "Activity" from menu
 const menuItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/products', icon: Package, label: 'Products' },
-  { path: '/activities', icon: Activity, label: 'Activities' },
+  { path: '/packages', icon: Package, label: 'Packages' },
   { path: '/bookings', icon: BookOpen, label: 'Bookings' },
   { path: '/payments', icon: CreditCard, label: 'Payments' },
   { path: '/users', icon: Users, label: 'Users' },
@@ -55,7 +53,7 @@ export default function Sidebar({ onItemClick }) {
   return (
     <>
       <div className="flex flex-col h-full">
-        {/* ✅ Logo Section - Smaller & Round */}
+        {/* Logo Section */}
         <div className="mb-8 flex items-center gap-3">
           <img 
             src={logo} 
@@ -99,7 +97,7 @@ export default function Sidebar({ onItemClick }) {
         </button>
       </div>
 
-      {/* ✅ Center Modal - Same as Header logout */}
+      {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
