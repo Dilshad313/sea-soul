@@ -9,6 +9,7 @@ class ReviewPage extends StatefulWidget {
   final String? activityId;
   final String itemName;
   final String itemType;
+  final Map<String, dynamic>? existingReview;
 
   const ReviewPage({
     super.key,
@@ -17,6 +18,7 @@ class ReviewPage extends StatefulWidget {
     this.activityId,
     required this.itemName,
     required this.itemType,
+    this.existingReview,
   });
 
   @override
@@ -29,8 +31,8 @@ class _ReviewPageState extends State<ReviewPage> {
   final _commentController = TextEditingController();
   bool _isLoading = false;
   bool _isSubmitted = false;
+  bool _isEditing = false;
 
-  // ✅ Rating labels
   final Map<int, String> _ratingLabels = {
     1: 'Very Poor',
     2: 'Poor',
@@ -38,6 +40,17 @@ class _ReviewPageState extends State<ReviewPage> {
     4: 'Very Good',
     5: 'Excellent!',
   };
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingReview != null) {
+      _isEditing = true;
+      _rating = (widget.existingReview!['rating'] ?? 0).toDouble();
+      _titleController.text = widget.existingReview!['title'] ?? '';
+      _commentController.text = widget.existingReview!['comment'] ?? '';
+    }
+  }
 
   @override
   void dispose() {
@@ -80,14 +93,27 @@ class _ReviewPageState extends State<ReviewPage> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await ReviewService.createReview(
-        bookingId: widget.bookingId,
-        rating: _rating,
-        title: _titleController.text.trim(),
-        comment: _commentController.text.trim(),
-        productId: widget.productId,
-        activityId: widget.activityId,
-      );
+      Map<String, dynamic> response;
+      
+      if (_isEditing && widget.existingReview != null) {
+        // ✅ Update existing review
+        response = await ReviewService.updateReview(
+          reviewId: widget.existingReview!['_id'],
+          rating: _rating,
+          title: _titleController.text.trim(),
+          comment: _commentController.text.trim(),
+        );
+      } else {
+        // ✅ Create new review
+        response = await ReviewService.createReview(
+          bookingId: widget.bookingId,
+          rating: _rating,
+          title: _titleController.text.trim(),
+          comment: _commentController.text.trim(),
+          productId: widget.productId,
+          activityId: widget.activityId,
+        );
+      }
 
       if (response['success'] == true) {
         setState(() {
@@ -96,10 +122,10 @@ class _ReviewPageState extends State<ReviewPage> {
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Thank you for your review!'),
+          SnackBar(
+            content: Text(_isEditing ? '✅ Review updated!' : '✅ Thank you for your review!'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 3),
           ),
         );
 
@@ -120,6 +146,53 @@ class _ReviewPageState extends State<ReviewPage> {
     }
   }
 
+  Future<void> _deleteReview() async {
+    if (widget.existingReview == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Review'),
+        content: const Text('Are you sure you want to delete this review?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => _isLoading = true);
+              try {
+                await ReviewService.deleteReview(widget.existingReview!['_id']);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Review deleted'),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                Navigator.pop(context, true);
+              } catch (e) {
+                setState(() => _isLoading = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -131,15 +204,25 @@ class _ReviewPageState extends State<ReviewPage> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF1A2B49)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Write a Review',
-          style: TextStyle(
+        title: Text(
+          _isEditing ? 'Edit Review' : 'Write a Review',
+          style: const TextStyle(
             color: Color(0xFF1A2B49),
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: true,
+        actions: [
+          if (_isEditing && widget.existingReview != null)
+            TextButton(
+              onPressed: _deleteReview,
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+        ],
       ),
       body: _isSubmitted
           ? _buildSuccessState()
@@ -148,7 +231,6 @@ class _ReviewPageState extends State<ReviewPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ✅ Item name
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -168,7 +250,7 @@ class _ReviewPageState extends State<ReviewPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Reviewing',
+                                _isEditing ? 'Editing Review' : 'Reviewing',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: const Color(0xFF6E7880),
@@ -190,7 +272,6 @@ class _ReviewPageState extends State<ReviewPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // ✅ STAR RATING SECTION
                   const Text(
                     'Rate your experience',
                     style: TextStyle(
@@ -203,7 +284,6 @@ class _ReviewPageState extends State<ReviewPage> {
                   Center(
                     child: Column(
                       children: [
-                        // ✅ Star buttons
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: List.generate(5, (index) {
@@ -236,7 +316,6 @@ class _ReviewPageState extends State<ReviewPage> {
                           }),
                         ),
                         const SizedBox(height: 12),
-                        // ✅ Rating label
                         Text(
                           _rating > 0 
                               ? _ratingLabels[_rating.toInt()] ?? ''
@@ -266,7 +345,6 @@ class _ReviewPageState extends State<ReviewPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // ✅ Title
                   const Text(
                     'Review Title',
                     style: TextStyle(
@@ -300,7 +378,6 @@ class _ReviewPageState extends State<ReviewPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // ✅ Comment
                   const Text(
                     'Your Review',
                     style: TextStyle(
@@ -335,7 +412,6 @@ class _ReviewPageState extends State<ReviewPage> {
                   ),
                   const SizedBox(height: 32),
 
-                  // ✅ Submit Button
                   SizedBox(
                     width: double.infinity,
                     height: 56,
@@ -365,9 +441,9 @@ class _ReviewPageState extends State<ReviewPage> {
                                   size: 20,
                                 ),
                                 const SizedBox(width: 8),
-                                const Text(
-                                  'Submit Review',
-                                  style: TextStyle(
+                                Text(
+                                  _isEditing ? 'Update Review' : 'Submit Review',
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
@@ -404,9 +480,9 @@ class _ReviewPageState extends State<ReviewPage> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Thank You!',
-              style: TextStyle(
+            Text(
+              _isEditing ? 'Review Updated!' : 'Thank You!',
+              style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF1A2B49),
@@ -414,7 +490,9 @@ class _ReviewPageState extends State<ReviewPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Your review has been submitted successfully.',
+              _isEditing 
+                ? 'Your review has been updated successfully.'
+                : 'Your review has been submitted successfully.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -423,7 +501,6 @@ class _ReviewPageState extends State<ReviewPage> {
               ),
             ),
             const SizedBox(height: 8),
-            // ✅ Show rating with stars
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

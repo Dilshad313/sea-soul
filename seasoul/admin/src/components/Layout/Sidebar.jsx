@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Package, 
+  Tag,
+  Star,
   BookOpen,
   CreditCard,
   Users,
@@ -12,10 +14,12 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import logo from '../../assets/images/logo.png';
 
-// ✅ Removed "Activity" from menu
+// ✅ Added Reviews to menu
 const menuItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/packages', icon: Package, label: 'Packages' },
+  { path: '/categories', icon: Tag, label: 'Categories' },
+  { path: '/reviews', icon: Star, label: 'Reviews' },
   { path: '/bookings', icon: BookOpen, label: 'Bookings' },
   { path: '/payments', icon: CreditCard, label: 'Payments' },
   { path: '/users', icon: Users, label: 'Users' },

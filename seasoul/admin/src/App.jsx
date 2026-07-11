@@ -7,7 +7,9 @@ import Layout from './components/Layout/Layout';
 import Dashboard from './components/Dashboard/Dashboard';
 import PackagesList from './components/Packages/PackagesList';
 import PackageForm from './components/Packages/PackageForm';
-// ✅ Activity imports removed
+import CategoriesList from './components/Categories/CategoriesList';
+import CategoryForm from './components/Categories/CategoryForm';
+import ReviewsList from './components/Reviews/ReviewsList';  // ✅ NEW
 import BookingsList from './components/Bookings/BookingsList';
 import PaymentsList from './components/Payments/PaymentsList';
 import UsersList from './components/Users/UsersList';
@@ -49,10 +51,13 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              {/* ✅ Only Packages - Activities removed */}
               <Route path="/packages" element={<PackagesList />} />
               <Route path="/packages/add" element={<PackageForm />} />
               <Route path="/packages/edit/:id" element={<PackageForm />} />
+              <Route path="/categories" element={<CategoriesList />} />
+              <Route path="/categories/add" element={<CategoryForm />} />
+              <Route path="/categories/edit/:id" element={<CategoryForm />} />
+              <Route path="/reviews" element={<ReviewsList />} />  {/* ✅ NEW */}
               <Route path="/bookings" element={<BookingsList />} />
               <Route path="/payments" element={<PaymentsList />} />
               <Route path="/users" element={<UsersList />} />

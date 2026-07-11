@@ -6,35 +6,31 @@ const {
   createReview,
   getItemReviews,
   getUserReviews,
-  getAllReviews,
+  getReviewById,
+  updateReview,
   deleteReview,
   toggleHelpful,
-  getRecentReviews, // ✅ Add this
+  getRecentReviews,
+  getAllReviews,
+  updateReviewStatus,
 } = require('../controllers/reviewController');
 
 // ==================== Public Routes ====================
-// Get reviews for specific item
 router.get('/item/:itemType/:itemId', getItemReviews);
-
-// ✅ Get recent reviews (Home page) - Public route
 router.get('/recent', getRecentReviews);
 
 // ==================== Protected Routes ====================
 router.use(protect);
 
-// Create review
 router.post('/', createReview);
-
-// Get user's reviews
 router.get('/user', getUserReviews);
-
-// Toggle helpful
-router.put('/:id/helpful', toggleHelpful);
-
-// Delete review
+router.get('/:id', getReviewById);
+router.put('/:id', updateReview);
 router.delete('/:id', deleteReview);
+router.put('/:id/helpful', toggleHelpful);
 
 // ==================== Admin Routes ====================
 router.get('/admin/all', isAdmin, getAllReviews);
+router.put('/admin/:id/status', isAdmin, updateReviewStatus);
 
 module.exports = router;

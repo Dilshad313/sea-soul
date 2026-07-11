@@ -10,6 +10,7 @@ import 'package:seasoul/services/location_service.dart';
 import 'package:seasoul/models/review_model.dart';
 import 'package:seasoul/widgets/review_card.dart';
 import 'package:seasoul/widgets/star_rating.dart';
+import 'package:seasoul/review_page.dart';
 import 'package:share_plus/share_plus.dart';
 
 class ProductDetailsPage extends StatefulWidget {
@@ -69,7 +70,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     _loadProduct();
     _loadActivities();
     _checkWishlistStatus();
-    _loadReviews(); // ✅ Load reviews
+    _loadReviews();
   }
 
   Future<void> _checkWishlistStatus() async {
@@ -290,11 +291,76 @@ ${product['description'] ?? ''}
   }
   }
 
-  // ✅ Refresh reviews when coming back from payment
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Reload reviews when page comes back to focus
+  // ✅ Edit Review Function
+  void _editReview(ReviewModel review) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReviewPage(
+          bookingId: review.bookingId,
+          productId: review.productId,
+          activityId: review.activityId,
+          itemName: review.itemName,
+          itemType: review.itemType,
+          existingReview: {
+            '_id': review.id,
+            'rating': review.rating,
+            'title': review.title,
+            'comment': review.comment,
+          },
+        ),
+      ),
+    );
+    
+    if (result == true) {
+      _loadReviews();
+      _loadProduct();
+    }
+  }
+
+  // ✅ Delete Review Function
+  void _deleteReview(ReviewModel review) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Review'),
+        content: const Text('Are you sure you want to delete this review?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await ReviewService.deleteReview(review.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Review deleted'),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                _loadReviews();
+                _loadProduct();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -542,7 +608,6 @@ ${product['description'] ?? ''}
     );
   }
 
-  // ✅ Updated: _buildStatsMetricsSection with real distance and star rating
   Widget _buildStatsMetricsSection(Map<String, dynamic> product) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -579,7 +644,6 @@ ${product['description'] ?? ''}
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // ✅ Show stars based on average rating
                         StarRating(
                           rating: _averageRating,
                           size: 18,
@@ -926,7 +990,7 @@ ${product['description'] ?? ''}
     );
   }
 
-  // ==================== REVIEWS SECTION ====================
+  // ==================== REVIEWS SECTION WITH EDIT/DELETE ====================
   Widget _buildReviewsSection() {
     return FutureBuilder<Map<String, dynamic>>(
       future: ReviewService.getItemReviews(
@@ -959,11 +1023,15 @@ ${product['description'] ?? ''}
           return const SizedBox.shrink();
         }
 
-        final reviews = (data['reviews'] as List)
-            .map((r) => ReviewModel.fromJson(r))
+        // ✅ Get reviews list
+        final reviewsList = data['reviews'] as List? ?? [];
+        
+        // ✅ Convert to ReviewModel
+        final reviews = reviewsList
+            .where((r) => r is Map<String, dynamic>)
+            .map((r) => ReviewModel.fromJson(r as Map<String, dynamic>))
             .toList();
 
-        // ✅ Update average rating and total reviews from API
         final averageRating = data['averageRating'] ?? 0;
         final totalReviews = data['totalReviews'] ?? 0;
 
@@ -997,6 +1065,11 @@ ${product['description'] ?? ''}
             ),
           );
         }
+
+        // ✅ Get current user ID to check if review belongs to user
+        String currentUserId = '';
+        // You need to get current user ID from your auth service
+        // For now, we'll use a placeholder
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -1043,7 +1116,6 @@ ${product['description'] ?? ''}
                         duration: Duration(seconds: 2),
                       ),
                     );
-                    // ✅ Refresh reviews after helpful toggle
                     _loadReviews();
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -1053,6 +1125,14 @@ ${product['description'] ?? ''}
                       ),
                     );
                   }
+                },
+                // ✅ Edit Button
+                onEditTap: () {
+                  _editReview(review);
+                },
+                // ✅ Delete Button
+                onDeleteTap: () {
+                  _deleteReview(review);
                 },
               )),
             ],
@@ -1293,7 +1373,6 @@ ${product['description'] ?? ''}
                         ),
                       ),
                     ).then((_) {
-                      // ✅ Refresh reviews when coming back from payment
                       _loadReviews();
                     });
                   },

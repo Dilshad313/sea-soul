@@ -66,7 +66,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     super.initState();
     _loadActivity();
     _checkWishlistStatus();
-    _loadReviews(); // ✅ Load reviews
+    _loadReviews();
   }
 
   Future<void> _checkWishlistStatus() async {
@@ -523,7 +523,6 @@ ${activity['description'] ?? ''}
     );
   }
 
-  // ✅ Updated: _buildStatsMetricsSection with real distance and star rating
   Widget _buildStatsMetricsSection(Map<String, dynamic> activity) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -543,7 +542,6 @@ ${activity['description'] ?? ''}
         ),
         child: Row(
           children: [
-            // ✅ STAR RATING SECTION
             Expanded(
               child: Column(
                 children: [
@@ -560,7 +558,6 @@ ${activity['description'] ?? ''}
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // ✅ Show stars based on average rating
                         StarRating(
                           rating: _averageRating,
                           size: 18,
@@ -594,7 +591,6 @@ ${activity['description'] ?? ''}
               ),
             ),
             Container(height: 30, width: 1, color: outline.withOpacity(0.2)),
-            // ✅ DISTANCE SECTION
             Expanded(
               child: Column(
                 children: [
@@ -832,11 +828,15 @@ ${activity['description'] ?? ''}
           return const SizedBox.shrink();
         }
 
-        final reviews = (data['reviews'] as List)
-            .map((r) => ReviewModel.fromJson(r))
+        // ✅ Get reviews list - it's already List<dynamic>
+        final reviewsList = data['reviews'] as List? ?? [];
+        
+        // ✅ Convert to ReviewModel
+        final reviews = reviewsList
+            .where((r) => r is Map<String, dynamic>)
+            .map((r) => ReviewModel.fromJson(r as Map<String, dynamic>))
             .toList();
 
-        // ✅ Update average rating and total reviews from API
         final averageRating = data['averageRating'] ?? 0;
         final totalReviews = data['totalReviews'] ?? 0;
 
@@ -1124,7 +1124,6 @@ ${activity['description'] ?? ''}
                         ),
                       ),
                     ).then((_) {
-                      // ✅ Refresh reviews when coming back from payment
                       _loadReviews();
                     });
                   },

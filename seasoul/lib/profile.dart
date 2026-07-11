@@ -1,10 +1,13 @@
 import 'dart:ui';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/review_service.dart';
+import '../models/review_model.dart';
 import '../login.dart';
 import '../edit_profile.dart';
 import '../change_password.dart';
+import '../review_page.dart';
+import '../widgets/star_rating.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -17,6 +20,8 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isLoggingOut = false;
   bool _isLoading = true;
   Map<String, dynamic>? _userData;
+  List<ReviewModel> _userReviews = [];
+  bool _isLoadingReviews = true;
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -30,6 +35,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _loadUserData();
+    _loadUserReviews();
   }
 
   Future<void> _loadUserData() async {
@@ -43,6 +49,35 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       setState(() => _isLoading = false);
       print('Error loading user data: $e');
+    }
+  }
+
+  // ✅ Load user's reviews
+  Future<void> _loadUserReviews() async {
+    setState(() => _isLoadingReviews = true);
+    try {
+      final response = await ReviewService.getUserReviews();
+      if (response['success'] == true) {
+        final reviewsList = response['reviews'] as List? ?? [];
+        setState(() {
+          _userReviews = reviewsList
+              .where((r) => r is Map<String, dynamic>)
+              .map((r) => ReviewModel.fromJson(r as Map<String, dynamic>))
+              .toList();
+          _isLoadingReviews = false;
+        });
+      } else {
+        setState(() {
+          _userReviews = [];
+          _isLoadingReviews = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _userReviews = [];
+        _isLoadingReviews = false;
+      });
+      print('❌ Error loading user reviews: $e');
     }
   }
 
@@ -156,6 +191,76 @@ class _ProfilePageState extends State<ProfilePage> {
     return true;
   }
 
+  // ✅ Edit Review
+  void _editReview(ReviewModel review) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReviewPage(
+          bookingId: review.bookingId,
+          productId: review.productId,
+          activityId: review.activityId,
+          itemName: review.itemName,
+          itemType: review.itemType,
+          existingReview: {
+            '_id': review.id,
+            'rating': review.rating,
+            'title': review.title,
+            'comment': review.comment,
+          },
+        ),
+      ),
+    );
+    
+    if (result == true) {
+      _loadUserReviews();
+    }
+  }
+
+  // ✅ Delete Review
+  void _deleteReview(ReviewModel review) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Review'),
+        content: const Text('Are you sure you want to delete this review?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await ReviewService.deleteReview(review.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Review deleted'),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                _loadUserReviews();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final String userName = _userData?['fullName'] ?? 'User';
@@ -208,7 +313,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             userData: _userData ?? {},
                           ),
                         ),
-                      ).then((_) => _loadUserData()); // ✅ Refresh after pop
+                      ).then((_) => _loadUserData());
                     },
                   ),
                   _buildListActionRow(
@@ -244,12 +349,257 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              // ✅ My Reviews Section
+              _buildMyReviewsSection(),
               const SizedBox(height: 24),
               _buildLogoutButton(),
               const SizedBox(height: 24),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ✅ My Reviews Section
+  Widget _buildMyReviewsSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.75),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.4)),
+        boxShadow: [
+          BoxShadow(
+            color: deepNavy.withOpacity(0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: sunsetOrange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.star, color: sunsetOrange, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'My Reviews',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: deepNavy,
+                ),
+              ),
+              const Spacer(),
+              if (_userReviews.isNotEmpty)
+                Text(
+                  '${_userReviews.length} reviews',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: outline,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_isLoadingReviews)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(
+                  color: oceanBlue,
+                ),
+              ),
+            )
+          else if (_userReviews.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.rate_review_outlined,
+                    size: 40,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No reviews yet',
+                    style: TextStyle(
+                      color: outline,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Review your bookings to share your experience!',
+                    style: TextStyle(
+                      color: outline.withOpacity(0.6),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _userReviews.length > 3 ? 3 : _userReviews.length,
+              separatorBuilder: (context, index) => const Divider(
+                color: Color(0xFFF1F3FF),
+                thickness: 1,
+                height: 16,
+              ),
+              itemBuilder: (context, index) {
+                final review = _userReviews[index];
+                return _buildReviewItem(review);
+              },
+            ),
+          if (_userReviews.length > 3)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: TextButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('View all reviews coming soon!'),
+                      backgroundColor: oceanBlue,
+                    ),
+                  );
+                },
+                child: const Text(
+                  'View All Reviews →',
+                  style: TextStyle(
+                    color: oceanBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Build individual review item
+  Widget _buildReviewItem(ReviewModel review) {
+    return GestureDetector(
+      onTap: () {
+        // Navigate to product/activity details
+      },
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.grey[200],
+              image: review.productId != null && review.productId is Map
+                  ? DecorationImage(
+                      image: NetworkImage(
+                        (review.productId as Map)['images']?[0] ?? 
+                        'https://via.placeholder.com/50',
+                      ),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: review.productId == null
+                ? const Icon(Icons.kayaking, color: Colors.grey)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  review.itemName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: deepNavy,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    // ✅ Fixed: StarRating with proper rating
+                    StarRating(
+                      rating: review.rating.toDouble(),
+                      size: 12,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      review.rating.toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: sunsetOrange,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  review.title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: outline,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          // ✅ Edit and Delete buttons
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.edit,
+                  size: 18,
+                  color: oceanBlue,
+                ),
+                onPressed: () {
+                  _editReview(review);
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: Colors.red,
+                ),
+                onPressed: () {
+                  _deleteReview(review);
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -327,7 +677,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         userData: _userData ?? {},
                       ),
                     ),
-                  ).then((_) => _loadUserData()); // ✅ Refresh after pop
+                  ).then((_) => _loadUserData());
                 },
                 child: Container(
                   padding: const EdgeInsets.all(8),

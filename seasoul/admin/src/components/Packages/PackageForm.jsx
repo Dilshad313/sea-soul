@@ -9,6 +9,8 @@ export default function PackageForm() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -23,20 +25,24 @@ export default function PackageForm() {
 
   const isEdit = !!id;
 
-  // ✅ All 5 categories
-  const categories = [
-    'Resorts',
-    'Activities',
-    'Scuba',
-    'Honeymoon',
-    'Dining',
-  ];
-
   useEffect(() => {
+    fetchCategories();
     if (isEdit) {
       fetchPackage();
     }
   }, [id]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories');
+      setCategories(response.data.categories || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      toast.error('Failed to load categories');
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
 
   const fetchPackage = async () => {
     try {
@@ -208,12 +214,19 @@ export default function PackageForm() {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00E5FF] focus:border-[#00E5FF]"
                   required
+                  disabled={loadingCategories}
                 >
-                  <option value="">Select Category</option>
+                  <option value="">{loadingCategories ? 'Loading...' : 'Select Category'}</option>
+                  {/* ✅ Remove icon from dropdown - only show category name */}
                   {categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <option key={cat._id} value={cat.name}>
+                      {cat.name}
+                    </option>
                   ))}
                 </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Categories can be managed from the <span className="text-[#00E5FF]">Categories</span> section
+                </p>
               </div>
             </div>
 

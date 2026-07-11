@@ -60,6 +60,9 @@ class _UserHomeState extends State<UserHome> {
   static const Color oceanBlue = Color(0xFF0099CC);
   static const Color sunsetOrange = Color(0xFFFFB84D);
   static const Color outline = Color(0xFF6E7880);
+  static const Color sandWhite = Color(0xFFF8FBFF);
+  static const Color turquoise = Color(0xFF00C2A8);
+  static const Color coral = Color(0xFFFF6B35);
 
   final List<String> _sortOptions = [
     'popular',
@@ -118,19 +121,17 @@ class _UserHomeState extends State<UserHome> {
       _loadTrendingProducts(),
       _loadActivities(),
       _loadFeaturedActivities(),
-      _loadAllRatings(), // ✅ Load all ratings
+      _loadAllRatings(),
     ]);
     
     _startPackageAutoSlide();
     _startActivityAutoSlide();
   }
 
-  // ✅ Load ratings for all products and activities
   Future<void> _loadAllRatings() async {
     setState(() => _isLoadingRatings = true);
     
     try {
-      // Load ratings for products
       for (var product in _allProducts) {
         final productId = product['_id'];
         if (productId != null) {
@@ -146,7 +147,6 @@ class _UserHomeState extends State<UserHome> {
         }
       }
 
-      // Load ratings for activities
       for (var activity in _activities) {
         final activityId = activity['_id'];
         if (activityId != null) {
@@ -364,11 +364,23 @@ class _UserHomeState extends State<UserHome> {
     return Scaffold(
       appBar: _currentTab == 0
           ? AppBar(
-              backgroundColor: const Color(0xFFF8FBFF).withOpacity(0.8),
+              backgroundColor: Colors.transparent,
               elevation: 0,
               automaticallyImplyLeading: false,
               titleSpacing: 20,
               toolbarHeight: 70,
+              flexibleSpace: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withOpacity(0.95),
+                      sandWhite,
+                    ],
+                  ),
+                ),
+              ),
               title: Row(
                 children: [
                   Container(
@@ -391,18 +403,22 @@ class _UserHomeState extends State<UserHome> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Row(
-                        children: [
-                          SizedBox(width: 2),
-                          Text(
-                            'SEA SOUL',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: deepNavy,
-                            ),
-                          ),
-                        ],
+                      const Text(
+                        'SeaSoul',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: deepNavy,
+                        ),
+                      ),
+                      Text(
+                        'LUXURIOUS ISLAND GETAWAYS',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          color: outline,
+                          letterSpacing: 1.2,
+                        ),
                       ),
                     ],
                   ),
@@ -492,7 +508,7 @@ class _UserHomeState extends State<UserHome> {
           const SizedBox(height: 12),
           _buildSearchBar(),
           const SizedBox(height: 24),
-          _buildHeroSection(),
+          _buildHeaderSection(),
           const SizedBox(height: 32),
           _buildCategoriesSection(),
           const SizedBox(height: 32),
@@ -565,324 +581,155 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  Widget _buildHeroSection() {
-    if (_isLoadingFeatured) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20.0),
-          child: CircularProgressIndicator(),
+  // ✅ NEW: Header Section with Image (No Reviews)
+  Widget _buildHeaderSection() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        image: const DecorationImage(
+          image: AssetImage('assets/images/header.png'),
+          fit: BoxFit.cover,
         ),
-      );
-    }
-
-    if (_featuredProducts.isEmpty && _featuredActivities.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              Colors.black.withOpacity(0.6),
+            ],
+          ),
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-            const SizedBox(height: 12),
-            const Text(
-              'No featured items available',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () {
-                _loadFeaturedProducts();
-                _loadFeaturedActivities();
-              },
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final featuredItem = _featuredProducts.isNotEmpty 
-        ? _featuredProducts[0] 
-        : (_featuredActivities.isNotEmpty ? _featuredActivities[0] : null);
-    
-    if (featuredItem == null) {
-      return const SizedBox.shrink();
-    }
-
-    final images = featuredItem['images'] ?? [];
-    final imageUrl = images.isNotEmpty ? images[0] : 
-        'https://via.placeholder.com/400x300';
-    
-    final isProduct = _featuredProducts.isNotEmpty;
-    final itemId = featuredItem['_id'];
-    final itemName = featuredItem['name'] ?? 'Featured';
-    final itemDescription = featuredItem['description'] ?? '';
-    final itemDuration = featuredItem['duration'] ?? '4 Days / 3 Nights';
-    final itemPrice = featuredItem['price'] ?? 0;
-
-    // ✅ Get rating for featured item
-    double rating = 0;
-    int reviewCount = 0;
-    if (isProduct) {
-      rating = _productRatings[itemId] ?? 0;
-      reviewCount = _productReviewCounts[itemId] ?? 0;
-    } else {
-      rating = _activityRatings[itemId] ?? 0;
-      reviewCount = _activityReviewCounts[itemId] ?? 0;
-    }
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Featured Discoveries',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: deepNavy,
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _currentTab = 1;
-                });
-              },
-              child: const Text(
-                'View All',
-                style: TextStyle(color: oceanBlue, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        AspectRatio(
-          aspectRatio: 4 / 5,
-          child: GestureDetector(
-            onTap: () {
-              if (isProduct) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ProductDetailsPage(
-                      productId: itemId,
-                    ),
-                  ),
-                ).then((_) {
-                  _loadAllData();
-                });
-              } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ActivityDetailsPage(
-                      activityId: itemId,
-                    ),
-                  ),
-                ).then((_) {
-                  _loadAllData();
-                });
-              }
-            },
-            child: Container(
+            // Company Logo
+            Container(
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(32),
-                image: DecorationImage(
-                  image: NetworkImage(imageUrl),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 2,
+                ),
+                image: const DecorationImage(
+                  image: AssetImage('assets/images/image.png'),
                   fit: BoxFit.cover,
                 ),
               ),
-              child: Stack(
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'SeaSoul Holidays',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'LUXURIOUS ISLAND GETAWAYS',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: oceanBlue,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.05),
+                ),
+              ),
+              child: Row(
                 children: [
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(32),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, deepNavy.withOpacity(0.8)],
-                        ),
-                      ),
-                    ),
+                  const Icon(
+                    Icons.emoji_emotions,
+                    color: oceanBlue,
+                    size: 18,
                   ),
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 16,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.75),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.4),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: sunsetOrange.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  isProduct ? 'FEATURED' : 'ACTIVITY',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: sunsetOrange,
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                itemName,
-                                style: const TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                  color: deepNavy,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                itemDescription,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: outline,
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              // ✅ Star Rating
-                              Row(
-                                children: [
-                                  StarRating(
-                                    rating: rating,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    rating > 0 
-                                        ? rating.toStringAsFixed(1)
-                                        : '0.0',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: deepNavy,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '($reviewCount)',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: outline,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.calendar_today_outlined,
-                                        size: 16,
-                                        color: oceanBlue,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        itemDuration,
-                                        style: const TextStyle(
-                                          color: oceanBlue,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      if (isProduct) {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => ProductDetailsPage(
-                                              productId: itemId,
-                                            ),
-                                          ),
-                                        ).then((_) {
-                                          _loadAllData();
-                                        });
-                                      } else {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => ActivityDetailsPage(
-                                              activityId: itemId,
-                                            ),
-                                          ),
-                                        ).then((_) {
-                                          _loadAllData();
-                                        });
-                                      }
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: oceanBlue,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 12,
-                                      ),
-                                      elevation: 0,
-                                    ),
-                                    child: const Text(
-                                      'Explore',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Discover the pristine islands of Lakshadweep with SeaSoul - your gateway to luxury, adventure, and unforgettable experiences.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.85),
+                        height: 1.5,
+                        fontFamily: 'Inter',
                       ),
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+            // Quick Stats
+            Row(
+              children: [
+                _buildStatItem('12+', 'Islands'),
+                _buildStatItem('150+', 'Packages'),
+                _buildStatItem('10K+', 'Travelers'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String number, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.05),
           ),
         ),
-      ],
+        child: Column(
+          children: [
+            Text(
+              number,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: oceanBlue,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.white.withOpacity(0.6),
+                fontFamily: 'Inter',
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -956,7 +803,7 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  // ==================== PACKAGES SECTION WITH RATING ====================
+  // ✅ Updated: No Emojis in Title
   Widget _buildPackagesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -972,13 +819,20 @@ class _UserHomeState extends State<UserHome> {
                 color: deepNavy,
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.arrow_forward_ios, size: 16, color: outline),
+            TextButton(
               onPressed: () {
                 setState(() {
                   _currentTab = 1;
                 });
               },
+              child: const Text(
+                'View All →',
+                style: TextStyle(
+                  color: oceanBlue,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
             ),
           ],
         ),
@@ -1017,7 +871,6 @@ class _UserHomeState extends State<UserHome> {
                       final imageUrl = images.isNotEmpty ? images[0] : 
                           'https://via.placeholder.com/300x200';
                       
-                      // ✅ Get rating for this package
                       final pkgId = pkg['_id'];
                       final rating = _productRatings[pkgId] ?? 0;
                       final reviewCount = _productReviewCounts[pkgId] ?? 0;
@@ -1062,13 +915,35 @@ class _UserHomeState extends State<UserHome> {
                                 ),
                               ),
                               Positioned(
+                                top: 12,
+                                left: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.9),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    pkg['category'] ?? 'Package',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: deepNavy,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
                                 bottom: 16,
                                 left: 16,
                                 right: 16,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // ✅ Star Rating with stars
+                                    // ✅ Star Rating - Always Show
                                     Row(
                                       children: [
                                         StarRating(
@@ -1146,7 +1021,9 @@ class _UserHomeState extends State<UserHome> {
                                             vertical: 6,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: oceanBlue,
+                                            gradient: LinearGradient(
+                                              colors: [oceanBlue, turquoise],
+                                            ),
                                             borderRadius: BorderRadius.circular(20),
                                           ),
                                           child: const Text(
@@ -1198,7 +1075,7 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  // ==================== ACTIVITIES SECTION WITH RATING ====================
+  // ✅ Updated: No Emojis in Title
   Widget _buildActivitiesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1214,13 +1091,20 @@ class _UserHomeState extends State<UserHome> {
                 color: deepNavy,
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.arrow_forward_ios, size: 16, color: outline),
+            TextButton(
               onPressed: () {
                 setState(() {
                   _currentTab = 1;
                 });
               },
+              child: const Text(
+                'View All →',
+                style: TextStyle(
+                  color: oceanBlue,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
             ),
           ],
         ),
@@ -1259,7 +1143,6 @@ class _UserHomeState extends State<UserHome> {
                       final imageUrl = images.isNotEmpty ? images[0] : 
                           'https://via.placeholder.com/300x200';
                       
-                      // ✅ Get rating for this activity
                       final activityId = activity['_id'];
                       final rating = _activityRatings[activityId] ?? 0;
                       final reviewCount = _activityReviewCounts[activityId] ?? 0;
@@ -1354,7 +1237,7 @@ class _UserHomeState extends State<UserHome> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // ✅ Star Rating with stars
+                                    // ✅ Star Rating - Always Show
                                     Row(
                                       children: [
                                         StarRating(
@@ -1441,7 +1324,9 @@ class _UserHomeState extends State<UserHome> {
                                         vertical: 6,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: oceanBlue,
+                                        gradient: LinearGradient(
+                                          colors: [coral, sunsetOrange],
+                                        ),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: const Text(
@@ -1491,7 +1376,7 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  // ==================== BENTO GRID SECTION WITH RATING ====================
+  // ✅ Updated: No Emojis in Title
   Widget _buildBentoGridSection() {
     List<dynamic> latestProducts = List.from(_allProducts);
     latestProducts.sort((a, b) => (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''));
@@ -1562,7 +1447,7 @@ class _UserHomeState extends State<UserHome> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ✅ Star Rating
+                      // ✅ Star Rating - Always Show
                       Row(
                         children: [
                           StarRating(
@@ -1616,7 +1501,7 @@ class _UserHomeState extends State<UserHome> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFB84D).withOpacity(0.9),
+                      color: sunsetOrange.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -1686,7 +1571,7 @@ class _UserHomeState extends State<UserHome> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // ✅ Star Rating for product 2
+                              // ✅ Star Rating - Always Show
                               Row(
                                 children: [
                                   StarRating(
@@ -1782,7 +1667,7 @@ class _UserHomeState extends State<UserHome> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // ✅ Star Rating for product 3
+                              // ✅ Star Rating - Always Show
                               Row(
                                 children: [
                                   StarRating(
@@ -1833,7 +1718,6 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  // ==================== RECENT REVIEWS SECTION ====================
   Widget _buildRecentReviewsSection() {
     return FutureBuilder<Map<String, dynamic>>(
       future: ReviewService.getRecentReviews(limit: 3),
@@ -1918,7 +1802,7 @@ class _UserHomeState extends State<UserHome> {
     required VoidCallback onButtonPressed,
   }) {
     return Container(
-      color: const Color(0xFFF8FBFF),
+      color: sandWhite,
       child: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32.0),

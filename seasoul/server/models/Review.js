@@ -73,6 +73,15 @@ const ReviewSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    // ✅ New fields for edit tracking
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
+    editedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

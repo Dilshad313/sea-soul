@@ -24,7 +24,6 @@ exports.createReview = async (req, res) => {
     console.log('📝 Booking ID:', bookingId);
     console.log('📝 Rating:', rating);
 
-    // ✅ Check if booking exists and belongs to user
     const booking = await Booking.findOne({ _id: bookingId, userId });
     if (!booking) {
       return res.status(404).json({
@@ -33,7 +32,6 @@ exports.createReview = async (req, res) => {
       });
     }
 
-    // ✅ Check if booking is completed
     if (booking.status !== 'completed' && booking.status !== 'confirmed') {
       return res.status(400).json({
         success: false,
@@ -41,7 +39,6 @@ exports.createReview = async (req, res) => {
       });
     }
 
-    // ✅ Check if already reviewed
     const existingReview = await Review.findOne({ bookingId, userId });
     if (existingReview) {
       return res.status(400).json({
@@ -50,7 +47,6 @@ exports.createReview = async (req, res) => {
       });
     }
 
-    // ✅ Get item details
     let itemName = '';
     let itemType = 'product';
     let itemId = productId || activityId;
@@ -69,10 +65,8 @@ exports.createReview = async (req, res) => {
       }
     }
 
-    // ✅ Get user details
     const user = await User.findById(userId);
 
-    // ✅ Create review
     const review = new Review({
       userId,
       productId: productId || null,
@@ -83,7 +77,7 @@ exports.createReview = async (req, res) => {
       comment,
       images: images || [],
       isVerified: true,
-      isApproved: true, // Auto-approve for now
+      isApproved: true,
       itemType,
       itemName,
       userName: user.fullName || 'User',
@@ -93,7 +87,6 @@ exports.createReview = async (req, res) => {
     await review.save();
     console.log('✅ Review saved:', review._id);
 
-    // ✅ Update product/activity rating
     if (productId) {
       const avg = await Review.getAverageRating(productId, 'product');
       await Product.findByIdAndUpdate(productId, {
@@ -108,7 +101,6 @@ exports.createReview = async (req, res) => {
       });
     }
 
-    // ✅ Create notification for admin
     await createNotification(
       userId,
       '⭐ New Review Submitted',
@@ -149,13 +141,13 @@ exports.getItemReviews = async (req, res) => {
     };
 
     const reviews = await Review.find(query)
+      .populate('userId', 'fullName email profileImage')
       .sort({ createdAt: -1 })
       .skip(parseInt(offset))
       .limit(parseInt(limit));
 
     const totalCount = await Review.countDocuments(query);
 
-    // Get average rating
     const avgResult = await Review.getAverageRating(itemId, itemType);
 
     res.status(200).json({
@@ -183,6 +175,8 @@ exports.getUserReviews = async (req, res) => {
     const userId = req.user.id;
 
     const reviews = await Review.find({ userId })
+      .populate('productId', 'name images')
+      .populate('activityId', 'name images')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -199,19 +193,88 @@ exports.getUserReviews = async (req, res) => {
   }
 };
 
-// ==================== GET ALL REVIEWS (Admin) ====================
-exports.getAllReviews = async (req, res) => {
+// ==================== GET SINGLE REVIEW ====================
+exports.getReviewById = async (req, res) => {
   try {
-    const reviews = await Review.find()
-      .populate('userId', 'fullName email')
-      .sort({ createdAt: -1 });
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const review = await Review.findOne({ _id: id, userId })
+      .populate('productId', 'name images')
+      .populate('activityId', 'name images');
+
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found',
+      });
+    }
 
     res.status(200).json({
       success: true,
-      reviews,
+      review,
     });
   } catch (error) {
-    console.error('❌ Error getting all reviews:', error);
+    console.error('❌ Error getting review:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// ==================== UPDATE REVIEW ====================
+exports.updateReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { rating, title, comment, images } = req.body;
+
+    console.log('📝 Updating review:', id);
+    console.log('👤 User:', userId);
+
+    const review = await Review.findOne({ _id: id, userId });
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found or you are not authorized',
+      });
+    }
+
+    // Update fields
+    if (rating) review.rating = rating;
+    if (title) review.title = title;
+    if (comment) review.comment = comment;
+    if (images) review.images = images;
+    review.isEdited = true;
+    review.editedAt = new Date();
+
+    await review.save();
+    console.log('✅ Review updated:', review._id);
+
+    // Update product/activity rating
+    if (review.productId) {
+      const avg = await Review.getAverageRating(review.productId, 'product');
+      await Product.findByIdAndUpdate(review.productId, {
+        rating: avg.average,
+        reviews: avg.count,
+      });
+    } else if (review.activityId) {
+      const avg = await Review.getAverageRating(review.activityId, 'activity');
+      await Activity.findByIdAndUpdate(review.activityId, {
+        rating: avg.average,
+        reviews: avg.count,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Review updated successfully',
+      review,
+    });
+  } catch (error) {
+    console.error('❌ Review update error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -226,26 +289,34 @@ exports.deleteReview = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
+    console.log('🗑️ Deleting review:', id);
+    console.log('👤 User:', userId);
+
     const review = await Review.findOne({ _id: id, userId });
     if (!review) {
       return res.status(404).json({
         success: false,
-        message: 'Review not found',
+        message: 'Review not found or you are not authorized',
       });
     }
 
-    await review.deleteOne();
+    // Store productId/activityId before deletion
+    const productId = review.productId;
+    const activityId = review.activityId;
 
-    // ✅ Update product/activity rating
-    if (review.productId) {
-      const avg = await Review.getAverageRating(review.productId, 'product');
-      await Product.findByIdAndUpdate(review.productId, {
+    await review.deleteOne();
+    console.log('✅ Review deleted:', id);
+
+    // Update product/activity rating
+    if (productId) {
+      const avg = await Review.getAverageRating(productId, 'product');
+      await Product.findByIdAndUpdate(productId, {
         rating: avg.average,
         reviews: avg.count,
       });
-    } else if (review.activityId) {
-      const avg = await Review.getAverageRating(review.activityId, 'activity');
-      await Activity.findByIdAndUpdate(review.activityId, {
+    } else if (activityId) {
+      const avg = await Review.getAverageRating(activityId, 'activity');
+      await Activity.findByIdAndUpdate(activityId, {
         rating: avg.average,
         reviews: avg.count,
       });
@@ -302,10 +373,10 @@ exports.getRecentReviews = async (req, res) => {
     const { limit = 5 } = req.query;
 
     const reviews = await Review.find({ isApproved: true })
+      .populate('userId', 'fullName profileImage')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit));
 
-    // Get average rating for each item
     const reviewsWithAvg = await Promise.all(reviews.map(async (review) => {
       const itemId = review.productId || review.activityId;
       const itemType = review.productId ? 'product' : 'activity';
@@ -329,6 +400,59 @@ exports.getRecentReviews = async (req, res) => {
       error: error.message,
     });
   }
+};
 
-    
+// ==================== ADMIN: GET ALL REVIEWS ====================
+exports.getAllReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find()
+      .populate('userId', 'fullName email phone profileImage')
+      .populate('productId', 'name price')
+      .populate('activityId', 'name price')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      reviews,
+    });
+  } catch (error) {
+    console.error('❌ Error getting all reviews:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// ==================== ADMIN: UPDATE REVIEW STATUS ====================
+exports.updateReviewStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isApproved } = req.body;
+
+    const review = await Review.findById(id);
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found',
+      });
+    }
+
+    review.isApproved = isApproved;
+    await review.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Review status updated',
+      review,
+    });
+  } catch (error) {
+    console.error('❌ Error updating review status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
 };

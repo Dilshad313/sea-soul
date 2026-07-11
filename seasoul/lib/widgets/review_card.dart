@@ -6,16 +6,27 @@ class ReviewCard extends StatelessWidget {
   final ReviewModel review;
   final VoidCallback? onHelpfulTap;
   final VoidCallback? onDeleteTap;
+  final VoidCallback? onEditTap;
 
   const ReviewCard({
     super.key,
     required this.review,
     this.onHelpfulTap,
     this.onDeleteTap,
+    this.onEditTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Safe access with null checks
+    final String userName = review.userName.isNotEmpty ? review.userName : 'User';
+    final String userImage = review.userProfileImage.isNotEmpty 
+        ? review.userProfileImage 
+        : 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
+    final String displayName = review.user != null 
+        ? (review.user!['fullName']?.toString() ?? userName)
+        : userName;
+
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 12),
@@ -41,12 +52,12 @@ class ReviewCard extends StatelessWidget {
               CircleAvatar(
                 radius: 18,
                 backgroundColor: const Color(0xFF0099CC).withOpacity(0.1),
-                backgroundImage: review.userProfileImage.isNotEmpty
-                    ? NetworkImage(review.userProfileImage)
+                backgroundImage: userImage.isNotEmpty
+                    ? NetworkImage(userImage)
                     : null,
-                child: review.userProfileImage.isEmpty
+                child: userImage.isEmpty || userImage.contains('default-avatar')
                     ? Text(
-                        review.userName.isNotEmpty ? review.userName[0].toUpperCase() : 'U',
+                        displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
                         style: const TextStyle(
                           color: Color(0xFF0099CC),
                           fontWeight: FontWeight.bold,
@@ -61,7 +72,7 @@ class ReviewCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      review.userName,
+                      displayName,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -70,7 +81,6 @@ class ReviewCard extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        // ✅ Show stars instead of just rating number
                         StarRating(
                           rating: review.rating,
                           size: 14,
@@ -95,19 +105,53 @@ class ReviewCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                        if (review.isEdited)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              '✏️ Edited',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: Colors.grey,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ],
                 ),
               ),
-              if (onDeleteTap != null)
-                IconButton(
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    size: 18,
-                    color: Colors.red,
-                  ),
-                  onPressed: onDeleteTap,
+              // ✅ Edit and Delete buttons
+              if (onDeleteTap != null || onEditTap != null)
+                Row(
+                  children: [
+                    if (onEditTap != null)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.edit, // ✅ Fixed: Use Icons.edit
+                          size: 18,
+                          color: Color(0xFF0099CC),
+                        ),
+                        onPressed: onEditTap,
+                      ),
+                    if (onDeleteTap != null)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: Colors.red,
+                        ),
+                        onPressed: onDeleteTap,
+                      ),
+                  ],
                 ),
             ],
           ),

@@ -17,6 +17,9 @@ class ReviewModel {
   final String userProfileImage;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool isEdited;
+  final DateTime? editedAt;
+  final Map<String, dynamic>? user; // ✅ Added for populated user
 
   ReviewModel({
     required this.id,
@@ -37,28 +40,148 @@ class ReviewModel {
     required this.userProfileImage,
     required this.createdAt,
     required this.updatedAt,
+    this.isEdited = false,
+    this.editedAt,
+    this.user,
   });
 
+  // ✅ Safe fromJson with null checks
   factory ReviewModel.fromJson(Map<String, dynamic> json) {
+    // ✅ Safe string getter
+    String getString(String key, {String defaultValue = ''}) {
+      final value = json[key];
+      if (value == null) return defaultValue;
+      if (value is String) return value;
+      if (value is Map) return defaultValue; // ✅ Return default if Map
+      return value.toString();
+    }
+
+    // ✅ Safe int getter
+    int getInt(String key, {int defaultValue = 0}) {
+      final value = json[key];
+      if (value == null) return defaultValue;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? defaultValue;
+      return defaultValue;
+    }
+
+    // ✅ Safe double getter
+    double getDouble(String key, {double defaultValue = 0.0}) {
+      final value = json[key];
+      if (value == null) return defaultValue;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? defaultValue;
+      return defaultValue;
+    }
+
+    // ✅ Safe bool getter
+    bool getBool(String key, {bool defaultValue = false}) {
+      final value = json[key];
+      if (value == null) return defaultValue;
+      if (value is bool) return value;
+      if (value is String) return value.toLowerCase() == 'true';
+      return defaultValue;
+    }
+
+    // ✅ Safe List getter
+    List<String> getStringList(String key) {
+      final value = json[key];
+      if (value == null) return [];
+      if (value is List) {
+        return value.map((e) {
+          if (e is String) return e;
+          return e.toString();
+        }).toList();
+      }
+      return [];
+    }
+
+    // ✅ Safe DateTime getter
+    DateTime? getDateTime(String key) {
+      final value = json[key];
+      if (value == null) return null;
+      if (value is DateTime) return value;
+      if (value is String) {
+        try {
+          return DateTime.parse(value);
+        } catch (e) {
+          return null;
+        }
+      }
+      return null;
+    }
+
+    // ✅ Get userId safely
+    String userId = '';
+    final userIdValue = json['userId'];
+    if (userIdValue is String) {
+      userId = userIdValue;
+    } else if (userIdValue is Map && userIdValue['_id'] != null) {
+      userId = userIdValue['_id'].toString();
+    }
+
+    // ✅ Get productId safely
+    String? productId;
+    final productIdValue = json['productId'];
+    if (productIdValue is String) {
+      productId = productIdValue;
+    } else if (productIdValue is Map && productIdValue['_id'] != null) {
+      productId = productIdValue['_id'].toString();
+    }
+
+    // ✅ Get activityId safely
+    String? activityId;
+    final activityIdValue = json['activityId'];
+    if (activityIdValue is String) {
+      activityId = activityIdValue;
+    } else if (activityIdValue is Map && activityIdValue['_id'] != null) {
+      activityId = activityIdValue['_id'].toString();
+    }
+
+    // ✅ Get bookingId safely
+    String bookingId = '';
+    final bookingIdValue = json['bookingId'];
+    if (bookingIdValue is String) {
+      bookingId = bookingIdValue;
+    } else if (bookingIdValue is Map && bookingIdValue['_id'] != null) {
+      bookingId = bookingIdValue['_id'].toString();
+    }
+
+    // ✅ Get user safely
+    Map<String, dynamic>? user;
+    final userValue = json['userId'];
+    if (userValue is Map<String, dynamic>) {
+      user = userValue;
+    }
+
     return ReviewModel(
-      id: json['_id'] ?? '',
-      userId: json['userId'] ?? '',
-      productId: json['productId'],
-      activityId: json['activityId'],
-      bookingId: json['bookingId'] ?? '',
-      rating: (json['rating'] ?? 0).toDouble(),
-      title: json['title'] ?? '',
-      comment: json['comment'] ?? '',
-      images: List<String>.from(json['images'] ?? []),
-      isVerified: json['isVerified'] ?? false,
-      isApproved: json['isApproved'] ?? false,
-      helpfulCount: json['helpfulCount'] ?? 0,
-      itemType: json['itemType'] ?? 'product',
-      itemName: json['itemName'] ?? '',
-      userName: json['userName'] ?? 'User',
-      userProfileImage: json['userProfileImage'] ?? '',
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
+      id: getString('_id'),
+      userId: userId,
+      productId: productId,
+      activityId: activityId,
+      bookingId: bookingId,
+      rating: getDouble('rating'),
+      title: getString('title'),
+      comment: getString('comment'),
+      images: getStringList('images'),
+      isVerified: getBool('isVerified'),
+      isApproved: getBool('isApproved'),
+      helpfulCount: getInt('helpfulCount'),
+      itemType: getString('itemType', defaultValue: 'product'),
+      itemName: getString('itemName'),
+      userName: user != null 
+          ? (user['fullName']?.toString() ?? getString('userName')) 
+          : getString('userName'),
+      userProfileImage: user != null 
+          ? (user['profileImage']?.toString() ?? getString('userProfileImage')) 
+          : getString('userProfileImage'),
+      createdAt: getDateTime('createdAt') ?? DateTime.now(),
+      updatedAt: getDateTime('updatedAt') ?? DateTime.now(),
+      isEdited: getBool('isEdited'),
+      editedAt: getDateTime('editedAt'),
+      user: user,
     );
   }
 
@@ -82,6 +205,8 @@ class ReviewModel {
       'userProfileImage': userProfileImage,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'isEdited': isEdited,
+      'editedAt': editedAt?.toIso8601String(),
     };
   }
 }
