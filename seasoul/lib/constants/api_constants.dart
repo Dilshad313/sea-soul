@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 class ApiConstants {
   // ✅ For Production (Vercel)
-  static const String PRODUCTION_URL = 'https://your-app-name.vercel.app';
+  static const String PRODUCTION_URL = 'https://sea-soul-backend.vercel.app';
   
   // ✅ For Development
   static const String DEVELOPMENT_URL = 'http://localhost:5000';
