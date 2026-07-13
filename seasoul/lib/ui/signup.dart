@@ -1,10 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:seasoul/ui/login.dart';
+import 'package:seasoul/ui/otp.dart';
 import '../services/api_service.dart';
 import '../constants/api_constants.dart';
-import '../otp.dart';
-import '../login.dart';
 
 class signup extends StatefulWidget {
   const signup({super.key});

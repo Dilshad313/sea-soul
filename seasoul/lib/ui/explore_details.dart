@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:seasoul/payment.dart';
+import 'package:seasoul/ui/payment.dart';
 
 class explore_details extends StatefulWidget {
   const explore_details({super.key});

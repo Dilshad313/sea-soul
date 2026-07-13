@@ -2,12 +2,16 @@ import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:seasoul/bottomnav.dart';
-import 'package:seasoul/explore.dart';
-import 'package:seasoul/profile.dart';
-import 'package:seasoul/wishlist.dart';
-import 'package:seasoul/product_details.dart';
-import 'package:seasoul/activity_details.dart';
+
+import 'package:seasoul/ui/activity_details.dart';
+import 'package:seasoul/ui/bottomnav.dart';
+import 'package:seasoul/ui/chatbot.dart';
+import 'package:seasoul/ui/explore.dart';
+import 'package:seasoul/ui/notification_page.dart';
+import 'package:seasoul/ui/product_details.dart';
+import 'package:seasoul/ui/profile.dart';
+import 'package:seasoul/ui/wishlist.dart';
+
 import 'package:seasoul/services/product_service.dart';
 import 'package:seasoul/services/activity_service.dart';
 import 'package:seasoul/services/wishlist_service.dart';
@@ -16,7 +20,6 @@ import 'package:seasoul/models/review_model.dart';
 import 'package:seasoul/widgets/review_card.dart';
 import 'package:seasoul/widgets/star_rating.dart';
 import 'package:seasoul/providers/notification_provider.dart';
-import 'package:seasoul/notification_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UserHome extends StatefulWidget {
@@ -94,11 +97,14 @@ class _UserHomeState extends State<UserHome> {
     _packagePageController = PageController();
     _activityPageController = PageController();
     _loadAllData();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<NotificationProvider>(context, listen: false);
+      final provider = Provider.of<NotificationProvider>(
+        context,
+        listen: false,
+      );
       provider.refresh();
-      
+
       Future.delayed(const Duration(seconds: 5), () {
         provider.updateUnreadCount();
       });
@@ -123,14 +129,14 @@ class _UserHomeState extends State<UserHome> {
       _loadFeaturedActivities(),
       _loadAllRatings(),
     ]);
-    
+
     _startPackageAutoSlide();
     _startActivityAutoSlide();
   }
 
   Future<void> _loadAllRatings() async {
     setState(() => _isLoadingRatings = true);
-    
+
     try {
       for (var product in _allProducts) {
         final productId = product['_id'];
@@ -141,7 +147,8 @@ class _UserHomeState extends State<UserHome> {
             limit: 1,
           );
           if (response['success'] == true) {
-            _productRatings[productId] = (response['averageRating'] ?? 0).toDouble();
+            _productRatings[productId] = (response['averageRating'] ?? 0)
+                .toDouble();
             _productReviewCounts[productId] = response['totalReviews'] ?? 0;
           }
         }
@@ -156,7 +163,8 @@ class _UserHomeState extends State<UserHome> {
             limit: 1,
           );
           if (response['success'] == true) {
-            _activityRatings[activityId] = (response['averageRating'] ?? 0).toDouble();
+            _activityRatings[activityId] = (response['averageRating'] ?? 0)
+                .toDouble();
             _activityReviewCounts[activityId] = response['totalReviews'] ?? 0;
           }
         }
@@ -164,7 +172,7 @@ class _UserHomeState extends State<UserHome> {
     } catch (e) {
       print('❌ Error loading ratings: $e');
     }
-    
+
     setState(() => _isLoadingRatings = false);
   }
 
@@ -225,19 +233,19 @@ class _UserHomeState extends State<UserHome> {
 
   void _applySortAndFilter() {
     List<dynamic> filtered = _allProducts;
-    
+
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
       filtered = filtered.where((product) {
         final name = (product['name'] ?? '').toLowerCase();
         final location = (product['location'] ?? '').toLowerCase();
         final description = (product['description'] ?? '').toLowerCase();
-        return name.contains(query) || 
-               location.contains(query) || 
-               description.contains(query);
+        return name.contains(query) ||
+            location.contains(query) ||
+            description.contains(query);
       }).toList();
     }
-    
+
     switch (_selectedSort) {
       case 'price-low':
         filtered.sort((a, b) => (a['price'] ?? 0).compareTo(b['price'] ?? 0));
@@ -249,14 +257,18 @@ class _UserHomeState extends State<UserHome> {
         filtered.sort((a, b) => (b['rating'] ?? 0).compareTo(a['rating'] ?? 0));
         break;
       case 'popular':
-        filtered.sort((a, b) => (b['reviews'] ?? 0).compareTo(a['reviews'] ?? 0));
+        filtered.sort(
+          (a, b) => (b['reviews'] ?? 0).compareTo(a['reviews'] ?? 0),
+        );
         break;
       case 'newest':
       default:
-        filtered.sort((a, b) => (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''));
+        filtered.sort(
+          (a, b) => (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''),
+        );
         break;
     }
-    
+
     setState(() {
       _products = filtered;
     });
@@ -341,13 +353,10 @@ class _UserHomeState extends State<UserHome> {
 
   Future<void> openWhatsApp() async {
     final Uri whatsappUrl = Uri.parse(
-      'https://wa.me/917558002853?text=Hello%20SeaSoul'
+      'https://wa.me/917558002853?text=Hello%20SeaSoul',
     );
     if (await canLaunchUrl(whatsappUrl)) {
-      await launchUrl(
-        whatsappUrl,
-        mode: LaunchMode.externalApplication,
-      );
+      await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -374,10 +383,7 @@ class _UserHomeState extends State<UserHome> {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.95),
-                      sandWhite,
-                    ],
+                    colors: [Colors.white.withOpacity(0.95), sandWhite],
                   ),
                 ),
               ),
@@ -432,12 +438,16 @@ class _UserHomeState extends State<UserHome> {
                         Padding(
                           padding: const EdgeInsets.only(right: 12.0),
                           child: IconButton(
-                            icon: const Icon(Icons.notifications_none, color: deepNavy),
+                            icon: const Icon(
+                              Icons.notifications_none,
+                              color: deepNavy,
+                            ),
                             onPressed: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const NotificationPage(),
+                                  builder: (context) =>
+                                      const NotificationPage(),
                                 ),
                               );
                             },
@@ -458,7 +468,9 @@ class _UserHomeState extends State<UserHome> {
                                 minHeight: 18,
                               ),
                               child: Text(
-                                provider.unreadCount > 9 ? '9+' : '${provider.unreadCount}',
+                                provider.unreadCount > 9
+                                    ? '9+'
+                                    : '${provider.unreadCount}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
@@ -477,7 +489,12 @@ class _UserHomeState extends State<UserHome> {
           : null,
       body: IndexedStack(index: _currentTab, children: pages),
       floatingActionButton: FloatingActionButton(
-        onPressed: openWhatsApp,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => chatbot()),
+          );
+        },
         backgroundColor: const Color(0xFF25D366).withOpacity(0.9),
         elevation: 6,
         shape: const CircleBorder(),
@@ -539,45 +556,48 @@ class _UserHomeState extends State<UserHome> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 16),
-            child: Icon(Icons.search, color: outline),
-          ),
-          Expanded(
-            child: TextField(
-              onChanged: _handleSearch,
-              decoration: const InputDecoration(
-                hintText: 'Search destinations, resorts...',
-                hintStyle: TextStyle(
-                  color: outline,
-                  fontFamily: 'Inter',
-                  fontSize: 15,
-                ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-              ),
-            ),
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.sort, color: outline),
-            onSelected: _handleSort,
-            itemBuilder: (context) => _sortOptions.map((key) {
-              return PopupMenuItem(
-                value: key,
-                child: Row(
-                  children: [
-                    Icon(_sortIcons[key], size: 18, color: oceanBlue),
-                    const SizedBox(width: 10),
-                    Text(_sortLabels[key] ?? key),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
+      // child: Row(
+      //   children: [
+      //     const Padding(
+      //       padding: EdgeInsets.only(left: 16),
+      //       child: Icon(Icons.search, color: outline),
+      //     ),
+      //     Expanded(
+      //       child: TextField(
+      //         onChanged: _handleSearch,
+      //         decoration: const InputDecoration(
+      //           hintText: 'Search destinations, resorts...',
+      //           hintStyle: TextStyle(
+      //             color: outline,
+      //             fontFamily: 'Inter',
+      //             fontSize: 15,
+      //           ),
+      //           border: InputBorder.none,
+      //           contentPadding: EdgeInsets.symmetric(
+      //             vertical: 16,
+      //             horizontal: 12,
+      //           ),
+      //         ),
+      //       ),
+      //     ),
+      //     PopupMenuButton<String>(
+      //       icon: const Icon(Icons.sort, color: outline),
+      //       onSelected: _handleSort,
+      //       itemBuilder: (context) => _sortOptions.map((key) {
+      //         return PopupMenuItem(
+      //           value: key,
+      //           child: Row(
+      //             children: [
+      //               Icon(_sortIcons[key], size: 18, color: oceanBlue),
+      //               const SizedBox(width: 10),
+      //               Text(_sortLabels[key] ?? key),
+      //             ],
+      //           ),
+      //         );
+      //       }).toList(),
+      //     ),
+      //   ],
+      // ),
     );
   }
 
@@ -606,10 +626,7 @@ class _UserHomeState extends State<UserHome> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withOpacity(0.6),
-            ],
+            colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
           ),
         ),
         child: Column(
@@ -657,17 +674,11 @@ class _UserHomeState extends State<UserHome> {
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.05),
-                ),
+                border: Border.all(color: Colors.white.withOpacity(0.05)),
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.emoji_emotions,
-                    color: oceanBlue,
-                    size: 18,
-                  ),
+                  const Icon(Icons.emoji_emotions, color: oceanBlue, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -705,9 +716,7 @@ class _UserHomeState extends State<UserHome> {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.05),
-          ),
+          border: Border.all(color: Colors.white.withOpacity(0.05)),
         ),
         child: Column(
           children: [
@@ -868,21 +877,21 @@ class _UserHomeState extends State<UserHome> {
                     itemBuilder: (context, index) {
                       final pkg = _trendingProducts[index];
                       final images = pkg['images'] ?? [];
-                      final imageUrl = images.isNotEmpty ? images[0] : 
-                          'https://via.placeholder.com/300x200';
-                      
+                      final imageUrl = images.isNotEmpty
+                          ? images[0]
+                          : 'https://via.placeholder.com/300x200';
+
                       final pkgId = pkg['_id'];
                       final rating = _productRatings[pkgId] ?? 0;
                       final reviewCount = _productReviewCounts[pkgId] ?? 0;
-                      
+
                       return GestureDetector(
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ProductDetailsPage(
-                                productId: pkg['_id'],
-                              ),
+                              builder: (context) =>
+                                  ProductDetailsPage(productId: pkg['_id']),
                             ),
                           ).then((_) {
                             _loadAllData();
@@ -946,13 +955,10 @@ class _UserHomeState extends State<UserHome> {
                                     // ✅ Star Rating - Always Show
                                     Row(
                                       children: [
-                                        StarRating(
-                                          rating: rating,
-                                          size: 14,
-                                        ),
+                                        StarRating(rating: rating, size: 14),
                                         const SizedBox(width: 6),
                                         Text(
-                                          rating > 0 
+                                          rating > 0
                                               ? rating.toStringAsFixed(1)
                                               : '0.0',
                                           style: const TextStyle(
@@ -993,7 +999,8 @@ class _UserHomeState extends State<UserHome> {
                                     ),
                                     const SizedBox(height: 8),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         RichText(
                                           text: TextSpan(
@@ -1024,7 +1031,9 @@ class _UserHomeState extends State<UserHome> {
                                             gradient: LinearGradient(
                                               colors: [oceanBlue, turquoise],
                                             ),
-                                            borderRadius: BorderRadius.circular(20),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
                                           ),
                                           child: const Text(
                                             'View',
@@ -1059,8 +1068,8 @@ class _UserHomeState extends State<UserHome> {
                           width: _currentPackageIndex == index ? 20 : 8,
                           height: 8,
                           decoration: BoxDecoration(
-                            color: _currentPackageIndex == index 
-                                ? oceanBlue 
+                            color: _currentPackageIndex == index
+                                ? oceanBlue
                                 : Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -1140,13 +1149,15 @@ class _UserHomeState extends State<UserHome> {
                     itemBuilder: (context, index) {
                       final activity = _activities[index];
                       final images = activity['images'] ?? [];
-                      final imageUrl = images.isNotEmpty ? images[0] : 
-                          'https://via.placeholder.com/300x200';
-                      
+                      final imageUrl = images.isNotEmpty
+                          ? images[0]
+                          : 'https://via.placeholder.com/300x200';
+
                       final activityId = activity['_id'];
                       final rating = _activityRatings[activityId] ?? 0;
-                      final reviewCount = _activityReviewCounts[activityId] ?? 0;
-                      
+                      final reviewCount =
+                          _activityReviewCounts[activityId] ?? 0;
+
                       return GestureDetector(
                         onTap: () {
                           Navigator.push(
@@ -1240,13 +1251,10 @@ class _UserHomeState extends State<UserHome> {
                                     // ✅ Star Rating - Always Show
                                     Row(
                                       children: [
-                                        StarRating(
-                                          rating: rating,
-                                          size: 14,
-                                        ),
+                                        StarRating(rating: rating, size: 14),
                                         const SizedBox(width: 6),
                                         Text(
-                                          rating > 0 
+                                          rating > 0
                                               ? rating.toStringAsFixed(1)
                                               : '0.0',
                                           style: const TextStyle(
@@ -1360,8 +1368,8 @@ class _UserHomeState extends State<UserHome> {
                           width: _currentActivityIndex == index ? 20 : 8,
                           height: 8,
                           decoration: BoxDecoration(
-                            color: _currentActivityIndex == index 
-                                ? oceanBlue 
+                            color: _currentActivityIndex == index
+                                ? oceanBlue
                                 : Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -1379,7 +1387,9 @@ class _UserHomeState extends State<UserHome> {
   // ✅ Updated: No Emojis in Title
   Widget _buildBentoGridSection() {
     List<dynamic> latestProducts = List.from(_allProducts);
-    latestProducts.sort((a, b) => (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''));
+    latestProducts.sort(
+      (a, b) => (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''),
+    );
     latestProducts = latestProducts.take(3).toList();
 
     if (latestProducts.isEmpty) {
@@ -1404,9 +1414,8 @@ class _UserHomeState extends State<UserHome> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ProductDetailsPage(
-                  productId: product['_id'],
-                ),
+                builder: (context) =>
+                    ProductDetailsPage(productId: product['_id']),
               ),
             ).then((_) {
               _loadAllData();
@@ -1417,13 +1426,17 @@ class _UserHomeState extends State<UserHome> {
             width: double.infinity,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
-              image: latestProducts[0]['images'] != null && latestProducts[0]['images'].isNotEmpty
+              image:
+                  latestProducts[0]['images'] != null &&
+                      latestProducts[0]['images'].isNotEmpty
                   ? DecorationImage(
                       image: NetworkImage(latestProducts[0]['images'][0]),
                       fit: BoxFit.cover,
                     )
                   : const DecorationImage(
-                      image: NetworkImage('https://via.placeholder.com/400x200'),
+                      image: NetworkImage(
+                        'https://via.placeholder.com/400x200',
+                      ),
                       fit: BoxFit.cover,
                     ),
             ),
@@ -1436,7 +1449,10 @@ class _UserHomeState extends State<UserHome> {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black.withOpacity(0.65)],
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.65),
+                        ],
                       ),
                     ),
                   ),
@@ -1451,13 +1467,16 @@ class _UserHomeState extends State<UserHome> {
                       Row(
                         children: [
                           StarRating(
-                            rating: _productRatings[latestProducts[0]['_id']] ?? 0,
+                            rating:
+                                _productRatings[latestProducts[0]['_id']] ?? 0,
                             size: 14,
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            (_productRatings[latestProducts[0]['_id']] ?? 0) > 0 
-                                ? (_productRatings[latestProducts[0]['_id']] ?? 0).toStringAsFixed(1)
+                            (_productRatings[latestProducts[0]['_id']] ?? 0) > 0
+                                ? (_productRatings[latestProducts[0]['_id']] ??
+                                          0)
+                                      .toStringAsFixed(1)
                                 : '0.0',
                             style: const TextStyle(
                               color: Colors.white,
@@ -1499,7 +1518,10 @@ class _UserHomeState extends State<UserHome> {
                   top: 12,
                   right: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: sunsetOrange.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(12),
@@ -1529,9 +1551,8 @@ class _UserHomeState extends State<UserHome> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ProductDetailsPage(
-                          productId: product['_id'],
-                        ),
+                        builder: (context) =>
+                            ProductDetailsPage(productId: product['_id']),
                       ),
                     ).then((_) {
                       _loadAllData();
@@ -1541,13 +1562,19 @@ class _UserHomeState extends State<UserHome> {
                     height: 220,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
-                      image: latestProducts[1]['images'] != null && latestProducts[1]['images'].isNotEmpty
+                      image:
+                          latestProducts[1]['images'] != null &&
+                              latestProducts[1]['images'].isNotEmpty
                           ? DecorationImage(
-                              image: NetworkImage(latestProducts[1]['images'][0]),
+                              image: NetworkImage(
+                                latestProducts[1]['images'][0],
+                              ),
                               fit: BoxFit.cover,
                             )
                           : const DecorationImage(
-                              image: NetworkImage('https://via.placeholder.com/300x200'),
+                              image: NetworkImage(
+                                'https://via.placeholder.com/300x200',
+                              ),
                               fit: BoxFit.cover,
                             ),
                     ),
@@ -1560,7 +1587,10 @@ class _UserHomeState extends State<UserHome> {
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Colors.transparent, Colors.black.withOpacity(0.65)],
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.65),
+                                ],
                               ),
                             ),
                           ),
@@ -1575,13 +1605,19 @@ class _UserHomeState extends State<UserHome> {
                               Row(
                                 children: [
                                   StarRating(
-                                    rating: _productRatings[latestProducts[1]['_id']] ?? 0,
+                                    rating:
+                                        _productRatings[latestProducts[1]['_id']] ??
+                                        0,
                                     size: 12,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    (_productRatings[latestProducts[1]['_id']] ?? 0) > 0 
-                                        ? (_productRatings[latestProducts[1]['_id']] ?? 0).toStringAsFixed(1)
+                                    (_productRatings[latestProducts[1]['_id']] ??
+                                                0) >
+                                            0
+                                        ? (_productRatings[latestProducts[1]['_id']] ??
+                                                  0)
+                                              .toStringAsFixed(1)
                                         : '0.0',
                                     style: const TextStyle(
                                       color: Colors.white,
@@ -1625,9 +1661,8 @@ class _UserHomeState extends State<UserHome> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ProductDetailsPage(
-                          productId: product['_id'],
-                        ),
+                        builder: (context) =>
+                            ProductDetailsPage(productId: product['_id']),
                       ),
                     ).then((_) {
                       _loadAllData();
@@ -1637,13 +1672,19 @@ class _UserHomeState extends State<UserHome> {
                     height: 220,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
-                      image: latestProducts[2]['images'] != null && latestProducts[2]['images'].isNotEmpty
+                      image:
+                          latestProducts[2]['images'] != null &&
+                              latestProducts[2]['images'].isNotEmpty
                           ? DecorationImage(
-                              image: NetworkImage(latestProducts[2]['images'][0]),
+                              image: NetworkImage(
+                                latestProducts[2]['images'][0],
+                              ),
                               fit: BoxFit.cover,
                             )
                           : const DecorationImage(
-                              image: NetworkImage('https://via.placeholder.com/300x200'),
+                              image: NetworkImage(
+                                'https://via.placeholder.com/300x200',
+                              ),
                               fit: BoxFit.cover,
                             ),
                     ),
@@ -1656,7 +1697,10 @@ class _UserHomeState extends State<UserHome> {
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Colors.transparent, Colors.black.withOpacity(0.65)],
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.65),
+                                ],
                               ),
                             ),
                           ),
@@ -1671,13 +1715,19 @@ class _UserHomeState extends State<UserHome> {
                               Row(
                                 children: [
                                   StarRating(
-                                    rating: _productRatings[latestProducts[2]['_id']] ?? 0,
+                                    rating:
+                                        _productRatings[latestProducts[2]['_id']] ??
+                                        0,
                                     size: 12,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    (_productRatings[latestProducts[2]['_id']] ?? 0) > 0 
-                                        ? (_productRatings[latestProducts[2]['_id']] ?? 0).toStringAsFixed(1)
+                                    (_productRatings[latestProducts[2]['_id']] ??
+                                                0) >
+                                            0
+                                        ? (_productRatings[latestProducts[2]['_id']] ??
+                                                  0)
+                                              .toStringAsFixed(1)
                                         : '0.0',
                                     style: const TextStyle(
                                       color: Colors.white,
@@ -1766,28 +1816,30 @@ class _UserHomeState extends State<UserHome> {
               ),
             ),
             const SizedBox(height: 16),
-            ...reviews.map((review) => ReviewCard(
-              review: review,
-              onHelpfulTap: () async {
-                try {
-                  await ReviewService.toggleHelpful(review.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('✅ Marked as helpful'),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: ${e.toString()}'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-            )),
+            ...reviews.map(
+              (review) => ReviewCard(
+                review: review,
+                onHelpfulTap: () async {
+                  try {
+                    await ReviewService.toggleHelpful(review.id);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✅ Marked as helpful'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
           ],
         );
       },

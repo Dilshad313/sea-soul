@@ -1,43 +1,40 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:seasoul/ui/login.dart';
 import '../services/api_service.dart';
 import '../constants/api_constants.dart';
-import '../profile.dart';
 
-class ChangePasswordPage extends StatefulWidget {
-  const ChangePasswordPage({super.key});
+class ResetPasswordPage extends StatefulWidget {
+  final String token;
+
+  const ResetPasswordPage({super.key, required this.token});
 
   @override
-  State<ChangePasswordPage> createState() => _ChangePasswordPageState();
+  State<ResetPasswordPage> createState() => _ResetPasswordPageState();
 }
 
-class _ChangePasswordPageState extends State<ChangePasswordPage> {
-  final _currentPasswordController = TextEditingController();
+class _ResetPasswordPageState extends State<ResetPasswordPage> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
   bool _isLoading = false;
-  bool _obscureCurrent = true;
-  bool _obscureNew = true;
-  bool _obscureConfirm = true;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
-    _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _changePassword() async {
+  void _resetPassword() async {
     if (_isLoading) return;
 
-    final currentPassword = _currentPasswordController.text.trim();
     final newPassword = _newPasswordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
 
-    if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
+    if (newPassword.isEmpty || confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please fill all fields'),
@@ -50,7 +47,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     if (newPassword.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('New password must be at least 6 characters'),
+          content: Text('Password must be at least 6 characters'),
           backgroundColor: Colors.red,
         ),
       );
@@ -70,34 +67,31 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     setState(() => _isLoading = true);
 
     try {
-      final data = {
-        'currentPassword': currentPassword,
-        'newPassword': newPassword,
-      };
+      final data = {'token': widget.token, 'newPassword': newPassword};
 
-      final response = await ApiService.postWithToken(
-        ApiConstants.changePassword,
-        data,
-      );
+      final response = await ApiService.post(ApiConstants.resetPassword, data);
 
       if (response['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Password changed successfully!'),
+            content: Text(
+              '✅ Password reset successfully! Please login with new password.',
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 3),
           ),
         );
 
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(seconds: 2));
         if (mounted) {
-          Navigator.pushReplacement(
+          Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => const ProfilePage()),
+            MaterialPageRoute(builder: (context) => const login()),
+            (route) => false,
           );
         }
       } else {
-        throw Exception(response['message'] ?? 'Password change failed');
+        throw Exception(response['message'] ?? 'Password reset failed');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -115,30 +109,13 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   Widget build(BuildContext context) {
     const colorBackground = Color(0xFF0D1516);
     const colorPrimaryContainer = Color(0xFF00E5FF);
+    const colorOnSurface = Color(0xFFDCE4E5);
     const colorOnSurfaceVariant = Color(0xFFBAC9CC);
     const colorOutline = Color(0xFF849396);
     const colorLowestSurface = Color(0xFF080F11);
-    const deepNavy = Color(0xFF1A2B49);
-    const sandWhite = Color(0xFFF8FBFF);
 
     return Scaffold(
-      backgroundColor: sandWhite,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: deepNavy),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Change Password',
-          style: TextStyle(
-            color: deepNavy,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
+      backgroundColor: colorBackground,
       body: Stack(
         children: [
           Positioned.fill(
@@ -167,12 +144,28 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(
                 horizontal: 20.0,
-                vertical: 20.0,
+                vertical: 40.0,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Back Button
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const login(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                   const SizedBox(height: 20),
+                  // Icon
                   Container(
                     width: 80,
                     height: 80,
@@ -187,17 +180,18 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  // Title
                   Text(
-                    'Change Password',
+                    'Reset Password',
                     style: GoogleFonts.montserrat(
-                      fontSize: 24,
+                      fontSize: 28,
                       fontWeight: FontWeight.w700,
-                      color: deepNavy,
+                      color: colorOnSurface,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Enter your current password and new password.',
+                    'Enter your new password below.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.montserrat(
                       fontSize: 14,
@@ -205,6 +199,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     ),
                   ),
                   const SizedBox(height: 40),
+                  // Glassmorphic Card
                   ClipRRect(
                     borderRadius: BorderRadius.circular(24),
                     child: BackdropFilter(
@@ -214,83 +209,17 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                         constraints: const BoxConstraints(maxWidth: 440),
                         padding: const EdgeInsets.all(32.0),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withOpacity(0.05),
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
+                            color: Colors.white.withOpacity(0.1),
                             width: 1,
                           ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'CURRENT PASSWORD',
-                              style: GoogleFonts.montserrat(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: colorOutline,
-                                letterSpacing: 1.0,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: TextField(
-                                controller: _currentPasswordController,
-                                obscureText: _obscureCurrent,
-                                style: GoogleFonts.montserrat(
-                                  color: deepNavy,
-                                  fontSize: 16,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Enter current password',
-                                  hintStyle: GoogleFonts.montserrat(
-                                    color: Colors.grey[400],
-                                    fontSize: 16,
-                                  ),
-                                  prefixIcon: const Icon(
-                                    Icons.lock_outline,
-                                    color: colorOutline,
-                                  ),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscureCurrent
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
-                                      color: colorOutline,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _obscureCurrent = !_obscureCurrent;
-                                      });
-                                    },
-                                  ),
-                                  filled: true,
-                                  fillColor: colorLowestSurface.withOpacity(0.05),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 18,
-                                    horizontal: 16,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey[300]!,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: colorPrimaryContainer,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
+                            // New Password
                             Text(
                               'NEW PASSWORD',
                               style: GoogleFonts.montserrat(
@@ -307,15 +236,15 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                               ),
                               child: TextField(
                                 controller: _newPasswordController,
-                                obscureText: _obscureNew,
+                                obscureText: _obscureNewPassword,
                                 style: GoogleFonts.montserrat(
-                                  color: deepNavy,
+                                  color: Colors.white,
                                   fontSize: 16,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: 'Enter new password',
+                                  hintText: '••••••••',
                                   hintStyle: GoogleFonts.montserrat(
-                                    color: Colors.grey[400],
+                                    color: Colors.white24,
                                     fontSize: 16,
                                   ),
                                   prefixIcon: const Icon(
@@ -324,19 +253,20 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                   ),
                                   suffixIcon: IconButton(
                                     icon: Icon(
-                                      _obscureNew
+                                      _obscureNewPassword
                                           ? Icons.visibility_off
                                           : Icons.visibility,
                                       color: colorOutline,
                                     ),
                                     onPressed: () {
                                       setState(() {
-                                        _obscureNew = !_obscureNew;
+                                        _obscureNewPassword =
+                                            !_obscureNewPassword;
                                       });
                                     },
                                   ),
                                   filled: true,
-                                  fillColor: colorLowestSurface.withOpacity(0.05),
+                                  fillColor: colorLowestSurface,
                                   contentPadding: const EdgeInsets.symmetric(
                                     vertical: 18,
                                     horizontal: 16,
@@ -344,7 +274,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     borderSide: BorderSide(
-                                      color: Colors.grey[300]!,
+                                      color: Colors.white.withOpacity(0.08),
                                     ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
@@ -358,6 +288,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                               ),
                             ),
                             const SizedBox(height: 24),
+                            // Confirm Password
                             Text(
                               'CONFIRM PASSWORD',
                               style: GoogleFonts.montserrat(
@@ -374,15 +305,15 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                               ),
                               child: TextField(
                                 controller: _confirmPasswordController,
-                                obscureText: _obscureConfirm,
+                                obscureText: _obscureConfirmPassword,
                                 style: GoogleFonts.montserrat(
-                                  color: deepNavy,
+                                  color: Colors.white,
                                   fontSize: 16,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: 'Confirm new password',
+                                  hintText: '••••••••',
                                   hintStyle: GoogleFonts.montserrat(
-                                    color: Colors.grey[400],
+                                    color: Colors.white24,
                                     fontSize: 16,
                                   ),
                                   prefixIcon: const Icon(
@@ -391,19 +322,20 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                   ),
                                   suffixIcon: IconButton(
                                     icon: Icon(
-                                      _obscureConfirm
+                                      _obscureConfirmPassword
                                           ? Icons.visibility_off
                                           : Icons.visibility,
                                       color: colorOutline,
                                     ),
                                     onPressed: () {
                                       setState(() {
-                                        _obscureConfirm = !_obscureConfirm;
+                                        _obscureConfirmPassword =
+                                            !_obscureConfirmPassword;
                                       });
                                     },
                                   ),
                                   filled: true,
-                                  fillColor: colorLowestSurface.withOpacity(0.05),
+                                  fillColor: colorLowestSurface,
                                   contentPadding: const EdgeInsets.symmetric(
                                     vertical: 18,
                                     horizontal: 16,
@@ -411,7 +343,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     borderSide: BorderSide(
-                                      color: Colors.grey[300]!,
+                                      color: Colors.white.withOpacity(0.08),
                                     ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
@@ -438,7 +370,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF00E5FF).withOpacity(0.2),
+                                    color: const Color(
+                                      0xFF00E5FF,
+                                    ).withOpacity(0.2),
                                     blurRadius: 20,
                                     offset: const Offset(0, 4),
                                   ),
@@ -452,7 +386,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                                onPressed: _isLoading ? null : _changePassword,
+                                onPressed: _isLoading ? null : _resetPassword,
                                 child: _isLoading
                                     ? const SizedBox(
                                         width: 24,
@@ -463,10 +397,11 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                         ),
                                       )
                                     : Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Text(
-                                            'Update Password',
+                                            'Reset Password',
                                             style: GoogleFonts.montserrat(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
@@ -482,11 +417,37 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                       ),
                               ),
                             ),
+                            const SizedBox(height: 24),
+                            Center(
+                              child: MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const login(),
+                                      ),
+                                    );
+                                  },
+                                  child: Text(
+                                    'Back to Login',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 14,
+                                      color: colorPrimaryContainer,
+                                      fontWeight: FontWeight.w500,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),

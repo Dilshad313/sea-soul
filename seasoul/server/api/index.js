@@ -3,12 +3,12 @@ const cors = require('cors');
 const path = require('path');
 const connectDB = require('../config/db');
 
-// ✅ Load environment variables
-require('dotenv').config();
+// ✅ Load environment variables from parent folder
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 
-// ✅ CORS Configuration - Allow all origins
+// ✅ CORS Configuration
 app.use(cors({
   origin: '*',
   credentials: true,
@@ -22,8 +22,9 @@ app.use(express.urlencoded({ extended: true }));
 // ✅ Connect to MongoDB
 connectDB();
 
-// ✅ Serve static assets if needed
+// ✅ Serve static assets
 app.use('/assets', express.static(path.join(__dirname, '../../assets')));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // ✅ API Routes
 app.use('/api/auth', require('../routes/authRoutes'));
@@ -39,11 +40,11 @@ app.use('/api/categories', require('../routes/categoryRoutes'));
 
 // ✅ Health Check Route
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: 'SeaSoul API is running!',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'production'
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 

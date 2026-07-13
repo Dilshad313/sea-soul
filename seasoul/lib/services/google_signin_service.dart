@@ -3,9 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 
-// ✅ Correct conditional import for Web
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' if (dart.library.html) 'dart:html' as html;
+import 'origin_helper.dart' if (dart.library.html) 'origin_helper_web.dart';
 
 class GoogleSignInService {
   // ✅ Your Actual Client IDs - Replace with yours
@@ -35,15 +33,7 @@ class GoogleSignInService {
   // ✅ Get current website URL (Web Only)
   static String get _currentOrigin {
     if (kIsWeb) {
-      try {
-        final String? origin = html.window.location.origin;
-        if (origin != null && origin.isNotEmpty) {
-          return origin;
-        }
-      } catch (e) {
-        print('⚠️ Error getting origin: $e');
-      }
-      return 'http://localhost:5000';
+      return getOrigin();
     }
     return '';
   }

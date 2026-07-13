@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:seasoul/explore_details.dart';
-import 'package:seasoul/product_details.dart';
-import 'package:seasoul/activity_details.dart';
 import 'package:seasoul/services/product_service.dart';
 import 'package:seasoul/services/activity_service.dart';
+import 'package:seasoul/ui/activity_details.dart';
+import 'package:seasoul/ui/product_details.dart';
 import 'package:seasoul/widgets/star_rating.dart';
 
 class ExplorePage extends StatefulWidget {
@@ -80,7 +79,7 @@ class _ExplorePageState extends State<ExplorePage> {
   List<dynamic> _getFilteredItems() {
     final items = _showProducts ? _products : _activities;
     final category = _categories[_activeCategoryIndex];
-    
+
     return items.where((item) {
       // Category filter
       if (category != 'All' && item['category'] != category) {
@@ -103,7 +102,9 @@ class _ExplorePageState extends State<ExplorePage> {
   Widget build(BuildContext context) {
     final filteredItems = _getFilteredItems();
     final isLoading = _showProducts ? _isLoadingProducts : _isLoadingActivities;
-    final emptyMessage = _showProducts ? 'No packages found' : 'No activities found';
+    final emptyMessage = _showProducts
+        ? 'No packages found'
+        : 'No activities found';
 
     return Container(
       color: sandWhite,
@@ -151,13 +152,11 @@ class _ExplorePageState extends State<ExplorePage> {
             Expanded(
               child: isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                        color: oceanBlue,
-                      ),
+                      child: CircularProgressIndicator(color: oceanBlue),
                     )
                   : filteredItems.isEmpty
-                      ? _buildEmptyState(emptyMessage)
-                      : _buildItemGrid(filteredItems),
+                  ? _buildEmptyState(emptyMessage)
+                  : _buildItemGrid(filteredItems),
             ),
           ],
         ),
@@ -260,7 +259,10 @@ class _ExplorePageState extends State<ExplorePage> {
             fontSize: 15,
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 14,
+            horizontal: 16,
+          ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, color: outline, size: 18),
@@ -298,7 +300,9 @@ class _ExplorePageState extends State<ExplorePage> {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected ? oceanBlue : turquoiseLagoon.withOpacity(0.1),
+                  color: isSelected
+                      ? oceanBlue
+                      : turquoiseLagoon.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(999),
                   border: isSelected
                       ? null
@@ -343,10 +347,7 @@ class _ExplorePageState extends State<ExplorePage> {
           const SizedBox(height: 16),
           Text(
             message,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[500],
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey[500]),
           ),
           const SizedBox(height: 8),
           TextButton(
@@ -380,8 +381,9 @@ class _ExplorePageState extends State<ExplorePage> {
         itemBuilder: (context, index) {
           final item = items[index];
           final images = item['images'] ?? [];
-          final imageUrl = images.isNotEmpty ? images[0] : 
-              'https://via.placeholder.com/300x200';
+          final imageUrl = images.isNotEmpty
+              ? images[0]
+              : 'https://via.placeholder.com/300x200';
           final isProduct = _showProducts;
           final itemId = item['_id'];
           final itemName = item['name'] ?? 'Item';
@@ -400,18 +402,16 @@ class _ExplorePageState extends State<ExplorePage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ProductDetailsPage(
-                                productId: itemId,
-                              ),
+                              builder: (context) =>
+                                  ProductDetailsPage(productId: itemId),
                             ),
                           );
                         } else {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ActivityDetailsPage(
-                                activityId: itemId,
-                              ),
+                              builder: (context) =>
+                                  ActivityDetailsPage(activityId: itemId),
                             ),
                           );
                         }
@@ -533,18 +533,16 @@ class _ExplorePageState extends State<ExplorePage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => ProductDetailsPage(
-                                  productId: itemId,
-                                ),
+                                builder: (context) =>
+                                    ProductDetailsPage(productId: itemId),
                               ),
                             );
                           } else {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => ActivityDetailsPage(
-                                  activityId: itemId,
-                                ),
+                                builder: (context) =>
+                                    ActivityDetailsPage(activityId: itemId),
                               ),
                             );
                           }

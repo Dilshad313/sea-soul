@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:seasoul/product_details.dart';
-import 'package:seasoul/activity_details.dart';
 import 'package:seasoul/services/wishlist_service.dart';
-import 'package:seasoul/user_home.dart';
+import 'package:seasoul/ui/activity_details.dart';
+import 'package:seasoul/ui/product_details.dart';
+import 'package:seasoul/ui/user_home.dart';
 
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});
@@ -86,7 +86,7 @@ class _WishlistPageState extends State<WishlistPage> {
     try {
       await WishlistService.removeFromWishlist(id);
       // ✅ No need to manually update - listener will handle it
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('❌ Removed from wishlist'),
@@ -112,7 +112,9 @@ class _WishlistPageState extends State<WishlistPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear Wishlist'),
-        content: const Text('Are you sure you want to remove all items from your wishlist?'),
+        content: const Text(
+          'Are you sure you want to remove all items from your wishlist?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -130,10 +132,7 @@ class _WishlistPageState extends State<WishlistPage> {
                 ),
               );
             },
-            child: const Text(
-              'Clear All',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Clear All', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -175,17 +174,13 @@ class _WishlistPageState extends State<WishlistPage> {
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: oceanBlue,
-              ),
-            )
+          ? const Center(child: CircularProgressIndicator(color: oceanBlue))
           : _wishlistItems.isEmpty
-              ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: _refreshWishlist,
-                  child: _buildWishlistGrid(),
-                ),
+          ? _buildEmptyState()
+          : RefreshIndicator(
+              onRefresh: _refreshWishlist,
+              child: _buildWishlistGrid(),
+            ),
     );
   }
 
@@ -220,11 +215,7 @@ class _WishlistPageState extends State<WishlistPage> {
           const Text(
             'Start adding your favorite packages and activities',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: outline,
-              fontFamily: 'Inter',
-            ),
+            style: TextStyle(fontSize: 14, color: outline, fontFamily: 'Inter'),
           ),
           const SizedBox(height: 36),
           ElevatedButton(
@@ -241,17 +232,11 @@ class _WishlistPageState extends State<WishlistPage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 32,
-                vertical: 16,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             ),
             child: const Text(
               'Browse Packages',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
           ),
         ],
@@ -273,8 +258,9 @@ class _WishlistPageState extends State<WishlistPage> {
         final item = _wishlistItems[index];
         final isProduct = item['type'] == 'product';
         final images = item['images'] ?? [];
-        final imageUrl = images.isNotEmpty ? images[0] : 
-            'https://via.placeholder.com/300x200';
+        final imageUrl = images.isNotEmpty
+            ? images[0]
+            : 'https://via.placeholder.com/300x200';
         final name = item['name'] ?? 'Item';
         final location = item['location'] ?? 'Location';
         final price = item['price'] ?? 0;
@@ -285,18 +271,16 @@ class _WishlistPageState extends State<WishlistPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ProductDetailsPage(
-                    productId: item['id'],
-                  ),
+                  builder: (context) =>
+                      ProductDetailsPage(productId: item['id']),
                 ),
               ).then((_) => _loadWishlist());
             } else {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ActivityDetailsPage(
-                    activityId: item['id'],
-                  ),
+                  builder: (context) =>
+                      ActivityDetailsPage(activityId: item['id']),
                 ),
               ).then((_) => _loadWishlist());
             }
@@ -369,8 +353,8 @@ class _WishlistPageState extends State<WishlistPage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: isProduct 
-                              ? oceanBlue.withOpacity(0.9) 
+                          color: isProduct
+                              ? oceanBlue.withOpacity(0.9)
                               : Colors.green.withOpacity(0.9),
                           borderRadius: BorderRadius.circular(10),
                         ),

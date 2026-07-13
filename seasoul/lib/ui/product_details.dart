@@ -1,32 +1,36 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:seasoul/payment.dart';
+import 'package:seasoul/services/product_service.dart';
 import 'package:seasoul/services/activity_service.dart';
 import 'package:seasoul/services/wishlist_service.dart';
 import 'package:seasoul/services/review_service.dart';
 import 'package:seasoul/services/location_service.dart';
 import 'package:seasoul/models/review_model.dart';
+import 'package:seasoul/ui/activity_details.dart';
+import 'package:seasoul/ui/payment.dart';
+import 'package:seasoul/ui/review_page.dart';
 import 'package:seasoul/widgets/review_card.dart';
 import 'package:seasoul/widgets/star_rating.dart';
 import 'package:share_plus/share_plus.dart';
 
-class ActivityDetailsPage extends StatefulWidget {
-  final String activityId;
+class ProductDetailsPage extends StatefulWidget {
+  final String productId;
 
-  const ActivityDetailsPage({
+  const ProductDetailsPage({
     super.key,
-    required this.activityId,
+    required this.productId,
   });
 
   @override
-  State<ActivityDetailsPage> createState() => _ActivityDetailsPageState();
+  State<ProductDetailsPage> createState() => _ProductDetailsPageState();
 }
 
-class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
+class _ProductDetailsPageState extends State<ProductDetailsPage> {
   bool _isBookmarked = false;
   bool _isLoading = true;
   bool _isSaving = false;
-  Map<String, dynamic>? _activity;
+  Map<String, dynamic>? _product;
+  List<dynamic> _activities = [];
 
   // ✅ Distance related variables
   double _distanceInKm = 0.0;
@@ -42,11 +46,9 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
   static const Color sunsetOrange = Color(0xFFFFB84D);
-  static const Color turquoiseLagoon = Color(0xFF00C2A8);
   static const Color outline = Color(0xFF6E7880);
   static const Color sandWhite = Color(0xFFF8FBFF);
 
-  // ✅ Island coordinates for Lakshadweep
   final Map<String, Map<String, double>> islandCoordinates = {
     'Agatti': {'lat': 10.8327, 'lng': 72.2067},
     'Kavaratti': {'lat': 10.5667, 'lng': 72.6333},
@@ -64,13 +66,14 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   @override
   void initState() {
     super.initState();
-    _loadActivity();
+    _loadProduct();
+    _loadActivities();
     _checkWishlistStatus();
     _loadReviews();
   }
 
   Future<void> _checkWishlistStatus() async {
-    final inWishlist = await WishlistService.isInWishlist(widget.activityId);
+    final inWishlist = await WishlistService.isInWishlist(widget.productId);
     if (mounted) {
       setState(() {
         _isBookmarked = inWishlist;
@@ -78,14 +81,14 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     }
   }
 
-  Future<void> _loadActivity() async {
+  Future<void> _loadProduct() async {
     setState(() => _isLoading = true);
     try {
-      final response = await ActivityService.getActivityById(widget.activityId);
+      final response = await ProductService.getProductById(widget.productId);
       if (response['success'] == true) {
         if (mounted) {
           setState(() {
-            _activity = response['activity'];
+            _product = response['product'];
             _isLoading = false;
           });
           _calculateDistance();
@@ -95,7 +98,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
-      print('❌ Error loading activity: $e');
+      print('❌ Error loading product: $e');
     }
   }
 
@@ -104,8 +107,8 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     setState(() => _isLoadingReviews = true);
     try {
       final response = await ReviewService.getItemReviews(
-        itemId: widget.activityId,
-        itemType: 'activity',
+        itemId: widget.productId,
+        itemType: 'product',
         limit: 10,
       );
       
@@ -133,11 +136,26 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     }
   }
 
+  Future<void> _loadActivities() async {
+    try {
+      final response = await ActivityService.getActivities(limit: 3);
+      if (response['success'] == true) {
+        if (mounted) {
+          setState(() {
+            _activities = response['activities'] ?? [];
+          });
+        }
+      }
+    } catch (e) {
+      print('❌ Error loading activities: $e');
+    }
+  }
+
   Future<void> _calculateDistance() async {
-    if (_activity == null) return;
+    if (_product == null) return;
     
-    final Map<String, dynamic> activity = _activity!;
-    String location = activity['location'] ?? '';
+    final Map<String, dynamic> product = _product!;
+    String location = product['location'] ?? '';
     String islandKey = '';
     
     for (var key in islandCoordinates.keys) {
@@ -187,7 +205,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     
     try {
       if (_isBookmarked) {
-        await WishlistService.removeFromWishlist(widget.activityId);
+        await WishlistService.removeFromWishlist(widget.productId);
         if (mounted) {
           setState(() {
             _isBookmarked = false;
@@ -202,14 +220,14 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
           );
         }
       } else {
-        final activity = _activity!;
+        final product = _product!;
         await WishlistService.addToWishlist({
-          'id': activity['_id'],
-          'name': activity['name'],
-          'location': activity['location'],
-          'price': activity['price'],
-          'images': activity['images'],
-          'type': 'activity',
+          'id': product['_id'],
+          'name': product['name'],
+          'location': product['location'],
+          'price': product['price'],
+          'images': product['images'],
+          'type': 'product',
         });
         if (mounted) {
           setState(() {
@@ -241,20 +259,19 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     }
   }
 
-  Future<void> _shareActivity() async {
-    final activity = _activity!;
+  Future<void> _shareProduct() async {
+    final product = _product!;
     final String shareText = '''
-🌊 SeaSoul - ${activity['name'] ?? 'Amazing Activity'}
+🌊 SeaSoul - ${product['name'] ?? 'Amazing Package'}
 
-📍 Location: ${activity['location'] ?? 'Lakshadweep'}
+📍 Location: ${product['location'] ?? 'Lakshadweep'}
 📏 Distance: $_distanceText from $_fromLocation
 ⭐ Rating: ${_averageRating > 0 ? _averageRating.toStringAsFixed(1) : '0.0'} ★ (${_totalReviews} reviews)
-💰 Price: ₹${activity['price'] ?? 0} / person
-⏰ Duration: ${activity['duration'] ?? '2 hours'}
+💰 Price: ₹${product['price'] ?? 0} / person
 
-${activity['description'] ?? ''}
+${product['description'] ?? ''}
 
-✨ Book now and experience the adventure!
+✨ Book now and experience the beauty of Lakshadweep!
 📱 Download SeaSoul App: https://seasoul.com/download
   ''';
   
@@ -273,6 +290,76 @@ ${activity['description'] ?? ''}
   }
   }
 
+  void _editReview(ReviewModel review) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReviewPage(
+          bookingId: review.bookingId,
+          productId: review.productId,
+          activityId: review.activityId,
+          itemName: review.itemName,
+          itemType: review.itemType,
+          existingReview: {
+            '_id': review.id,
+            'rating': review.rating,
+            'title': review.title,
+            'comment': review.comment,
+          },
+        ),
+      ),
+    );
+    
+    if (result == true) {
+      _loadReviews();
+      _loadProduct();
+    }
+  }
+
+  void _deleteReview(ReviewModel review) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Review'),
+        content: const Text('Are you sure you want to delete this review?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await ReviewService.deleteReview(review.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Review deleted'),
+                    backgroundColor: Colors.red,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                _loadReviews();
+                _loadProduct();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -286,7 +373,7 @@ ${activity['description'] ?? ''}
       );
     }
 
-    if (_activity == null) {
+    if (_product == null) {
       return Scaffold(
         backgroundColor: sandWhite,
         body: Center(
@@ -296,7 +383,7 @@ ${activity['description'] ?? ''}
               const Icon(Icons.error_outline, size: 64, color: outline),
               const SizedBox(height: 16),
               const Text(
-                'Activity not found',
+                'Product not found',
                 style: TextStyle(fontSize: 18, color: deepNavy),
               ),
               const SizedBox(height: 16),
@@ -313,8 +400,8 @@ ${activity['description'] ?? ''}
       );
     }
 
-    final activity = _activity!;
-    final images = activity['images'] ?? [];
+    final product = _product!;
+    final images = product['images'] ?? [];
     final mainImage = images.isNotEmpty ? images[0] : 
         'https://via.placeholder.com/400x300';
 
@@ -326,19 +413,18 @@ ${activity['description'] ?? ''}
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeroSection(context, mainImage, activity),
-                _buildStatsMetricsSection(activity),
-                _buildDescriptionSection(activity),
+                _buildHeroSection(context, mainImage, product),
+                _buildStatsMetricsSection(product),
+                _buildDescriptionSection(product),
                 _buildGallerySection(images),
                 _buildReviewsSection(),
-                _buildIncludesSection(activity),
-                _buildRequirementsSection(activity),
+                _buildActivitiesSection(),
                 const SizedBox(height: 140),
               ],
             ),
           ),
           _buildScreenHeaderOverlay(context),
-          _buildStickyBookingFooter(activity),
+          _buildStickyBookingFooter(product),
         ],
       ),
     );
@@ -378,7 +464,7 @@ ${activity['description'] ?? ''}
                     const SizedBox(width: 8),
                     _buildGlassButton(
                       icon: Icons.share_outlined,
-                      onTap: _shareActivity,
+                      onTap: _shareProduct,
                     ),
                   ],
                 ),
@@ -427,7 +513,7 @@ ${activity['description'] ?? ''}
     );
   }
 
-  Widget _buildHeroSection(BuildContext context, String imageUrl, Map<String, dynamic> activity) {
+  Widget _buildHeroSection(BuildContext context, String imageUrl, Map<String, dynamic> product) {
     return Stack(
       children: [
         SizedBox(
@@ -474,15 +560,11 @@ ${activity['description'] ?? ''}
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: activity['category'] == 'Water Sports' 
-                      ? oceanBlue 
-                      : activity['category'] == 'Adventure'
-                          ? const Color(0xFFFF6B35)
-                          : turquoiseLagoon,
+                  color: product['isFeatured'] == true ? sunsetOrange : oceanBlue,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  activity['category'] ?? 'Activity',
+                  product['isFeatured'] == true ? 'FEATURED' : 'TRENDING DESTINATION',
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 10,
@@ -494,7 +576,7 @@ ${activity['description'] ?? ''}
               ),
               const SizedBox(height: 10),
               Text(
-                activity['name'] ?? 'Activity',
+                product['name'] ?? 'Product',
                 style: const TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.bold,
@@ -509,7 +591,7 @@ ${activity['description'] ?? ''}
                 ),
               ),
               Text(
-                activity['location'] ?? 'Location',
+                product['location'] ?? 'Location',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
@@ -523,7 +605,7 @@ ${activity['description'] ?? ''}
     );
   }
 
-  Widget _buildStatsMetricsSection(Map<String, dynamic> activity) {
+  Widget _buildStatsMetricsSection(Map<String, dynamic> product) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Container(
@@ -542,6 +624,7 @@ ${activity['description'] ?? ''}
         ),
         child: Row(
           children: [
+            // ✅ STAR RATING SECTION
             Expanded(
               child: Column(
                 children: [
@@ -591,6 +674,7 @@ ${activity['description'] ?? ''}
               ),
             ),
             Container(height: 30, width: 1, color: outline.withOpacity(0.2)),
+            // ✅ DISTANCE SECTION
             Expanded(
               child: Column(
                 children: [
@@ -638,15 +722,15 @@ ${activity['description'] ?? ''}
     );
   }
 
-  Widget _buildDescriptionSection(Map<String, dynamic> activity) {
+  Widget _buildDescriptionSection(Map<String, dynamic> product) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'About This Activity',
-            style: TextStyle(
+          Text(
+            product['name'] ?? 'Experience Serenity',
+            style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
               color: deepNavy,
@@ -654,7 +738,7 @@ ${activity['description'] ?? ''}
           ),
           const SizedBox(height: 10),
           Text(
-            activity['description'] ?? 'No description available',
+            product['description'] ?? 'No description available',
             style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 15,
@@ -672,14 +756,14 @@ ${activity['description'] ?? ''}
             ),
             child: Row(
               children: [
-                const Icon(Icons.location_on_outlined, color: oceanBlue),
+                const Icon(Icons.calendar_today_outlined, color: oceanBlue),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'LOCATION',
+                        'DURATION',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -688,7 +772,7 @@ ${activity['description'] ?? ''}
                         ),
                       ),
                       Text(
-                        activity['location'] ?? 'Location',
+                        product['duration'] ?? '3 Nights / 4 Days',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -727,7 +811,7 @@ ${activity['description'] ?? ''}
                         ),
                       ),
                       Text(
-                        '₹${activity['price'] ?? 0} / person',
+                        '₹${product['price'] ?? 0} / person',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -746,22 +830,37 @@ ${activity['description'] ?? ''}
   }
 
   Widget _buildGallerySection(List<dynamic> images) {
-    if (images.isEmpty || images.length <= 1) return const SizedBox.shrink();
-
-    final displayImages = images.length > 1 ? images.sublist(1) : [];
+    if (images.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 36, 20, 12),
-          child: const Text(
-            'Gallery',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: deepNavy,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Gallery',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: deepNavy,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  _showGalleryDialog(images);
+                },
+                child: const Text(
+                  'View All',
+                  style: TextStyle(
+                    color: oceanBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         SizedBox(
@@ -769,24 +868,27 @@ ${activity['description'] ?? ''}
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: displayImages.length,
+            itemCount: images.length > 4 ? 4 : images.length,
             itemBuilder: (context, index) {
-              return Container(
-                width: 220,
-                margin: const EdgeInsets.only(right: 14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  image: DecorationImage(
-                    image: NetworkImage(displayImages[index]),
-                    fit: BoxFit.cover,
-                    onError: (exception, stackTrace) {
-                      // Handle image load error silently
-                    },
+              return GestureDetector(
+                onTap: () => _showGalleryDialog(images, initialIndex: index),
+                child: Container(
+                  width: 220,
+                  margin: const EdgeInsets.only(right: 14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    image: DecorationImage(
+                      image: NetworkImage(images[index]),
+                      fit: BoxFit.cover,
+                      onError: (exception, stackTrace) {
+                        // Handle image load error silently
+                      },
+                    ),
                   ),
+                  child: images[index].isEmpty
+                      ? const Icon(Icons.broken_image, color: Colors.grey)
+                      : null,
                 ),
-                child: displayImages[index].isEmpty
-                    ? const Icon(Icons.broken_image, color: Colors.grey)
-                    : null,
               );
             },
           ),
@@ -795,12 +897,102 @@ ${activity['description'] ?? ''}
     );
   }
 
-  // ==================== REVIEWS SECTION ====================
+  void _showGalleryDialog(List<dynamic> images, {int initialIndex = 0}) {
+    final PageController pageController = PageController(initialPage: initialIndex);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Gallery',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: deepNavy,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: deepNavy),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: PageView.builder(
+                  controller: pageController,
+                  itemCount: images.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          images[index],
+                          fit: BoxFit.contain,
+                          width: double.infinity,
+                          errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+                            return Container(
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.broken_image,
+                                size: 50,
+                                color: Colors.grey,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              if (images.length > 1)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      images.length,
+                      (index) => Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: index == 0 ? oceanBlue : Colors.grey[300],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== REVIEWS SECTION WITH EDIT/DELETE ====================
   Widget _buildReviewsSection() {
     return FutureBuilder<Map<String, dynamic>>(
       future: ReviewService.getItemReviews(
-        itemId: widget.activityId,
-        itemType: 'activity',
+        itemId: widget.productId,
+        itemType: 'product',
         limit: 5,
       ),
       builder: (context, snapshot) {
@@ -828,7 +1020,7 @@ ${activity['description'] ?? ''}
           return const SizedBox.shrink();
         }
 
-        // ✅ Get reviews list - it's already List<dynamic>
+        // ✅ Get reviews list
         final reviewsList = data['reviews'] as List? ?? [];
         
         // ✅ Convert to ReviewModel
@@ -863,13 +1055,18 @@ ${activity['description'] ?? ''}
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Be the first to review this activity!',
+                  'Be the first to review this package!',
                   style: TextStyle(fontSize: 14, color: Colors.grey[400]),
                 ),
               ],
             ),
           );
         }
+
+        // ✅ Get current user ID to check if review belongs to user
+        String currentUserId = '';
+        // You need to get current user ID from your auth service
+        // For now, we'll use a placeholder
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -916,7 +1113,6 @@ ${activity['description'] ?? ''}
                         duration: Duration(seconds: 2),
                       ),
                     );
-                    // ✅ Refresh reviews after helpful toggle
                     _loadReviews();
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -927,6 +1123,14 @@ ${activity['description'] ?? ''}
                     );
                   }
                 },
+                // ✅ Edit Button
+                onEditTap: () {
+                  _editReview(review);
+                },
+                // ✅ Delete Button
+                onDeleteTap: () {
+                  _deleteReview(review);
+                },
               )),
             ],
           ),
@@ -935,115 +1139,157 @@ ${activity['description'] ?? ''}
     );
   }
 
-  Widget _buildIncludesSection(Map<String, dynamic> activity) {
-    final includes = activity['includes'] ?? [];
-    if (includes.isEmpty) return const SizedBox.shrink();
+  // ==================== ACTIVITIES SECTION ====================
+  Widget _buildActivitiesSection() {
+    if (_activities.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "What's Included",
+            'Things to Do',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
               color: deepNavy,
             ),
           ),
-          const SizedBox(height: 12),
-          ...includes.map((item) => Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: turquoiseLagoon.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    color: turquoiseLagoon,
-                    size: 16,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    item,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: deepNavy,
+          const SizedBox(height: 16),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _activities.length > 3 ? 3 : _activities.length,
+            itemBuilder: (context, index) {
+              final activity = _activities[index];
+              final images = activity['images'] ?? [];
+              final imageUrl = images.isNotEmpty ? images[0] : 
+                  'https://via.placeholder.com/300x200';
+              
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ActivityDetailsPage(
+                        activityId: activity['_id'],
+                      ),
                     ),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.white.withOpacity(0.6)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: deepNavy.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          image: DecorationImage(
+                            image: NetworkImage(imageUrl),
+                            fit: BoxFit.cover,
+                            onError: (exception, stackTrace) {
+                              // Handle image load error silently
+                            },
+                          ),
+                        ),
+                        child: imageUrl.isEmpty
+                            ? const Icon(Icons.broken_image, color: Colors.grey)
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activity['name'] ?? 'Activity',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: deepNavy,
+                              ),
+                            ),
+                            Text(
+                              activity['description'] ?? '',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: outline,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.access_time,
+                                  size: 12,
+                                  color: outline,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  activity['duration'] ?? '2 hours',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: outline,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Icon(
+                                  Icons.currency_rupee,
+                                  size: 12,
+                                  color: outline,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${activity['price'] ?? 0}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: oceanBlue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: outline, size: 20),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          )),
+              );
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildRequirementsSection(Map<String, dynamic> activity) {
-    final requirements = activity['requirements'] ?? [];
-    if (requirements.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Requirements',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: deepNavy,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...requirements.map((item) => Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: sunsetOrange.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.info_outline,
-                    color: sunsetOrange,
-                    size: 16,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    item,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: deepNavy,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStickyBookingFooter(Map<String, dynamic> activity) {
-    final price = activity['price'] ?? 0;
-    final images = activity['images'] ?? [];
+  Widget _buildStickyBookingFooter(Map<String, dynamic> product) {
+    final price = product['price'] ?? 0;
+    final images = product['images'] ?? [];
     final imageUrl = images.isNotEmpty ? images[0] : '';
-    final name = activity['name'] ?? 'Activity';
+    final name = product['name'] ?? 'Package';
 
     return Positioned(
       bottom: 0,
@@ -1079,7 +1325,7 @@ ${activity['description'] ?? ''}
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'PRICE',
+                      'STARTING FROM',
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 10,
@@ -1116,9 +1362,9 @@ ${activity['description'] ?? ''}
                       context,
                       MaterialPageRoute(
                         builder: (context) => payment(
-                          activityId: activity['_id'],
+                          productId: product['_id'],
                           itemName: name,
-                          itemType: 'activity',
+                          itemType: 'product',
                           amount: price.toDouble(),
                           itemImage: imageUrl,
                         ),
@@ -1129,7 +1375,7 @@ ${activity['description'] ?? ''}
                   },
                   icon: const Icon(Icons.bolt, color: Colors.white, size: 18),
                   label: const Text(
-                    'Book Now',
+                    'Book Experience',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 15,

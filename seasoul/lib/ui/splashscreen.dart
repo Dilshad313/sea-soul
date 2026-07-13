@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:seasoul/ui/signup.dart';
+import 'package:seasoul/ui/user_home.dart';
 import '../services/api_service.dart';
-import '../login.dart';
-import '../signup.dart';
-import '../user_home.dart';
+
 
 class splashscreen extends StatelessWidget {
   const splashscreen({super.key});
@@ -89,13 +89,11 @@ class _SplashScreenState extends State<SplashScreen>
     
     if (mounted) {
       if (isLoggedIn) {
-        // Token exists, go to Home
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const UserHome()),
         );
       } else {
-        // No token, go to Login
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const signup()),

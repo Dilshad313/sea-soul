@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:seasoul/login.dart';
-import 'package:seasoul/signup.dart';
-import 'package:seasoul/splashscreen.dart';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
-import 'providers/notification_provider.dart';
-import 'services/notification_service.dart';
+import 'package:seasoul/providers/notification_provider.dart';
+import 'package:seasoul/services/notification_service.dart';
+import 'package:seasoul/ui/splashscreen.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ✅ Initialize notifications
   await NotificationService.init();
   
   runApp(
@@ -35,7 +34,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Inter',
       ),
-      home: const SplashScreen(),
+      home:  SplashScreen(),
     );
   }
 }
