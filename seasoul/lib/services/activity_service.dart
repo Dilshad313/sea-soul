@@ -23,7 +23,7 @@ class ActivityService {
       
       return await ApiService.get(url);
     } catch (e) {
-      print('❌ Error fetching activities: $e');
+      print('❌ Error fe tching activities: $e');
       rethrow;
     }
   }

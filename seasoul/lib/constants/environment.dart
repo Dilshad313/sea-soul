@@ -3,7 +3,7 @@ class Environment {
   static const String PRODUCTION_API_URL = 'https://sea-soul-backend.vercel.app';
   
   // ✅ Development URL
-  static const String DEVELOPMENT_API_URL = 'http://localhost:5000';
+  static const String DEVELOPMENT_API_URL = 'https://sea-soul-backend.vercel.app';
 
   static String get apiUrl {
     // ✅ For production builds

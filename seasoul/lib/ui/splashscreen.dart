@@ -22,7 +22,7 @@ class splashscreen extends StatelessWidget {
           primary: const Color(0xFF0099CC),
         ),
       ),
-      home: const SplashScreen(),
+      home:  SplashScreen(),
     );
   }
 }
@@ -96,7 +96,7 @@ class _SplashScreenState extends State<SplashScreen>
       } else {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const signup()),
+          MaterialPageRoute(builder: (context) =>  signup()),
         );
       }
     }

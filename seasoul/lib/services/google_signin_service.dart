@@ -1,7 +1,9 @@
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:seasoul/services/api_service.dart';
 import 'dart:convert';
+import '../constants/api_constants.dart';
 
 import 'origin_helper.dart' if (dart.library.html) 'origin_helper_web.dart';
 
@@ -21,13 +23,9 @@ class GoogleSignInService {
     }
   }
 
-  // ✅ Get Backend URL based on platform
+  // ✅ Get Backend URL - Use your Vercel backend
   static String get _backendUrl {
-    if (kIsWeb) {
-      return 'http://localhost:5000';
-    } else {
-      return 'http://10.0.2.2:5000';
-    }
+    return ApiConstants.baseUrl;
   }
 
   // ✅ Get current website URL (Web Only)
@@ -157,9 +155,17 @@ class GoogleSignInService {
 
       print('📥 Backend Response Status: ${response.statusCode}');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
+          // ✅ Save token using your ApiService
+          if (data['token'] != null) {
+            await ApiService.saveToken(data['token']);
+          }
+          if (data['user'] != null) {
+            await ApiService.saveUserData(data['user']);
+          }
+          
           return {
             'id': googleUser.id,
             'email': googleUser.email,
@@ -169,18 +175,19 @@ class GoogleSignInService {
             'accessToken': googleAuth.accessToken,
             'token': data['token'],
             'user': data['user'],
+            'success': true,
           };
         } else {
           print('❌ Backend authentication failed: ${data['message']}');
-          return null;
+          return {'success': false, 'message': data['message']};
         }
       } else {
         print('❌ Backend error: ${response.body}');
-        return null;
+        return {'success': false, 'message': 'Backend error'};
       }
     } catch (error) {
       print('❌ Google Sign-In Error: $error');
-      return null;
+      return {'success': false, 'message': error.toString()};
     }
   }
 
@@ -188,6 +195,7 @@ class GoogleSignInService {
   static Future<void> signOut() async {
     try {
       await _googleSignIn.signOut();
+      await ApiService.deleteToken(); // Clear local token
       print('✅ Signed out from Google');
     } catch (e) {
       print('❌ Error signing out: $e');
@@ -198,6 +206,7 @@ class GoogleSignInService {
   static Future<void> disconnect() async {
     try {
       await _googleSignIn.disconnect();
+      await ApiService.deleteToken();
       print('✅ Disconnected from Google');
     } catch (e) {
       print('❌ Error disconnecting: $e');
