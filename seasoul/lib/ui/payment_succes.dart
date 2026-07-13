@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:seasoul/review_page.dart';
+import 'package:seasoul/ui/review_page.dart';
 
 class payment_success extends StatefulWidget {
   final String? bookingId;

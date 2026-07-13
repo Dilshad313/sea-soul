@@ -1,9 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:seasoul/payment_succes.dart';
 import 'package:seasoul/services/api_service.dart';
 import 'package:seasoul/constants/api_constants.dart';
+import 'package:seasoul/ui/payment_succes.dart';
 
 class payment extends StatefulWidget {
   final String? productId;

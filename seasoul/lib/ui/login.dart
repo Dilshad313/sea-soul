@@ -1,14 +1,15 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:seasoul/ui/forgot_password.dart';
+import 'package:seasoul/ui/signup.dart';
+import 'package:seasoul/ui/user_home.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../services/api_service.dart';
 import '../constants/api_constants.dart';
 import '../services/google_signin_service.dart';
-import '../user_home.dart';
-import '../signup.dart';
-import '../forgot_password.dart';
+
 
 class login extends StatefulWidget {
   const login({super.key});
@@ -134,7 +135,6 @@ class _loginState extends State<login> {
     }
   }
 
-  // ✅ Google Sign-In
   Future<void> _handleGoogleSignIn() async {
     if (_isGoogleLoading) return;
 
@@ -185,7 +185,6 @@ class _loginState extends State<login> {
     }
   }
 
-  // ✅ Save user data locally
   Future<void> _saveUserData(Map<String, dynamic> userData) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -238,199 +237,200 @@ class _loginState extends State<login> {
             ),
           ),
           Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 30.0,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'SeaSoul',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      color: colorPrimaryContainer,
-                      letterSpacing: -0.02,
+            child: SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 30.0,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'SeaSoul',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
+                        color: colorPrimaryContainer,
+                        letterSpacing: -0.02,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'LUXURIOUS ISLAND GETAWAYS',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: colorOutline,
-                      letterSpacing: 2.0,
+                    const SizedBox(height: 6),
+                    Text(
+                      'LUXURIOUS ISLAND GETAWAYS',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: colorOutline,
+                        letterSpacing: 2.0,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                      child: Container(
-                        width: double.infinity,
-                        constraints: const BoxConstraints(maxWidth: 440),
-                        padding: const EdgeInsets.all(24.0),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
-                            width: 1,
+                    const SizedBox(height: 32),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                        child: Container(
+                          width: double.infinity,
+                          constraints: const BoxConstraints(maxWidth: 440),
+                          padding: const EdgeInsets.all(24.0),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.1),
+                              width: 1,
+                            ),
                           ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Welcome Back',
-                              style: GoogleFonts.montserrat(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w600,
-                                color: colorOnSurface,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Welcome Back',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorOnSurface,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Please enter your details to continue your journey.',
-                              style: GoogleFonts.montserrat(
-                                fontSize: 13,
-                                color: colorOnSurfaceVariant,
+                              const SizedBox(height: 4),
+                              Text(
+                                'Please enter your details to continue your journey.',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 13,
+                                  color: colorOnSurfaceVariant,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 28),
-                            _buildFormLabel('Email or Phone', colorOutline),
-                            const SizedBox(height: 6),
-                            _buildInputField(
-                              controller: _identifierController,
-                              focusNode: _identifierFocus,
-                              hintText: 'marina@example.com',
-                              icon: Icons.person_outline,
-                              isFocused: _isIdentifierFocused,
-                              lowestBg: colorLowestSurface,
-                              activeTint: colorPrimaryContainer,
-                            ),
-                            const SizedBox(height: 20),
-                            Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
-                              children: [
-                                _buildFormLabel('Password', colorOutline),
-                                GestureDetector(
+                              const SizedBox(height: 28),
+                              _buildFormLabel('Email or Phone', colorOutline),
+                              const SizedBox(height: 6),
+                              _buildInputField(
+                                controller: _identifierController,
+                                focusNode: _identifierFocus,
+                                hintText: 'marina@example.com',
+                                icon: Icons.person_outline,
+                                isFocused: _isIdentifierFocused,
+                                lowestBg: colorLowestSurface,
+                                activeTint: colorPrimaryContainer,
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _buildFormLabel('Password', colorOutline),
+                                  GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const ForgotPasswordPage(),
+                                        ),
+                                      );
+                                    },
+                                    child: Text(
+                                      'Forgot Password?',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: colorPrimaryContainer,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              _buildPasswordField(
+                                controller: _passwordController,
+                                focusNode: _passwordFocus,
+                                hintText: '••••••••',
+                                isFocused: _isPasswordFocused,
+                                lowestBg: colorLowestSurface,
+                                activeTint: colorPrimaryContainer,
+                              ),
+                              const SizedBox(height: 28),
+                              _buildSubmitButton(
+                                colorPrimaryContainer,
+                                colorSecondary,
+                              ),
+                              const SizedBox(height: 28),
+                              // ✅ Divider with OR
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      height: 1,
+                                      color:
+                                          colorOutlineVariant.withOpacity(0.5),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12.0,
+                                    ),
+                                    child: Text(
+                                      'OR CONTINUE WITH',
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: colorOutline,
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Container(
+                                      height: 1,
+                                      color:
+                                          colorOutlineVariant.withOpacity(0.5),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              _buildGoogleButton(),
+                              const SizedBox(height: 24),
+                              Center(
+                                child: GestureDetector(
                                   onTap: () {
-                                    Navigator.push(
+                                    Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) =>
-                                            const ForgotPasswordPage(),
+                                        builder: (context) => const signup(),
                                       ),
                                     );
                                   },
-                                  child: Text(
-                                    'Forgot Password?',
-                                    style: GoogleFonts.montserrat(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: colorPrimaryContainer,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            _buildPasswordField(
-                              controller: _passwordController,
-                              focusNode: _passwordFocus,
-                              hintText: '••••••••',
-                              isFocused: _isPasswordFocused,
-                              lowestBg: colorLowestSurface,
-                              activeTint: colorPrimaryContainer,
-                            ),
-                            const SizedBox(height: 28),
-                            _buildSubmitButton(
-                              colorPrimaryContainer,
-                              colorSecondary,
-                            ),
-                            const SizedBox(height: 28),
-                            // ✅ Divider with OR
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    height: 1,
-                                    color:
-                                        colorOutlineVariant.withOpacity(0.5),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12.0,
-                                  ),
-                                  child: Text(
-                                    'OR CONTINUE WITH',
-                                    style: GoogleFonts.montserrat(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: colorOutline,
-                                      letterSpacing: 0.8,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Container(
-                                    height: 1,
-                                    color:
-                                        colorOutlineVariant.withOpacity(0.5),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            // ✅ Google Sign-In Button
-                            _buildGoogleButton(),
-                            const SizedBox(height: 24),
-                            Center(
-                              child: GestureDetector(
-                                onTap: () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const signup(),
-                                    ),
-                                  );
-                                },
-                                child: RichText(
-                                  text: TextSpan(
-                                    style: GoogleFonts.montserrat(
-                                      fontSize: 13,
-                                      color: colorOnSurfaceVariant,
-                                    ),
-                                    children: const [
-                                      TextSpan(text: 'New to SeaSoul? '),
-                                      TextSpan(
-                                        text: 'Register',
-                                        style: TextStyle(
-                                          color: Color(0xFF00E5FF),
-                                          fontWeight: FontWeight.w600,
-                                          decoration: TextDecoration.underline,
-                                        ),
+                                  child: RichText(
+                                    text: TextSpan(
+                                      style: GoogleFonts.montserrat(
+                                        fontSize: 13,
+                                        color: colorOnSurfaceVariant,
                                       ),
-                                    ],
+                                      children: const [
+                                        TextSpan(text: 'New to SeaSoul? '),
+                                        TextSpan(
+                                          text: 'Register',
+                                          style: TextStyle(
+                                            color: Color(0xFF00E5FF),
+                                            fontWeight: FontWeight.w600,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 30),
-                ],
+                    const SizedBox(height: 30),
+                  ],
+                ),
               ),
             ),
           ),

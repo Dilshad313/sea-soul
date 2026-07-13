@@ -1,12 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:seasoul/ui/change_password.dart';
+import 'package:seasoul/ui/edit_profile.dart';
+import 'package:seasoul/ui/login.dart';
+import 'package:seasoul/ui/review_page.dart';
 import '../services/api_service.dart';
 import '../services/review_service.dart';
 import '../models/review_model.dart';
-import '../login.dart';
-import '../edit_profile.dart';
-import '../change_password.dart';
-import '../review_page.dart';
+
 import '../widgets/star_rating.dart';
 
 class ProfilePage extends StatefulWidget {

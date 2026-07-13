@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'providers/notification_provider.dart';
-import 'models/notification_model.dart';
+import 'package:seasoul/models/notification_model.dart';
+import 'package:seasoul/providers/notification_provider.dart';
+
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});
@@ -15,7 +16,6 @@ class _NotificationPageState extends State<NotificationPage> {
   @override
   void initState() {
     super.initState();
-    // ✅ Fetch notifications when page opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<NotificationProvider>().refresh();
     });

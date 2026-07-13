@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../constants/api_constants.dart';
-import '../profile.dart';
 
 class EditProfilePage extends StatefulWidget {
   final Map<String, dynamic> userData;

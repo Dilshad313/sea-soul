@@ -3,10 +3,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:seasoul/ui/signup.dart';
+import 'package:seasoul/ui/user_home.dart';
 import '../services/api_service.dart';
 import '../constants/api_constants.dart';
-import '../user_home.dart';
-import '../signup.dart'; // ✅ Import signup
+
 
 class OTPPage extends StatefulWidget {
   final String email;
@@ -216,7 +217,6 @@ class _OTPPageState extends State<OTPPage> {
     }
   }
 
-  // ✅ NEW: Navigate back to Signup
   void _goBackToSignup() {
     Navigator.pushReplacement(
       context,
@@ -300,7 +300,6 @@ class _OTPPageState extends State<OTPPage> {
                         ),
                       ],
                     ),
-                    // ✅ FIXED: X Icon - Navigate back to Signup
                     IconButton(
                       icon: const Icon(Icons.close, color: colorOnSurface),
                       style: IconButton.styleFrom(
