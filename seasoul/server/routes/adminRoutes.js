@@ -9,9 +9,6 @@ const Notification = require('../models/Notification');
 const { isAdmin } = require('../middleware/adminMiddleware');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const upload = require('../middleware/upload');
-const fs = require('fs');
-const path = require('path');
 const cloudinary = require('../config/cloudinary');
 const { createNotificationForAllUsers } = require('../utils/createNotification');
 require('dotenv').config();
@@ -33,28 +30,28 @@ router.post('/login', async (req, res) => {
     console.log('📧 Provided Email:', email);
 
     if (!email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email and password are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required'
       });
     }
 
     if (email !== adminEmail || password !== adminPassword) {
       console.log('❌ Invalid credentials');
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials' 
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
       });
     }
 
     console.log('✅ Admin login successful!');
 
     let adminUser = await User.findOne({ email: adminEmail });
-    
+
     if (!adminUser) {
       console.log('📝 Creating admin user in database...');
       const hashedPassword = await bcrypt.hash(adminPassword, 10);
-      
+
       adminUser = new User({
         fullName: 'Admin',
         email: adminEmail,
@@ -62,7 +59,7 @@ router.post('/login', async (req, res) => {
         password: hashedPassword,
         role: 'admin',
       });
-      
+
       await adminUser.save();
       console.log('✅ Admin user created in database');
     }
@@ -83,10 +80,10 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Admin login error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
     });
   }
 });
@@ -101,47 +98,84 @@ const {
 
 router.get('/profile', isAdmin, getAdminProfile);
 router.put('/profile', isAdmin, updateAdminProfile);
-router.post('/profile/upload-image', isAdmin, upload.single('image'), uploadAdminProfileImage);
+router.post('/profile/upload-image', isAdmin, uploadAdminProfileImage);
 router.delete('/profile/image', isAdmin, deleteAdminProfileImage);
 
-// ==================== IMAGE UPLOAD ROUTE ====================
-router.post('/upload', isAdmin, upload.single('image'), async (req, res) => {
+// ==================== IMAGE UPLOAD ROUTE - Cloudinary (Vercel Compatible) ====================
+router.post('/upload', isAdmin, async (req, res) => {
   try {
     console.log('📤 Upload request received');
-    console.log('📤 File:', req.file);
+    console.log('📤 Request body keys:', Object.keys(req.body));
 
-    if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No image file provided' 
+    // ✅ Accept both base64 and multipart uploads
+    let imageData = req.body.image || req.body.file;
+    
+    if (!imageData) {
+      console.log('❌ No image data found in request');
+      return res.status(400).json({
+        success: false,
+        message: 'No image data provided'
       });
     }
 
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
-    const imageUrl = `${baseUrl}/uploads/${path.basename(req.file.path)}`;
+    console.log('📤 Image data length:', imageData.length);
+    console.log('📤 Image data type:', typeof imageData);
 
-    console.log('✅ Image uploaded successfully:', imageUrl);
+    let result;
+    
+    // ✅ Check if it's base64 or already a URL
+    if (typeof imageData === 'string' && imageData.startsWith('data:image')) {
+      console.log('📤 Processing base64 image...');
+      
+      // ✅ Upload base64 to Cloudinary
+      result = await cloudinary.uploader.upload(imageData, {
+        folder: 'seasoul/products',
+        width: 800,
+        height: 600,
+        crop: 'fill',
+        quality: 'auto:good',
+      });
+    } else if (typeof imageData === 'string' && imageData.startsWith('http')) {
+      // ✅ It's already a URL - just return it
+      console.log('📤 Image is already a URL');
+      return res.json({
+        success: true,
+        url: imageData,
+        message: 'Image URL already valid'
+      });
+    } else {
+      // ✅ Try to upload as raw
+      console.log('📤 Trying to upload as raw...');
+      result = await cloudinary.uploader.upload(imageData, {
+        folder: 'seasoul/products',
+        width: 800,
+        height: 600,
+        crop: 'fill',
+      });
+    }
+
+    if (!result || !result.secure_url) {
+      throw new Error('Upload failed - no URL returned');
+    }
+
+    console.log('✅ Cloudinary upload successful:', result.secure_url);
+    console.log('📤 Public ID:', result.public_id);
 
     res.json({
       success: true,
-      url: imageUrl,
+      url: result.secure_url,
+      publicId: result.public_id,
       message: 'Image uploaded successfully'
     });
 
   } catch (error) {
     console.error('❌ Upload error:', error);
+    console.error('❌ Error details:', error.message);
     
-    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (err) {
-        console.log('⚠️ Could not delete local file:', err.message);
-      }
-    }
-
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Upload failed' 
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Upload failed',
+      error: error.message
     });
   }
 });
@@ -154,21 +188,20 @@ router.get('/stats', isAdmin, async (req, res) => {
     const activities = await Activity.countDocuments();
     const bookings = await Booking.countDocuments();
     const payments = await Payment.countDocuments();
-    
-    // Calculate total revenue
+
     const revenueData = await Payment.aggregate([
       { $match: { status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     const revenue = revenueData.length > 0 ? revenueData[0].total : 0;
 
-    res.json({ 
-      products, 
-      bookings, 
-      users, 
-      revenue, 
+    res.json({
+      products,
+      bookings,
+      users,
+      revenue,
       activities,
-      payments 
+      payments
     });
   } catch (error) {
     console.error('❌ Stats error:', error);
@@ -208,7 +241,7 @@ router.post('/products', isAdmin, async (req, res) => {
     console.log('✅ Product created:', product._id);
 
     const imageUrl = product.images && product.images.length > 0 ? product.images[0] : null;
-    
+
     const notificationCount = await createNotificationForAllUsers(
       '🌟 New Package Added!',
       `🌴 ${product.name} - ₹${product.price} in ${product.location}. Book now!`,
@@ -216,7 +249,7 @@ router.post('/products', isAdmin, async (req, res) => {
       imageUrl,
       product._id
     );
-    
+
     console.log(`✅ Notification sent to ${notificationCount} users`);
 
     res.status(201).json({
@@ -295,7 +328,7 @@ router.post('/activities', isAdmin, async (req, res) => {
     console.log('✅ Activity created:', activity._id);
 
     const imageUrl = activity.images && activity.images.length > 0 ? activity.images[0] : null;
-    
+
     const notificationCount = await createNotificationForAllUsers(
       '⚡ New Activity Added!',
       `🏄 ${activity.name} - ₹${activity.price} in ${activity.location}. Try it now!`,
@@ -303,7 +336,7 @@ router.post('/activities', isAdmin, async (req, res) => {
       imageUrl,
       activity._id
     );
-    
+
     console.log(`✅ Notification sent to ${notificationCount} users`);
 
     res.status(201).json({
@@ -371,11 +404,11 @@ router.put('/users/:id/status', isAdmin, async (req, res) => {
       { isActive },
       { new: true }
     ).select('-password');
-    
+
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    
+
     res.json({ success: true, user });
   } catch (error) {
     console.error('❌ User status update error:', error);
@@ -383,7 +416,7 @@ router.put('/users/:id/status', isAdmin, async (req, res) => {
   }
 });
 
-// ==================== Bookings Management (FIXED) ====================
+// ==================== Bookings Management ====================
 router.get('/bookings', isAdmin, async (req, res) => {
   try {
     const bookings = await Booking.find()
@@ -404,7 +437,7 @@ router.get('/bookings/:id', isAdmin, async (req, res) => {
       .populate('userId', 'fullName email phone profileImage')
       .populate('productId', 'name price location images')
       .populate('activityId', 'name price location images');
-    
+
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
@@ -423,9 +456,9 @@ router.put('/bookings/:id/status', isAdmin, async (req, res) => {
       { status },
       { new: true }
     ).populate('userId', 'fullName email phone')
-     .populate('productId', 'name price')
-     .populate('activityId', 'name price');
-    
+      .populate('productId', 'name price')
+      .populate('activityId', 'name price');
+
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
@@ -436,7 +469,7 @@ router.put('/bookings/:id/status', isAdmin, async (req, res) => {
   }
 });
 
-// ==================== Payments Management (FIXED) ====================
+// ==================== Payments Management ====================
 router.get('/payments', isAdmin, async (req, res) => {
   try {
     const payments = await Payment.find()
@@ -469,7 +502,7 @@ router.get('/payments/:id', isAdmin, async (req, res) => {
           { path: 'userId', select: 'fullName email' }
         ]
       });
-    
+
     if (!payment) {
       return res.status(404).json({ success: false, message: 'Payment not found' });
     }

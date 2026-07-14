@@ -112,44 +112,73 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// ✅ Upload Profile Image - With Notification
+// ✅ Upload Profile Image - Supports both base64 and multipart
 exports.uploadProfileImage = async (req, res) => {
   try {
     console.log('📤 Upload request received');
     console.log('📤 Request file:', req.file);
+    console.log('📤 Request body keys:', Object.keys(req.body));
 
     const userId = req.user.id;
+    let imageUrl;
 
-    if (!req.file) {
-      console.log('❌ No file in request');
+    // ✅ Check if image is in body (base64) or file (multipart)
+    if (req.body.image) {
+      console.log('📤 Uploading base64 image...');
+      
+      // Validate base64 data
+      if (!req.body.image.startsWith('data:image')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid image data format'
+        });
+      }
+      
+      const result = await cloudinary.uploader.upload(req.body.image, {
+        folder: 'seasoul/profiles',
+        width: 500,
+        height: 500,
+        crop: 'fill',
+        gravity: 'face',
+        quality: 'auto:good',
+      });
+      imageUrl = result.secure_url;
+    } else if (req.file) {
+      console.log('📤 Uploading file:', req.file.path);
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'seasoul/profiles',
+        width: 500,
+        height: 500,
+        crop: 'fill',
+        gravity: 'face',
+        quality: 'auto:good',
+      });
+      imageUrl = result.secure_url;
+      
+      // Delete temp file
+      try {
+        fs.unlinkSync(req.file.path);
+        console.log('✅ Temporary file deleted');
+      } catch (err) {
+        console.log('⚠️ Could not delete temp file:', err.message);
+      }
+    } else {
+      console.log('❌ No image in request');
       return res.status(400).json({
         success: false,
         message: 'No image file provided'
       });
     }
 
-    console.log('📤 File received:', req.file.path);
+    console.log('✅ Cloudinary upload successful:', imageUrl);
 
     const user = await User.findById(userId);
     if (!user) {
-      console.log('❌ User not found');
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
-
-    // Upload to Cloudinary
-    console.log('📤 Uploading to Cloudinary...');
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'seasoul/profiles',
-      width: 500,
-      height: 500,
-      crop: 'fill',
-      gravity: 'face',
-    });
-
-    console.log('✅ Cloudinary upload successful:', result.secure_url);
 
     // Delete old image from Cloudinary if not default
     if (user.profileImage && !user.profileImage.includes('default-avatar')) {
@@ -162,17 +191,8 @@ exports.uploadProfileImage = async (req, res) => {
       }
     }
 
-    // Update user profile image
-    user.profileImage = result.secure_url;
+    user.profileImage = imageUrl;
     await user.save();
-
-    // Delete temporary file
-    try {
-      fs.unlinkSync(req.file.path);
-      console.log('✅ Temporary file deleted');
-    } catch (err) {
-      console.log('⚠️ Could not delete temp file:', err.message);
-    }
 
     // ✅ Create notification for profile image update
     await createNotification(
@@ -181,7 +201,7 @@ exports.uploadProfileImage = async (req, res) => {
       'Your profile photo has been updated successfully!',
       'profile',
       null,
-      result.secure_url,
+      imageUrl,
       { action: 'photo_upload' }
     );
     console.log('✅ Profile photo notification created');
@@ -189,7 +209,14 @@ exports.uploadProfileImage = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Profile image uploaded successfully',
-      profileImage: result.secure_url
+      profileImage: imageUrl,
+      user: {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        profileImage: user.profileImage,
+        role: user.role,
+      }
     });
   } catch (error) {
     console.error('❌ Error in uploadProfileImage:', error);

@@ -32,10 +32,13 @@ export default function PackageForm() {
     }
   }, [id]);
 
+  // ✅ Fetch only categories added from Categories section
   const fetchCategories = async () => {
     try {
       const response = await api.get('/categories');
-      setCategories(response.data.categories || []);
+      // ✅ Filter only active categories
+      const activeCategories = response.data.categories?.filter(cat => cat.isActive !== false) || [];
+      setCategories(activeCategories);
     } catch (error) {
       console.error('Error fetching categories:', error);
       toast.error('Failed to load categories');
@@ -65,6 +68,17 @@ export default function PackageForm() {
     }
   };
 
+  // ✅ Convert file to base64
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // ✅ Upload image to Cloudinary
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
@@ -76,21 +90,45 @@ export default function PackageForm() {
 
     for (const file of files) {
       try {
-        const formData = new FormData();
-        formData.append('image', file);
+        console.log('📤 Processing file:', file.name, file.type, file.size);
+        
+        // ✅ Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`File ${file.name} is too large (max 5MB)`);
+          continue;
+        }
 
-        const response = await api.post('/admin/upload', formData, {
+        // ✅ Validate file type
+        if (!file.type.startsWith('image/')) {
+          toast.error(`File ${file.name} is not an image`);
+          continue;
+        }
+
+        const base64 = await convertToBase64(file);
+        console.log('📤 Base64 length:', base64.length);
+        
+        // ✅ Send base64 directly
+        const response = await api.post('/admin/upload', { 
+          image: base64 
+        }, {
           headers: {
-            'Content-Type': 'multipart/form-data',
+            'Content-Type': 'application/json',
           },
         });
 
+        console.log('📤 Upload response:', response.data);
+
         if (response.data.success) {
           uploadedImages.push(response.data.url);
+          console.log('✅ Uploaded:', response.data.url);
+        } else {
+          console.error('❌ Upload failed:', response.data.message);
+          toast.error(`Failed to upload ${file.name}: ${response.data.message}`);
         }
       } catch (error) {
-        console.error('Error uploading image:', error);
-        toast.error('Failed to upload image: ' + file.name);
+        console.error('❌ Error uploading image:', error);
+        console.error('❌ Error response:', error.response?.data);
+        toast.error(`Failed to upload image: ${file.name}`);
       }
     }
 
@@ -101,9 +139,15 @@ export default function PackageForm() {
     setUploading(false);
     e.target.value = '';
 
-    toast.success(`${uploadedImages.length} image(s) uploaded successfully!`, {
-      id: toastId,
-    });
+    if (uploadedImages.length > 0) {
+      toast.success(`${uploadedImages.length} image(s) uploaded successfully!`, {
+        id: toastId,
+      });
+    } else {
+      toast.error('No images were uploaded', {
+        id: toastId,
+      });
+    }
   };
 
   const removeImage = (index) => {
@@ -217,7 +261,7 @@ export default function PackageForm() {
                   disabled={loadingCategories}
                 >
                   <option value="">{loadingCategories ? 'Loading...' : 'Select Category'}</option>
-                  {/* ✅ Remove icon from dropdown - only show category name */}
+                  {/* ✅ Show only categories added from Categories section */}
                   {categories.map((cat) => (
                     <option key={cat._id} value={cat.name}>
                       {cat.name}
