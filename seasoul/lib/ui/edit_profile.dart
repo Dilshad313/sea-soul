@@ -33,6 +33,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _isLoading = false;
   bool _isImageLoading = false;
 
+  // ✅ Store original values to check changes
+  Map<String, dynamic> _originalData = {};
+
   // ✅ Cloudinary configuration
   final String _cloudinaryCloudName = 'eeua8tfb'; // Replace with your cloud name
   final String _uploadPreset = 'seasoul_profiles';
@@ -45,10 +48,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
-    _fullNameController.text = widget.userData['fullName'] ?? '';
-    _phoneController.text = widget.userData['phone'] ?? '';
-    _bioController.text = widget.userData['bio'] ?? '';
-    _locationController.text = widget.userData['location'] ?? '';
+    
+    // ✅ Store original values
+    _originalData = {
+      'fullName': widget.userData['fullName'] ?? '',
+      'phone': widget.userData['phone'] ?? '',
+      'bio': widget.userData['bio'] ?? '',
+      'location': widget.userData['location'] ?? '',
+    };
+    
+    _fullNameController.text = _originalData['fullName'];
+    _phoneController.text = _originalData['phone'];
+    _bioController.text = _originalData['bio'];
+    _locationController.text = _originalData['location'];
     _profileImage = widget.userData['profileImage'] ?? 
         'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
   }
@@ -62,32 +74,40 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
+  // ✅ Check if any field changed
+  bool _hasChanges() {
+    final currentFullName = _fullNameController.text.trim();
+    final currentPhone = _phoneController.text.trim();
+    final currentBio = _bioController.text.trim();
+    final currentLocation = _locationController.text.trim();
+    
+    return currentFullName != _originalData['fullName'] ||
+           currentPhone != _originalData['phone'] ||
+           currentBio != _originalData['bio'] ||
+           currentLocation != _originalData['location'];
+  }
+
   // ✅ Convert XFile to base64
   Future<String> _fileToBase64(XFile file) async {
     final bytes = await file.readAsBytes();
     return base64Encode(bytes);
   }
 
-  // ✅ Upload to Cloudinary - Simple and Reliable
+  // ✅ Upload to Cloudinary
   Future<String> _uploadToCloudinary(String base64Image) async {
     try {
       print('📤 Uploading to Cloudinary...');
       
-      // ✅ Clean base64 string (remove data:image/jpeg;base64, prefix)
       String cleanBase64 = base64Image;
       if (base64Image.contains(',')) {
         cleanBase64 = base64Image.split(',').last;
       }
       
-      // ✅ Create FormData - SIMPLE METHOD
       final html.FormData formData = html.FormData();
-      
-      // ✅ Directly append base64 string as file (No blob needed!)
       formData.append('file', 'data:image/jpeg;base64,$cleanBase64');
       formData.append('upload_preset', _uploadPreset);
       formData.append('folder', 'seasoul/profiles');
       
-      // ✅ Send request
       final html.HttpRequest request = await html.HttpRequest.request(
         'https://api.cloudinary.com/v1_1/$_cloudinaryCloudName/image/upload',
         method: 'POST',
@@ -126,11 +146,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
         
         print('📤 Image selected: ${image.name}');
         
-        // ✅ Get base64 string
         String base64String = await _fileToBase64(image);
         print('📤 Base64 length: ${base64String.length}');
         
-        // ✅ Upload to Cloudinary directly
         final String imageUrl = await _uploadToCloudinary(base64String);
         print('✅ Cloudinary URL: $imageUrl');
         
@@ -153,6 +171,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
           if (userData != null) {
             userData['profileImage'] = _profileImage;
             await ApiService.saveUserData(userData);
+            
+            // ✅ Update original data
+            _originalData['profileImage'] = _profileImage;
           }
           
           ScaffoldMessenger.of(context).showSnackBar(
@@ -220,6 +241,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _saveProfile() async {
+    // ✅ Check if any changes before calling API
+    if (!_hasChanges()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No changes to save'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -234,6 +268,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
       
       if (response['success'] == true) {
         await ApiService.saveUserData(response['user']);
+        
+        // ✅ Update original data
+        _originalData = {
+          'fullName': response['user']['fullName'] ?? '',
+          'phone': response['user']['phone'] ?? '',
+          'bio': response['user']['bio'] ?? '',
+          'location': response['user']['location'] ?? '',
+        };
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -267,6 +309,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ? _fullNameController.text[0].toUpperCase() 
         : 'U';
 
+    // ✅ Check if save button should be enabled
+    final bool hasChanges = _hasChanges();
+
     return Scaffold(
       backgroundColor: sandWhite,
       appBar: AppBar(
@@ -286,11 +331,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ),
         actions: [
           TextButton(
-            onPressed: _isLoading ? null : _saveProfile,
+            onPressed: (_isLoading || !hasChanges) ? null : _saveProfile,
             child: Text(
               _isLoading ? 'Saving...' : 'Save',
               style: TextStyle(
-                color: _isLoading ? outline : oceanBlue,
+                color: (_isLoading || !hasChanges) ? Colors.grey : oceanBlue,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -422,6 +467,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: TextField(
                     controller: _fullNameController,
                     style: const TextStyle(color: deepNavy),
+                    onChanged: (_) => setState(() {}), // ✅ Update UI when text changes
                     decoration: const InputDecoration(
                       hintText: 'Enter your full name',
                       hintStyle: TextStyle(color: Colors.grey),
@@ -466,6 +512,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     controller: _phoneController,
                     style: const TextStyle(color: deepNavy),
                     keyboardType: TextInputType.phone,
+                    onChanged: (_) => setState(() {}), // ✅ Update UI when text changes
                     decoration: const InputDecoration(
                       hintText: 'Enter your phone number',
                       hintStyle: TextStyle(color: Colors.grey),
@@ -509,6 +556,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: TextField(
                     controller: _locationController,
                     style: const TextStyle(color: deepNavy),
+                    onChanged: (_) => setState(() {}), // ✅ Update UI when text changes
                     decoration: const InputDecoration(
                       hintText: 'Enter your location',
                       hintStyle: TextStyle(color: Colors.grey),
@@ -554,6 +602,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     style: const TextStyle(color: deepNavy),
                     maxLines: 4,
                     maxLength: 500,
+                    onChanged: (_) => setState(() {}), // ✅ Update UI when text changes
                     decoration: const InputDecoration(
                       hintText: 'Tell us about yourself',
                       hintStyle: TextStyle(color: Colors.grey),
@@ -580,9 +629,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _saveProfile,
+                onPressed: (_isLoading || !hasChanges) ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: oceanBlue,
+                  backgroundColor: hasChanges ? oceanBlue : Colors.grey,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -598,15 +647,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text(
-                        'Save Changes',
-                        style: TextStyle(
+                    : Text(
+                        hasChanges ? 'Save Changes' : 'No Changes',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
               ),
             ),
+            
+            const SizedBox(height: 16),
+            
+            // ✅ Show message when no changes
+            if (!hasChanges && !_isLoading)
+              const Text(
+                'Make changes to enable save',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
           ],
         ),
       ),
