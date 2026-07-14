@@ -71,24 +71,53 @@ exports.updateAdminProfile = async (req, res) => {
   }
 };
 
-// ✅ Upload Admin Profile Image - Fixed
+// ✅ Upload Admin Profile Image - FIXED
 exports.uploadAdminProfileImage = async (req, res) => {
   try {
     console.log('📤 Admin Upload request received');
-    console.log('📤 Request body:', req.body);
+    console.log('📤 Request body keys:', Object.keys(req.body));
 
     const userId = req.user.id;
     let imageUrl = req.body.image || req.body.imageUrl;
 
     if (!imageUrl) {
-      console.log('❌ No image URL in request');
+      console.log('❌ No image in request');
       return res.status(400).json({
         success: false,
-        message: 'No image URL provided'
+        message: 'No image provided'
       });
     }
 
-    console.log('📤 Image URL received:', imageUrl);
+    console.log('📤 Image data:', imageUrl.substring(0, 100) + '...');
+
+    // ✅ Check if it's a Cloudinary URL (already uploaded)
+    if (imageUrl.startsWith('https://res.cloudinary.com') || 
+        imageUrl.startsWith('http://res.cloudinary.com')) {
+      console.log('✅ Image is already a Cloudinary URL');
+      // Just save the URL directly
+    }
+    // ✅ Check if it's base64
+    else if (imageUrl.startsWith('data:image')) {
+      console.log('📤 Uploading base64 image to Cloudinary...');
+      const result = await cloudinary.uploader.upload(imageUrl, {
+        folder: 'seasoul/admin-profiles',
+        width: 500,
+        height: 500,
+        crop: 'fill',
+        gravity: 'face',
+        quality: 'auto:good',
+      });
+      imageUrl = result.secure_url;
+      console.log('✅ Cloudinary upload successful:', imageUrl);
+    }
+    // ✅ Invalid format
+    else {
+      console.log('❌ Invalid image format');
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid image format. Please provide a Cloudinary URL or base64 image data.'
+      });
+    }
 
     const user = await User.findById(userId);
     if (!user) {
@@ -98,29 +127,25 @@ exports.uploadAdminProfileImage = async (req, res) => {
       });
     }
 
-    // ✅ Only delete old image if it exists and is from Cloudinary
+    // Delete old image from Cloudinary if not default
     if (user.profileImage && 
         user.profileImage.includes('cloudinary') && 
         !user.profileImage.includes('default-avatar')) {
       try {
-        // ✅ Extract public ID from Cloudinary URL
         const urlParts = user.profileImage.split('/');
         const versionIndex = urlParts.indexOf('upload') + 2;
         if (versionIndex < urlParts.length) {
-          // Get the part after the version number
           const publicIdWithExt = urlParts.slice(versionIndex).join('/');
-          // Remove file extension
           const publicId = publicIdWithExt.replace(/\.[^/.]+$/, '');
-          console.log('📤 Deleting old image with public ID:', publicId);
+          console.log('📤 Deleting old image:', publicId);
           await cloudinary.uploader.destroy(publicId);
-          console.log('✅ Old image deleted from Cloudinary');
+          console.log('✅ Old image deleted');
         }
       } catch (err) {
         console.log('⚠️ Could not delete old image:', err.message);
       }
     }
 
-    // ✅ Update user profile image
     user.profileImage = imageUrl;
     await user.save();
 
@@ -161,27 +186,24 @@ exports.deleteAdminProfileImage = async (req, res) => {
       });
     }
 
-    // ✅ Only delete if it's a Cloudinary image (not default)
     if (user.profileImage && 
         user.profileImage.includes('cloudinary') && 
         !user.profileImage.includes('default-avatar')) {
       try {
-        // ✅ Extract public ID from Cloudinary URL
         const urlParts = user.profileImage.split('/');
         const versionIndex = urlParts.indexOf('upload') + 2;
         if (versionIndex < urlParts.length) {
           const publicIdWithExt = urlParts.slice(versionIndex).join('/');
           const publicId = publicIdWithExt.replace(/\.[^/.]+$/, '');
-          console.log('📤 Deleting image with public ID:', publicId);
+          console.log('📤 Deleting image:', publicId);
           await cloudinary.uploader.destroy(publicId);
-          console.log('✅ Image deleted from Cloudinary');
+          console.log('✅ Image deleted');
         }
       } catch (err) {
         console.log('⚠️ Could not delete image:', err.message);
       }
     }
 
-    // ✅ Set to default avatar
     user.profileImage = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
     await user.save();
 

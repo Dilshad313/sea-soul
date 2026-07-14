@@ -1,9 +1,15 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../constants/api_constants.dart';
+
+// ✅ Web-specific imports
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 class EditProfilePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -26,7 +32,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String _profileImage = '';
   bool _isLoading = false;
   bool _isImageLoading = false;
-  String? _selectedImagePath;
+
+  // ✅ Cloudinary configuration
+  final String _cloudinaryCloudName = 'eeua8tfb'; // Replace with your cloud name
+  final String _uploadPreset = 'seasoul_profiles';
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -53,42 +62,98 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
+  // ✅ Convert XFile to base64
+  Future<String> _fileToBase64(XFile file) async {
+    final bytes = await file.readAsBytes();
+    return base64Encode(bytes);
+  }
+
+  // ✅ Upload to Cloudinary - Simple and Reliable
+  Future<String> _uploadToCloudinary(String base64Image) async {
+    try {
+      print('📤 Uploading to Cloudinary...');
+      
+      // ✅ Clean base64 string (remove data:image/jpeg;base64, prefix)
+      String cleanBase64 = base64Image;
+      if (base64Image.contains(',')) {
+        cleanBase64 = base64Image.split(',').last;
+      }
+      
+      // ✅ Create FormData - SIMPLE METHOD
+      final html.FormData formData = html.FormData();
+      
+      // ✅ Directly append base64 string as file (No blob needed!)
+      formData.append('file', 'data:image/jpeg;base64,$cleanBase64');
+      formData.append('upload_preset', _uploadPreset);
+      formData.append('folder', 'seasoul/profiles');
+      
+      // ✅ Send request
+      final html.HttpRequest request = await html.HttpRequest.request(
+        'https://api.cloudinary.com/v1_1/$_cloudinaryCloudName/image/upload',
+        method: 'POST',
+        sendData: formData,
+      );
+      
+      final Map<String, dynamic> responseData = jsonDecode(request.responseText ?? '{}');
+      
+      print('📥 Cloudinary Response: $responseData');
+      
+      if (responseData['secure_url'] != null) {
+        return responseData['secure_url'];
+      } else {
+        throw Exception(responseData['error']?['message'] ?? 'Upload failed');
+      }
+    } catch (e) {
+      print('❌ Cloudinary upload error: $e');
+      throw Exception('Failed to upload: $e');
+    }
+  }
+
   Future<void> _pickImage() async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 500,
-        maxHeight: 500,
-        imageQuality: 80,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 70,
       );
 
       if (image != null) {
         setState(() {
           _isImageLoading = true;
-          _selectedImagePath = image.path;
         });
         
-        // ✅ Read file as base64
-        final bytes = await File(image.path).readAsBytes();
-        final base64Image = 'data:image/jpeg;base64,${bytesToBase64(bytes)}';
+        print('📤 Image selected: ${image.name}');
         
-        print('📤 Uploading image to: ${ApiConstants.uploadProfileImage}');
-        print('📤 Image size: ${bytes.length} bytes');
+        // ✅ Get base64 string
+        String base64String = await _fileToBase64(image);
+        print('📤 Base64 length: ${base64String.length}');
         
+        // ✅ Upload to Cloudinary directly
+        final String imageUrl = await _uploadToCloudinary(base64String);
+        print('✅ Cloudinary URL: $imageUrl');
+        
+        // ✅ Save URL to backend
         final response = await ApiService.postWithToken(
           ApiConstants.uploadProfileImage,
-          {'image': base64Image},
+          {'image': imageUrl},
         );
 
-        print('📥 Response: $response');
+        print('📥 Backend Response: $response');
 
         if (response['success'] == true) {
           setState(() {
-            _profileImage = response['profileImage'];
+            _profileImage = response['profileImage'] ?? imageUrl;
             _isImageLoading = false;
-            _selectedImagePath = null;
           });
+          
+          // ✅ Update user data
+          final userData = await ApiService.getUserData();
+          if (userData != null) {
+            userData['profileImage'] = _profileImage;
+            await ApiService.saveUserData(userData);
+          }
           
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -103,9 +168,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     } catch (e) {
       setState(() {
         _isImageLoading = false;
-        _selectedImagePath = null;
       });
-      print('❌ Error uploading image: $e');
+      print('❌ Error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -115,15 +179,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  String bytesToBase64(List<int> bytes) {
-    // Convert bytes to base64
-    String base64 = '';
-    for (int i = 0; i < bytes.length; i++) {
-      base64 += String.fromCharCode(bytes[i]);
-    }
-    return base64;
-  }
-
+  // ✅ Remove image
   Future<void> _removeImage() async {
     try {
       setState(() => _isImageLoading = true);
@@ -135,6 +191,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _profileImage = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
           _isImageLoading = false;
         });
+        
+        final userData = await ApiService.getUserData();
+        if (userData != null) {
+          userData['profileImage'] = _profileImage;
+          await ApiService.saveUserData(userData);
+        }
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -199,6 +261,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasImage = _profileImage.isNotEmpty && 
+                          _profileImage != 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
+    final String initial = _fullNameController.text.isNotEmpty 
+        ? _fullNameController.text[0].toUpperCase() 
+        : 'U';
+
     return Scaffold(
       backgroundColor: sandWhite,
       appBar: AppBar(
@@ -244,7 +312,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.grey[200],
-                    image: _profileImage.isNotEmpty
+                    image: hasImage
                         ? DecorationImage(
                             image: NetworkImage(_profileImage),
                             fit: BoxFit.cover,
@@ -258,11 +326,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       width: 3,
                     ),
                   ),
-                  child: _profileImage.isEmpty
-                      ? Icon(
-                          Icons.person,
-                          size: 60,
-                          color: Colors.grey[400],
+                  child: !hasImage
+                      ? Text(
+                          initial,
+                          style: const TextStyle(
+                            fontSize: 48,
+                            fontWeight: FontWeight.bold,
+                            color: oceanBlue,
+                          ),
                         )
                       : null,
                 ),
@@ -305,11 +376,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           ),
                         ),
                       ),
-                      if (_profileImage.isNotEmpty &&
-                          !_profileImage.contains('default-avatar'))
-                        const SizedBox(width: 8),
-                      if (_profileImage.isNotEmpty &&
-                          !_profileImage.contains('default-avatar'))
+                      if (hasImage) const SizedBox(width: 8),
+                      if (hasImage)
                         GestureDetector(
                           onTap: _removeImage,
                           child: Container(

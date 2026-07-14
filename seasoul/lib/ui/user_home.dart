@@ -30,7 +30,10 @@ class UserHome extends StatefulWidget {
   State<UserHome> createState() => _UserHomeState();
 }
 
-class _UserHomeState extends State<UserHome> {
+class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   int _currentTab = 0;
   String _selectedSort = 'popular';
   String _searchQuery = '';
@@ -51,6 +54,11 @@ class _UserHomeState extends State<UserHome> {
   Map<String, double> _activityRatings = {};
   Map<String, int> _activityReviewCounts = {};
   bool _isLoadingRatings = true;
+
+  // ✅ Recent Reviews
+  List<ReviewModel> _recentReviews = [];
+  bool _isLoadingReviews = true;
+  Timer? _reviewRefreshTimer;
 
   // Auto-slide controllers
   late PageController _packagePageController;
@@ -98,6 +106,14 @@ class _UserHomeState extends State<UserHome> {
     _packagePageController = PageController();
     _activityPageController = PageController();
     _loadAllData();
+    _loadRecentReviews();
+
+    // ✅ Auto-refresh reviews every 30 seconds
+    _reviewRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadRecentReviews();
+      }
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<NotificationProvider>(
@@ -118,7 +134,34 @@ class _UserHomeState extends State<UserHome> {
     _activityPageController.dispose();
     _packageTimer?.cancel();
     _activityTimer?.cancel();
+    _reviewRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  // ✅ Load Recent Reviews
+  Future<void> _loadRecentReviews() async {
+    try {
+      final response = await ReviewService.getRecentReviews(limit: 3);
+      if (response['success'] == true) {
+        final reviewsList = response['reviews'] as List? ?? [];
+        final reviews = reviewsList
+            .where((r) => r is Map<String, dynamic>)
+            .map((r) => ReviewModel.fromJson(r as Map<String, dynamic>))
+            .toList();
+        
+        if (mounted) {
+          setState(() {
+            _recentReviews = reviews;
+            _isLoadingReviews = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('❌ Error loading recent reviews: $e');
+      if (mounted) {
+        setState(() => _isLoadingReviews = false);
+      }
+    }
   }
 
   Future<void> _loadAllData() async {
@@ -361,8 +404,56 @@ class _UserHomeState extends State<UserHome> {
     }
   }
 
+  // ✅ Helper method to build network image with error handling
+  Widget buildNetworkImage(String imageUrl, {double? height, double? width, BoxFit fit = BoxFit.cover}) {
+    final cleanUrl = ImageUtils.getCleanImageUrl(imageUrl);
+    
+    if (!ImageUtils.isValidImage(cleanUrl)) {
+      return Container(
+        height: height,
+        width: width,
+        color: Colors.grey[200],
+        child: const Icon(Icons.broken_image, color: Colors.grey, size: 30),
+      );
+    }
+    
+    return Image.network(
+      cleanUrl,
+      height: height,
+      width: width,
+      fit: fit,
+      loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          height: height,
+          width: width,
+          color: Colors.grey[200],
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+              color: oceanBlue,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+        print('❌ Image error: $error');
+        return Container(
+          height: height,
+          width: width,
+          color: Colors.grey[200],
+          child: const Icon(Icons.broken_image, color: Colors.grey, size: 30),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+    
     final List<Widget> pages = [
       _buildHomeBody(),
       const ExplorePage(),
@@ -532,11 +623,11 @@ class _UserHomeState extends State<UserHome> {
           const SizedBox(height: 32),
           _buildPackagesSection(),
           const SizedBox(height: 32),
-          _buildActivitiesSection(),
+          _buildIslandHighlightsSection(), // ✅ NEW: Replaced Trending Activities
           const SizedBox(height: 32),
           _buildBentoGridSection(),
           const SizedBox(height: 32),
-          _buildRecentReviewsSection(),
+          _buildRecentReviewsSection(), // ✅ Fixed: No auto-reload
           const SizedBox(height: 100),
         ],
       ),
@@ -560,7 +651,6 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  // ✅ NEW: Header Section with Image (No Reviews)
   Widget _buildHeaderSection() {
     return Container(
       width: double.infinity,
@@ -591,7 +681,6 @@ class _UserHomeState extends State<UserHome> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Company Logo
             Container(
               width: 60,
               height: 60,
@@ -654,7 +743,6 @@ class _UserHomeState extends State<UserHome> {
               ),
             ),
             const SizedBox(height: 12),
-            // Quick Stats
             Row(
               children: [
                 _buildStatItem('12+', 'Islands'),
@@ -771,7 +859,6 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  // ✅ Updated: No Emojis in Title
   Widget _buildPackagesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -835,10 +922,7 @@ class _UserHomeState extends State<UserHome> {
                     itemCount: _trendingProducts.length,
                     itemBuilder: (context, index) {
                       final pkg = _trendingProducts[index];
-                      final images = pkg['images'] ?? [];
-                      final imageUrl = images.isNotEmpty
-                          ? images[0]
-                          : 'https://via.placeholder.com/300x200';
+                      final imageUrl = ImageUtils.getFirstImage(pkg['images']);
 
                       final pkgId = pkg['_id'];
                       final rating = _productRatings[pkgId] ?? 0;
@@ -914,7 +998,6 @@ class _UserHomeState extends State<UserHome> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // ✅ Star Rating - Always Show
                                     Row(
                                       children: [
                                         StarRating(rating: rating, size: 14),
@@ -1046,8 +1129,32 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  // ✅ Updated: No Emojis in Title
-  Widget _buildActivitiesSection() {
+  // ✅ NEW: Island Highlights Section (Replaced Trending Activities)
+  Widget _buildIslandHighlightsSection() {
+    final islands = [
+      {
+        'name': 'Agatti Island',
+        'desc': 'The gateway to Lakshadweep with pristine beaches',
+        'image': 'https://images.unsplash.com/photo-1573843981267-be1999ff37cd?w=600',
+        'color': oceanBlue,
+        'emoji': '🏝️',
+      },
+      {
+        'name': 'Kavaratti Island',
+        'desc': 'Famous for its turquoise lagoon and coral reefs',
+        'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
+        'color': turquoise,
+        'emoji': '🌊',
+      },
+      {
+        'name': 'Minicoy Island',
+        'desc': 'Known for its unique culture and lighthouse',
+        'image': 'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=600',
+        'color': sunsetOrange,
+        'emoji': '🗼',
+      },
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1055,7 +1162,7 @@ class _UserHomeState extends State<UserHome> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'Trending Activities',
+              'Island Highlights',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -1080,276 +1187,98 @@ class _UserHomeState extends State<UserHome> {
           ],
         ),
         const SizedBox(height: 16),
-        if (_isLoadingActivities)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20.0),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else if (_activities.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Text('No activities available'),
-          )
-        else
-          SizedBox(
-            height: 300,
-            child: Column(
-              children: [
-                Expanded(
-                  child: PageView.builder(
-                    controller: _activityPageController,
-                    onPageChanged: (index) {
-                      setState(() {
-                        _currentActivityIndex = index;
-                        _activityTimer?.cancel();
-                        _startActivityAutoSlide();
-                      });
-                    },
-                    itemCount: _activities.length,
-                    itemBuilder: (context, index) {
-                      final activity = _activities[index];
-                      final images = activity['images'] ?? [];
-                      final imageUrl = images.isNotEmpty
-                          ? images[0]
-                          : 'https://via.placeholder.com/300x200';
-
-                      final activityId = activity['_id'];
-                      final rating = _activityRatings[activityId] ?? 0;
-                      final reviewCount =
-                          _activityReviewCounts[activityId] ?? 0;
-
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ActivityDetailsPage(
-                                activityId: activity['_id'],
-                              ),
-                            ),
-                          ).then((_) {
-                            _loadAllData();
-                          });
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            image: DecorationImage(
-                              image: NetworkImage(ImageUtils.getCleanImageUrl(imageUrl)),
-                              fit: BoxFit.cover,
-                              onError: (exception, stackTrace) {
-                                print('❌ Activity image error: $exception');
-                              },
-                            ),
-                          ),
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(20),
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.transparent,
-                                        Colors.black.withOpacity(0.7),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                top: 12,
-                                right: 12,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.9),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '₹${activity['price'] ?? 0}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: oceanBlue,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                top: 12,
-                                left: 12,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.9),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    activity['category'] ?? 'Activity',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: deepNavy,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 16,
-                                left: 16,
-                                right: 16,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // ✅ Star Rating - Always Show
-                                    Row(
-                                      children: [
-                                        StarRating(rating: rating, size: 14),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          rating > 0
-                                              ? rating.toStringAsFixed(1)
-                                              : '0.0',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '($reviewCount)',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      activity['name'] ?? 'Activity',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      activity['location'] ?? 'Location',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.access_time,
-                                          color: Colors.white70,
-                                          size: 14,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          activity['duration'] ?? '2 hours',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        const Icon(
-                                          Icons.people_outline,
-                                          color: Colors.white70,
-                                          size: 14,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Max ${activity['maxParticipants'] ?? 10}',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [coral, sunsetOrange],
-                                        ),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: const Text(
-                                        'Book Now',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: islands.length,
+            itemBuilder: (context, index) {
+              final island = islands[index];
+              return Container(
+                width: 280,
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  image: DecorationImage(
+                    image: NetworkImage(island['image'] as String),
+                    fit: BoxFit.cover,
                   ),
                 ),
-                if (_activities.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        _activities.length,
-                        (index) => Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: _currentActivityIndex == index ? 20 : 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _currentActivityIndex == index
-                                ? oceanBlue
-                                : Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(4),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.7),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
+                    Positioned(
+                      bottom: 16,
+                      left: 16,
+                      right: 16,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${island['emoji']} ${island['name']}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            island['desc'] as String,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 12,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: (island['color'] as Color).withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Explore →',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
+        ),
       ],
     );
   }
 
-  // ✅ Updated: No Emojis in Title
   Widget _buildBentoGridSection() {
     List<dynamic> latestProducts = List.from(_allProducts);
     latestProducts.sort(
@@ -1433,7 +1362,6 @@ class _UserHomeState extends State<UserHome> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ✅ Star Rating - Always Show
                       Row(
                         children: [
                           StarRating(
@@ -1574,7 +1502,6 @@ class _UserHomeState extends State<UserHome> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // ✅ Star Rating - Always Show
                               Row(
                                 children: [
                                   StarRating(
@@ -1687,7 +1614,6 @@ class _UserHomeState extends State<UserHome> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // ✅ Star Rating - Always Show
                               Row(
                                 children: [
                                   StarRating(
@@ -1744,44 +1670,32 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
+  // ✅ Fixed Recent Reviews Section - No auto-reload
   Widget _buildRecentReviewsSection() {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: ReviewService.getRecentReviews(limit: 3),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.all(20),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return Padding(
-            padding: const EdgeInsets.all(20),
-            child: Center(
-              child: Text(
-                'Error loading reviews: ${snapshot.error}',
-                style: const TextStyle(color: Colors.red),
-              ),
+    if (_isLoadingReviews) {
+      return const Padding(
+        padding: EdgeInsets.all(20),
+        child: Center(
+          child: SizedBox(
+            height: 30,
+            width: 30,
+            child: CircularProgressIndicator(
+              color: Color(0xFF0099CC),
             ),
-          );
-        }
+          ),
+        ),
+      );
+    }
 
-        final data = snapshot.data;
-        if (data == null || data['success'] != true) {
-          return const SizedBox.shrink();
-        }
+    if (_recentReviews.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-        final reviews = (data['reviews'] as List)
-            .map((r) => ReviewModel.fromJson(r))
-            .toList();
-
-        if (reviews.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
               'Recent Reviews',
@@ -1791,34 +1705,62 @@ class _UserHomeState extends State<UserHome> {
                 color: Color(0xFF1A2B49),
               ),
             ),
-            const SizedBox(height: 16),
-            ...reviews.map(
-              (review) => ReviewCard(
-                review: review,
-                onHelpfulTap: () async {
-                  try {
-                    await ReviewService.toggleHelpful(review.id);
+            // ✅ Refresh button - only when user taps
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isLoadingReviews = true;
+                });
+                _loadRecentReviews().then((_) {
+                  if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('✅ Marked as helpful'),
-                        backgroundColor: Colors.green,
+                        content: Text('🔄 Reviews refreshed'),
+                        backgroundColor: Color(0xFF0099CC),
                         duration: Duration(seconds: 2),
                       ),
                     );
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error: ${e.toString()}'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
                   }
-                },
+                });
+              },
+              child: const Text(
+                'Refresh →',
+                style: TextStyle(
+                  color: Color(0xFF0099CC),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 16),
+        ..._recentReviews.map(
+          (review) => ReviewCard(
+            review: review,
+            onHelpfulTap: () async {
+              try {
+                await ReviewService.toggleHelpful(review.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Marked as helpful'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                // ✅ Refresh reviews after helpful tap
+                _loadRecentReviews();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ],
     );
   }
 
