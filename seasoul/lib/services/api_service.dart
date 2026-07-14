@@ -5,13 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_constants.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-
-
-
 class ApiService {
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'user_data';
-
 
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -60,7 +56,10 @@ class ApiService {
 
   // ==================== HTTP METHODS ====================
 
-  static Future<Map<String, dynamic>> post(String url, Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> post(
+    String url,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse(url),
@@ -89,7 +88,7 @@ class ApiService {
   static Future<Map<String, dynamic>> get(String url) async {
     try {
       final token = await getToken();
-      
+
       final response = await http.get(
         Uri.parse(url),
         headers: {
@@ -115,10 +114,13 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> put(String url, Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> put(
+    String url,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final token = await getToken();
-      
+
       final response = await http.put(
         Uri.parse(url),
         headers: {
@@ -149,7 +151,7 @@ class ApiService {
   static Future<Map<String, dynamic>> delete(String url) async {
     try {
       final token = await getToken();
-      
+
       final response = await http.delete(
         Uri.parse(url),
         headers: {
@@ -175,10 +177,13 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> postWithToken(String url, Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> postWithToken(
+    String url,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final token = await getToken();
-      
+
       final response = await http.post(
         Uri.parse(url),
         headers: {
@@ -206,11 +211,10 @@ class ApiService {
     }
   }
 
-  // ✅ GET with Token
   static Future<Map<String, dynamic>> getWithToken(String url) async {
     try {
       final token = await getToken();
-      
+
       final response = await http.get(
         Uri.parse(url),
         headers: {
@@ -221,6 +225,7 @@ class ApiService {
 
       print('📤 GET Request with Token: $url');
       print('📥 Response Status: ${response.statusCode}');
+      print('📥 Response Body: ${response.body}');
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
@@ -235,11 +240,13 @@ class ApiService {
     }
   }
 
-  // ✅ PUT with Token
-  static Future<Map<String, dynamic>> putWithToken(String url, Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> putWithToken(
+    String url,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final token = await getToken();
-      
+
       final response = await http.put(
         Uri.parse(url),
         headers: {
@@ -252,6 +259,7 @@ class ApiService {
       print('📤 PUT Request with Token: $url');
       print('📤 Data: $data');
       print('📥 Response Status: ${response.statusCode}');
+      print('📥 Response Body: ${response.body}');
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
@@ -266,11 +274,10 @@ class ApiService {
     }
   }
 
-  // ✅ DELETE with Token
   static Future<Map<String, dynamic>> deleteWithToken(String url) async {
     try {
       final token = await getToken();
-      
+
       final response = await http.delete(
         Uri.parse(url),
         headers: {
@@ -281,6 +288,7 @@ class ApiService {
 
       print('📤 DELETE Request with Token: $url');
       print('📥 Response Status: ${response.statusCode}');
+      print('📥 Response Body: ${response.body}');
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
@@ -297,23 +305,26 @@ class ApiService {
 
   // ==================== IMAGE UPLOAD ====================
 
-  static Future<Map<String, dynamic>> uploadImage(String url, String filePath) async {
+  static Future<Map<String, dynamic>> uploadImage(
+    String url,
+    String filePath,
+  ) async {
     try {
       final token = await getToken();
-      
+
       if (kIsWeb) {
         print('🌐 Uploading from Web');
         print('📤 File path: $filePath');
-        
+
         final bytes = await http.readBytes(Uri.parse(filePath));
         print('📤 File size: ${bytes.length} bytes');
-        
+
         final request = http.MultipartRequest('POST', Uri.parse(url));
         request.headers['Authorization'] = 'Bearer $token';
-        
+
         String filename = 'profile_image.jpg';
         String contentType = 'image/jpeg';
-        
+
         if (filePath.contains('data:image/png')) {
           filename = 'profile_image.png';
           contentType = 'image/png';
@@ -324,15 +335,15 @@ class ApiService {
           filename = 'profile_image.webp';
           contentType = 'image/webp';
         }
-        
+
         if (filePath.startsWith('blob:')) {
           filename = 'profile_image.jpg';
           contentType = 'image/jpeg';
         }
-        
+
         print('📤 Filename: $filename');
         print('📤 Content-Type: $contentType');
-        
+
         request.files.add(
           http.MultipartFile.fromBytes(
             'image',
@@ -341,13 +352,13 @@ class ApiService {
             contentType: http.MediaType.parse(contentType),
           ),
         );
-        
+
         final response = await request.send();
         final responseData = await response.stream.bytesToString();
-        
+
         print('📤 Upload Response Status: ${response.statusCode}');
         print('📥 Upload Response: $responseData');
-        
+
         if (response.statusCode == 200 || response.statusCode == 201) {
           return jsonDecode(responseData);
         } else {
@@ -357,18 +368,18 @@ class ApiService {
       } else {
         print('📱 Uploading from Mobile');
         print('📤 File path: $filePath');
-        
+
         final request = http.MultipartRequest('POST', Uri.parse(url));
         request.headers['Authorization'] = 'Bearer $token';
         request.files.add(await http.MultipartFile.fromPath('image', filePath));
-        
+
         final response = await request.send();
         final responseData = await response.stream.bytesToString();
         final jsonResponse = jsonDecode(responseData);
-        
+
         print('📤 Upload Response Status: ${response.statusCode}');
         print('📥 Upload Response: $jsonResponse');
-        
+
         if (response.statusCode == 200 || response.statusCode == 201) {
           return jsonResponse;
         } else {
@@ -387,15 +398,288 @@ class ApiService {
     return await getWithToken(ApiConstants.profile);
   }
 
-  static Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> updateProfile(
+    Map<String, dynamic> data,
+  ) async {
     return await putWithToken(ApiConstants.profile, data);
   }
 
-  static Future<Map<String, dynamic>> uploadProfileImage(String filePath) async {
+  static Future<Map<String, dynamic>> uploadProfileImage(
+    String filePath,
+  ) async {
     return await uploadImage(ApiConstants.uploadProfileImage, filePath);
   }
 
   static Future<Map<String, dynamic>> deleteProfileImage() async {
     return await deleteWithToken(ApiConstants.deleteProfileImage);
+  }
+
+  // ==================== PAYMENT METHODS (RAZORPAY) ====================
+
+  /// Create a Razorpay order
+  static Future<Map<String, dynamic>> createRazorpayOrder({
+    required double amount,
+    required String receipt,
+    String currency = 'INR',
+    Map<String, dynamic>? notes,
+  }) async {
+    try {
+      final token = await getToken();
+
+      final response = await http.post(
+        Uri.parse(ApiConstants.razorpayCreateOrder),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'amount': amount,
+          'currency': currency,
+          'receipt': receipt,
+          'notes': notes ?? {},
+        }),
+      );
+
+      print('📤 Create Razorpay Order');
+      print('📤 Amount: $amount');
+      print('📤 Receipt: $receipt');
+      print('📥 Response Status: ${response.statusCode}');
+      print('📥 Response Body: ${response.body}');
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return responseData;
+      } else {
+        throw Exception(responseData['error'] ?? 'Failed to create order');
+      }
+    } catch (e) {
+      print('❌ Create Order Error: $e');
+      throw Exception('Failed to create order: $e');
+    }
+  }
+
+  /// Verify Razorpay payment signature
+  static Future<Map<String, dynamic>> verifyRazorpayPayment({
+    required String orderId,
+    required String paymentId,
+    required String signature,
+  }) async {
+    try {
+      final token = await getToken();
+
+      final response = await http.post(
+        Uri.parse(ApiConstants.razorpayVerifyPayment),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'razorpay_order_id': orderId,
+          'razorpay_payment_id': paymentId,
+          'razorpay_signature': signature,
+        }),
+      );
+
+      print('📤 Verify Razorpay Payment');
+      print('📤 Order ID: $orderId');
+      print('📤 Payment ID: $paymentId');
+      print('📥 Response Status: ${response.statusCode}');
+      print('📥 Response Body: ${response.body}');
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return responseData;
+      } else {
+        throw Exception(responseData['message'] ?? 'Verification failed');
+      }
+    } catch (e) {
+      print('❌ Verify Payment Error: $e');
+      throw Exception('Failed to verify payment: $e');
+    }
+  }
+
+  /// Get Razorpay key ID from backend
+  static Future<Map<String, dynamic>> getRazorpayKey() async {
+    try {
+      final token = await getToken();
+
+      final response = await http.get(
+        Uri.parse(ApiConstants.razorpayGetKey),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('📤 Get Razorpay Key');
+      print('📥 Response Status: ${response.statusCode}');
+      print('📥 Response Body: ${response.body}');
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return responseData;
+      } else {
+        throw Exception(responseData['error'] ?? 'Failed to get key');
+      }
+    } catch (e) {
+      print('❌ Get Key Error: $e');
+      throw Exception('Failed to get Razorpay key: $e');
+    }
+  }
+
+  // ==================== BOOKING METHODS ====================
+
+  /// Create a booking
+  static Future<Map<String, dynamic>> createBooking(
+    Map<String, dynamic> data,
+  ) async {
+    return await postWithToken(ApiConstants.createBooking, data);
+  }
+
+  /// Get user bookings
+  static Future<Map<String, dynamic>> getUserBookings() async {
+    return await getWithToken(ApiConstants.userBookings);
+  }
+
+  /// Get booking by ID
+  static Future<Map<String, dynamic>> getBookingById(String id) async {
+    return await getWithToken(ApiConstants.bookingById(id));
+  }
+
+  /// Update booking status
+  static Future<Map<String, dynamic>> updateBookingStatus(
+    String id,
+    String status,
+  ) async {
+    return await putWithToken(ApiConstants.bookingById(id), {'status': status});
+  }
+
+  // ==================== ORDER METHODS ====================
+
+  /// Create an order
+  static Future<Map<String, dynamic>> createOrder(
+    Map<String, dynamic> data,
+  ) async {
+    return await postWithToken(ApiConstants.createOrder, data);
+  }
+
+  /// Get user orders
+  static Future<Map<String, dynamic>> getUserOrders() async {
+    return await getWithToken(ApiConstants.userOrders);
+  }
+
+  /// Get order by ID
+  static Future<Map<String, dynamic>> getOrderById(String id) async {
+    return await getWithToken(ApiConstants.orderById(id));
+  }
+
+  // ==================== COMPLETE PAYMENT FLOW ====================
+
+  /// Complete payment flow: Create order, process payment, verify and create booking
+  static Future<Map<String, dynamic>> processPayment({
+    required double amount,
+    required String itemName,
+    required String itemType,
+    String? productId,
+    String? activityId,
+    String? bookingId,
+    required Map<String, dynamic> userData,
+  }) async {
+    try {
+      // Step 1: Create booking if not exists
+      String? finalBookingId = bookingId;
+
+      if (finalBookingId == null) {
+        final bookingResponse = await createBooking({
+          'productId': productId,
+          'activityId': activityId,
+          'totalAmount': amount,
+          'guests': 1,
+          'paymentStatus': 'pending',
+          'checkIn': DateTime.now().toIso8601String(),
+          'checkOut': DateTime.now()
+              .add(const Duration(days: 3))
+              .toIso8601String(),
+        });
+
+        if (bookingResponse['success'] == true) {
+          finalBookingId = bookingResponse['booking']['_id'];
+          print('✅ Booking created: $finalBookingId');
+        } else {
+          throw Exception('Failed to create booking');
+        }
+      }
+
+      // Step 2: Create Razorpay order
+      final receipt =
+          'BOOKING_${finalBookingId}_${DateTime.now().millisecondsSinceEpoch}';
+      final orderResponse = await createRazorpayOrder(
+        amount: amount,
+        receipt: receipt,
+        notes: {
+          'booking_id': finalBookingId,
+          'product_id': productId,
+          'activity_id': activityId,
+          'item_name': itemName,
+          'item_type': itemType,
+        },
+      );
+
+      print('✅ Razorpay order created: ${orderResponse['id']}');
+
+      // Step 3: Get Razorpay key
+      final keyResponse = await getRazorpayKey();
+
+      // Return all data needed for checkout
+      return {
+        'success': true,
+        'bookingId': finalBookingId,
+        'orderId': orderResponse['id'],
+        'keyId': keyResponse['key_id'],
+        'amount': amount,
+        'receipt': receipt,
+      };
+    } catch (e) {
+      print('❌ Payment processing error: $e');
+      throw Exception('Payment processing failed: $e');
+    }
+  }
+
+  /// Complete payment after successful verification
+  static Future<Map<String, dynamic>> completePayment({
+    required String bookingId,
+    required String paymentId,
+    required String orderId,
+    required String signature,
+  }) async {
+    try {
+      // Step 1: Verify payment
+      final verifyResponse = await verifyRazorpayPayment(
+        orderId: orderId,
+        paymentId: paymentId,
+        signature: signature,
+      );
+
+      if (!verifyResponse['success']) {
+        throw Exception('Payment verification failed');
+      }
+
+      // Step 2: Update booking with payment details
+      final updateResponse = await updateBookingStatus(bookingId, 'confirmed');
+
+      return {
+        'success': true,
+        'bookingId': bookingId,
+        'paymentId': paymentId,
+        'orderId': orderId,
+        'booking': updateResponse['booking'],
+      };
+    } catch (e) {
+      print('❌ Complete payment error: $e');
+      throw Exception('Failed to complete payment: $e');
+    }
   }
 }

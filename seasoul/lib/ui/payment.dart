@@ -1,9 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:seasoul/services/api_service.dart';
+import 'package:seasoul/services/auth_services.dart';
+import 'package:seasoul/services/payment_service.dart';
 import 'package:seasoul/constants/api_constants.dart';
 import 'package:seasoul/ui/payment_succes.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 class payment extends StatefulWidget {
   final String? productId;
@@ -12,7 +14,7 @@ class payment extends StatefulWidget {
   final String itemType;
   final double amount;
   final String? bookingId;
-  final String itemImage; // ✅ NEW: Added itemImage
+  final String itemImage;
 
   const payment({
     super.key,
@@ -22,7 +24,7 @@ class payment extends StatefulWidget {
     this.itemType = 'product',
     this.amount = 0,
     this.bookingId,
-    this.itemImage = '', // ✅ NEW: Default empty string
+    this.itemImage = '',
   });
 
   @override
@@ -32,6 +34,9 @@ class payment extends StatefulWidget {
 class _paymentState extends State<payment> {
   bool _isProcessing = false;
   bool _isSuccess = false;
+  String? _razorpayOrderId;
+  String? _createdBookingId;
+  String? _paymentId;
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -39,6 +44,230 @@ class _paymentState extends State<payment> {
   static const Color sunsetOrange = Color(0xFFFFB84D);
   static const Color outline = Color(0xFF6E7880);
   static const Color sandWhite = Color(0xFFF8FBFF);
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeRazorpay();
+  }
+
+  void _initializeRazorpay() {
+    RazorpayService.initialize(
+      successCallback: _handlePaymentSuccess,
+      errorCallback: _handlePaymentError,
+      externalWalletCallback: _handleExternalWallet,
+    );
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    print('✅ Payment Success: ${response.paymentId}');
+    
+    setState(() {
+      _isProcessing = false;
+      _paymentId = response.paymentId;
+    });
+
+    try {
+      // Verify payment on backend
+      final isVerified = await RazorpayService.verifyPayment(
+        orderId: response.orderId!,
+        paymentId: response.paymentId!,
+        signature: response.signature!,
+      );
+
+      if (isVerified) {
+        // Create booking and complete
+        await _createBookingAndComplete(response.paymentId!);
+      } else {
+        _showErrorDialog('Payment verification failed. Please contact support.');
+        setState(() => _isProcessing = false);
+      }
+    } catch (e) {
+      print('❌ Payment verification error: $e');
+      _showErrorDialog('Error verifying payment: $e');
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    print('❌ Payment Error: ${response.message}');
+    setState(() {
+      _isProcessing = false;
+    });
+    _showErrorDialog('Payment failed: ${response.message}');
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    print('External Wallet: ${response.walletName}');
+  }
+
+  Future<void> _createBookingAndComplete(String paymentId) async {
+    try {
+      String? bookingId = widget.bookingId;
+
+      if (bookingId == null) {
+        // Create booking with payment ID
+        final bookingResponse = await ApiService.postWithToken(
+          '${ApiConstants.baseUrl}/api/bookings',
+          {
+            'productId': widget.productId,
+            'activityId': widget.activityId,
+            'totalAmount': widget.amount,
+            'guests': 1,
+            'paymentId': paymentId,
+            'paymentStatus': 'completed',
+            'checkIn': DateTime.now().toIso8601String(),
+            'checkOut': DateTime.now()
+                .add(const Duration(days: 3))
+                .toIso8601String(),
+          },
+        );
+
+        if (bookingResponse['success'] == true) {
+          bookingId = bookingResponse['booking']['_id'];
+          _createdBookingId = bookingId;
+        } else {
+          throw Exception('Booking creation failed');
+        }
+      }
+
+      setState(() {
+        _isSuccess = true;
+        _isProcessing = false;
+      });
+
+      // Navigate to success screen with payment ID
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => payment_success(
+              bookingId: bookingId!,
+              productId: widget.productId,
+              activityId: widget.activityId,
+              itemName: widget.itemName,
+              itemType: widget.itemType,
+              amount: widget.amount,
+              paymentId: paymentId,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Booking creation error: $e');
+      _showErrorDialog('Payment successful but booking creation failed: $e');
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Payment Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _processPayment() async {
+    if (_isProcessing) return;
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      // 1. First, create a booking (if not exists)
+      String? bookingId = widget.bookingId;
+
+      if (bookingId == null) {
+        final bookingResponse = await ApiService.postWithToken(
+          '${ApiConstants.baseUrl}/api/bookings',
+          {
+            'productId': widget.productId,
+            'activityId': widget.activityId,
+            'totalAmount': widget.amount,
+            'guests': 1,
+            'paymentStatus': 'pending',
+            'checkIn': DateTime.now().toIso8601String(),
+            'checkOut': DateTime.now()
+                .add(const Duration(days: 3))
+                .toIso8601String(),
+          },
+        );
+
+        if (bookingResponse['success'] == true) {
+          bookingId = bookingResponse['booking']['_id'];
+          _createdBookingId = bookingId;
+        } else {
+          throw Exception('Booking creation failed');
+        }
+      }
+
+      // 2. Create Razorpay order
+      final receipt = 'BOOKING_${bookingId}_${DateTime.now().millisecondsSinceEpoch}';
+      final orderResponse = await RazorpayService.createOrder(
+        amount: widget.amount,
+        receipt: receipt,
+        notes: {
+          'booking_id': bookingId,
+          'product_id': widget.productId,
+          'activity_id': widget.activityId,
+          'item_name': widget.itemName,
+          'item_type': widget.itemType,
+        },
+      );
+
+      _razorpayOrderId = orderResponse['id'];
+      print('✅ Razorpay order created: $_razorpayOrderId');
+
+      // 3. Get user details
+      final user = await AuthService.getCurrentUser();
+
+      // 4. Get Razorpay key
+      final keyId = await RazorpayService.getRazorpayKey();
+      print('✅ Razorpay key: $keyId');
+
+      // 5. Open Razorpay checkout
+      await RazorpayService.openCheckout(
+        keyId: keyId,
+        orderId: _razorpayOrderId!,
+        amount: widget.amount,
+        receipt: receipt,
+        itemName: widget.itemName,
+        customerName: user?['fullName'] ?? user?['name'] ?? 'Customer',
+        customerEmail: user?['email'] ?? 'customer@example.com',
+        customerContact: user?['phone'] ?? '9999999999',
+      );
+      
+      // Success/Error handled in callbacks above
+    } catch (e) {
+      print('❌ Payment processing error: $e');
+      setState(() {
+        _isProcessing = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment Failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    RazorpayService.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +304,11 @@ class _paymentState extends State<payment> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.verified_user, color: Color(0xFF006B5C), size: 14),
+                    Icon(
+                      Icons.verified_user,
+                      color: Color(0xFF006B5C),
+                      size: 14,
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'SSL SECURED',
@@ -111,14 +344,12 @@ class _paymentState extends State<payment> {
     );
   }
 
-  // ✅ FIXED: _buildBookingSummaryCard with dynamic image
   Widget _buildBookingSummaryCard() {
-    // ✅ Use the passed image URL instead of hardcoded image
     final String imageUrl = widget.itemImage.isNotEmpty
         ? widget.itemImage
         : (widget.itemType == 'product'
-            ? 'https://images.unsplash.com/photo-1573843981267-be1999ff37cd?w=600'
-            : 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600');
+              ? 'https://images.unsplash.com/photo-1573843981267-be1999ff37cd?w=600'
+              : 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600');
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -164,9 +395,6 @@ class _paymentState extends State<payment> {
                     fit: BoxFit.cover,
                   ),
                 ),
-                child: imageUrl.isEmpty
-                    ? const Icon(Icons.image_not_supported, color: Colors.grey)
-                    : null,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -220,9 +448,15 @@ class _paymentState extends State<payment> {
           ),
           _buildSummaryItemRow('Item', widget.itemName),
           const SizedBox(height: 12),
-          _buildSummaryItemRow('Type', widget.itemType == 'product' ? 'Package' : 'Activity'),
+          _buildSummaryItemRow(
+            'Type',
+            widget.itemType == 'product' ? 'Package' : 'Activity',
+          ),
           const SizedBox(height: 12),
-          _buildSummaryItemRow('Booking ID', widget.bookingId ?? 'New Booking'),
+          _buildSummaryItemRow(
+            'Booking ID',
+            _createdBookingId ?? widget.bookingId ?? 'New Booking',
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16.0),
             child: Divider(color: Color(0xFFE8EDFF), thickness: 1.5, height: 1),
@@ -315,10 +549,7 @@ class _paymentState extends State<payment> {
           '256-bit AES Protection',
         ),
         const SizedBox(width: 12),
-        _buildSingleBadge(
-          Icons.security_outlined,
-          'Secure Payment',
-        ),
+        _buildSingleBadge(Icons.security_outlined, 'Secure Payment'),
       ],
     );
   }
@@ -366,13 +597,12 @@ class _paymentState extends State<payment> {
           borderRadius: BorderRadius.circular(16),
           gradient: _isSuccess
               ? null
-              : const LinearGradient(
-                  colors: [oceanBlue, turquoiseLagoon],
-                ),
+              : const LinearGradient(colors: [oceanBlue, turquoiseLagoon]),
           color: _isSuccess ? const Color(0xFF006B5C) : null,
           boxShadow: [
             BoxShadow(
-              color: (_isSuccess ? const Color(0xFF006B5C) : oceanBlue).withOpacity(0.25),
+              color: (_isSuccess ? const Color(0xFF006B5C) : oceanBlue)
+                  .withOpacity(0.25),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -412,36 +642,40 @@ class _paymentState extends State<payment> {
                   ],
                 )
               : _isSuccess
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.white, size: 22),
-                        const SizedBox(width: 10),
-                        const Text(
-                          'Payment Successful!',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.lock, color: Colors.white, size: 20),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Pay ₹${widget.amount.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.check_circle,
+                      color: Colors.white,
+                      size: 22,
                     ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Payment Successful!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.lock, color: Colors.white, size: 20),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Pay ₹${widget.amount.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );
@@ -505,91 +739,5 @@ class _paymentState extends State<payment> {
         ],
       ),
     );
-  }
-
-  // ✅ Process Payment
-  void _processPayment() async {
-    if (_isProcessing) return;
-
-    setState(() {
-      _isProcessing = true;
-    });
-
-    try {
-      await Future.delayed(const Duration(seconds: 2));
-
-      String? bookingId = widget.bookingId;
-      
-      if (bookingId == null) {
-        final bookingResponse = await ApiService.postWithToken(
-          '${ApiConstants.baseUrl}/api/bookings',
-          {
-            'productId': widget.productId,
-            'activityId': widget.activityId,
-            'totalAmount': widget.amount,
-            'guests': 1,
-            'checkIn': DateTime.now().toIso8601String(),
-            'checkOut': DateTime.now().add(const Duration(days: 3)).toIso8601String(),
-          },
-        );
-        
-        if (bookingResponse['success'] == true) {
-          bookingId = bookingResponse['booking']['_id'];
-        }
-      }
-
-      if (bookingId != null) {
-        final paymentResponse = await ApiService.postWithToken(
-          '${ApiConstants.baseUrl}/api/payments',
-          {
-            'bookingId': bookingId,
-            'amount': widget.amount,
-            'method': 'card',
-            'itemName': widget.itemName,
-          },
-        );
-
-        if (paymentResponse['success'] == true) {
-          setState(() {
-            _isProcessing = false;
-            _isSuccess = true;
-          });
-
-          await Future.delayed(const Duration(milliseconds: 500));
-          
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => payment_success(
-                  bookingId: bookingId,
-                  productId: widget.productId,
-                  activityId: widget.activityId,
-                  itemName: widget.itemName,
-                  itemType: widget.itemType,
-                  amount: widget.amount,
-                ),
-              ),
-            );
-          }
-        } else {
-          throw Exception(paymentResponse['message'] ?? 'Payment failed');
-        }
-      } else {
-        throw Exception('Booking creation failed');
-      }
-    } catch (e) {
-      print('❌ Payment error: $e');
-      setState(() {
-        _isProcessing = false;
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Payment Failed: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 }

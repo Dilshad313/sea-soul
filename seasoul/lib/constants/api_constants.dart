@@ -1,16 +1,13 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class ApiConstants {
-  // ✅ YOUR HOSTED BACKEND URL (Vercel)
+  // ==================== BASE URL ====================
   static const String HOSTED_URL = 'https://sea-soul-backend.vercel.app';
-  
-  // ✅ Local Backend URLs
   static const String LOCAL_URL = 'http://localhost:5000';
   static const String EMULATOR_URL = 'http://10.0.2.2:5000';
 
   static String get baseUrl {
-    // ✅ ALWAYS USE HOSTED URL FOR NOW
-    // This will work on both web and mobile
+    // ✅ Use hosted URL for production
     return HOSTED_URL;
   }
 
@@ -23,11 +20,13 @@ class ApiConstants {
   static String get forgotPassword => '$baseUrl/api/auth/forgot-password';
   static String get resetPassword => '$baseUrl/api/auth/reset-password';
   static String get changePassword => '$baseUrl/api/auth/change-password';
+  static String get logout => '$baseUrl/api/auth/logout';
+  static String get googleAuth => '$baseUrl/api/auth/google';
   
   // ==================== PROFILE ====================
-  static String get profile => '$baseUrl/api/profile';
-  static String get uploadProfileImage => '$baseUrl/api/profile/upload-image';
-  static String get deleteProfileImage => '$baseUrl/api/profile/image';
+  static String get profile => '$baseUrl/api/user/profile';
+  static String get uploadProfileImage => '$baseUrl/api/user/upload-profile-image';
+  static String get deleteProfileImage => '$baseUrl/api/user/delete-profile-image';
   
   // ==================== PRODUCTS ====================
   static String get products => '$baseUrl/api/products';
@@ -55,16 +54,47 @@ class ApiConstants {
   static String get reviews => '$baseUrl/api/reviews';
   static String itemReviews(String itemId, String itemType) => '$baseUrl/api/reviews/item/$itemType/$itemId';
   static String get userReviews => '$baseUrl/api/reviews/user';
+  static String get recentReviews => '$baseUrl/api/reviews/recent';
   static String reviewHelpful(String id) => '$baseUrl/api/reviews/$id/helpful';
   static String deleteReview(String id) => '$baseUrl/api/reviews/$id';
 
-  // ==================== CATEGORIES ====================
-  static String get categories => '$baseUrl/api/categories';
-  static String get activeCategories => '$baseUrl/api/categories/active';
-
-  // ==================== BOOKINGS ====================
+  // ==================== BOOKING ====================
   static String get bookings => '$baseUrl/api/bookings';
+  static String bookingById(String id) => '$baseUrl/api/bookings/$id';
+  static String get userBookings => '$baseUrl/api/bookings/user';
+  static String get createBooking => '$baseUrl/api/bookings';
+  
+  // ==================== ORDER ====================
+  static String get orders => '$baseUrl/api/orders';
+  static String orderById(String id) => '$baseUrl/api/orders/$id';
+  static String get userOrders => '$baseUrl/api/orders/user';
+  static String get createOrder => '$baseUrl/api/orders/create';
 
-  // ==================== PAYMENTS ====================
+  // ==================== PAYMENT ====================
   static String get payments => '$baseUrl/api/payments';
+  static String get createPayment => '$baseUrl/api/payments';
+  static String get paymentStatus => '$baseUrl/api/payments/status';
+  
+  // ==================== ✅ RAZORPAY ====================
+  static String get razorpayCreateOrder => '$baseUrl/api/razorpay/create-order';
+  static String get razorpayVerifyPayment => '$baseUrl/api/razorpay/verify';
+  static String get razorpayGetKey => '$baseUrl/api/razorpay/key';
+  static String get razorpayWebhook => '$baseUrl/api/razorpay/webhook';
+  
+  // ==================== RAZORPAY CONSTANTS ====================
+  static const String razorpayCurrency = 'INR';
+  static const int razorpayRetryCount = 3;
+  static const bool razorpayRetryEnabled = true;
+  static const String razorpayThemeColor = '#0099CC';
+  
+  // ==================== STATUS CONSTANTS ====================
+  static const String paymentStatusPending = 'pending';
+  static const String paymentStatusCompleted = 'completed';
+  static const String paymentStatusFailed = 'failed';
+  static const String paymentStatusRefunded = 'refunded';
+  
+  static const String bookingStatusPending = 'pending';
+  static const String bookingStatusConfirmed = 'confirmed';
+  static const String bookingStatusCompleted = 'completed';
+  static const String bookingStatusCancelled = 'cancelled';
 }

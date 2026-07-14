@@ -1,18 +1,12 @@
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
-const path = require('path');
-
-// ✅ Load environment variables
-dotenv.config();
-
-// ✅ Connect to MongoDB
-connectDB();
+const mongoose = require('mongoose');
+const path = require('path'); // ✅ ADD THIS - it's missing
+require('dotenv').config();
 
 const app = express();
 
-// ✅ CORS - Allow all origins
+// ✅ CORS Configuration
 app.use(cors({
   origin: '*',
   credentials: true,
@@ -24,8 +18,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ✅ Serve uploaded images
-app.use('/uploads', express.static(path.join(__dirname, './uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/assets', express.static(path.join(__dirname, '../assets')));
+
+// ✅ Import Razorpay Routes
+const razorpayRoutes = require('./routes/razorpayRoutes');
 
 // ✅ API Routes
 app.use('/api/auth', require('./routes/authRoutes'));
@@ -39,24 +36,25 @@ app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/reviews', require('./routes/reviewRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes'));
 
-// ✅ Health Check
-app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'SeaSoul API is running locally!',
-    timestamp: new Date().toISOString(),
+// ✅ ADD THIS - Razorpay Routes
+app.use('/api/razorpay', razorpayRoutes);
+
+// ==================== ERROR HANDLING ====================
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err.stack);
+  res.status(500).json({
+    success: false,
+    message: 'Something went wrong!',
+    error: err.message
   });
 });
 
-app.get('/', (req, res) => {
-  res.send('SeaSoul API is running...');
-});
-
+// ==================== START SERVER ====================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`📱 Local: http://localhost:${PORT}`);
-  console.log(`📱 Network: http://${getLocalIP()}:${PORT}`);
+  console.log(`📍 Admin API: http://localhost:${PORT}/api/admin`);
+  console.log(`📍 Razorpay API: http://localhost:${PORT}/api/razorpay`);
   console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
 });
 

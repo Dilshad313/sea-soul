@@ -11,6 +11,7 @@ class payment_success extends StatefulWidget {
   final String itemName;
   final String itemType;
   final double amount;
+  final String? paymentId;
 
   const payment_success({
     super.key,
@@ -20,6 +21,7 @@ class payment_success extends StatefulWidget {
     this.itemName = 'Package',
     this.itemType = 'product',
     this.amount = 0,
+    this.paymentId,
   });
 
   @override
@@ -151,7 +153,6 @@ class _payment_successState extends State<payment_success>
                         _buildSuccessCard(),
                         const SizedBox(height: 24),
                         _buildHelpfulTipsGrid(),
-                        // ✅ Review Button - Show after payment success
                         if (widget.bookingId != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 16),
@@ -259,6 +260,69 @@ class _payment_successState extends State<payment_success>
                 ),
               ),
               const SizedBox(height: 24),
+
+              if (widget.paymentId != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: oceanBlue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: oceanBlue.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'PAYMENT ID',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 10,
+                              color: oceanBlue,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          Text(
+                            widget.paymentId!,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: deepNavy,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          Clipboard.setData(
+                            ClipboardData(text: widget.paymentId!)
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Payment ID copied!'),
+                              backgroundColor: Color(0xFF1A2B49),
+                              behavior: SnackBarBehavior.floating,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.copy,
+                          size: 20,
+                          color: oceanBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -574,7 +638,6 @@ class _payment_successState extends State<payment_success>
     );
   }
 
-  // ✅ Review Button Widget
   Widget _buildReviewButton() {
     return Container(
       width: double.infinity,
