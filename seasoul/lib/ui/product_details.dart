@@ -361,6 +361,64 @@ ${product['description'] ?? ''}
     );
   }
 
+  // ✅ Helper method to build network image with error handling
+  Widget buildNetworkImage(String imageUrl, {double? height, double? width, BoxFit fit = BoxFit.cover}) {
+    final cleanUrl = ImageUtils.getCleanImageUrl(imageUrl);
+    
+    // ✅ If URL is invalid, show placeholder
+    if (!ImageUtils.isValidImage(cleanUrl)) {
+      return Container(
+        height: height,
+        width: width,
+        color: Colors.grey[200],
+        child: const Icon(Icons.broken_image, color: Colors.grey, size: 40),
+      );
+    }
+    
+    return Image.network(
+      cleanUrl,
+      height: height,
+      width: width,
+      fit: fit,
+      loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          height: height,
+          width: width,
+          color: Colors.grey[200],
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+              color: oceanBlue,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+        print('❌ Image error: $error');
+        print('❌ Image URL: $cleanUrl');
+        return Container(
+          height: height,
+          width: width,
+          color: Colors.grey[200],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.broken_image, color: Colors.grey, size: 30),
+              const SizedBox(height: 4),
+              Text(
+                'Image not available',
+                style: TextStyle(color: Colors.grey[600], fontSize: 10),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -515,54 +573,15 @@ ${product['description'] ?? ''}
   }
 
   Widget _buildHeroSection(BuildContext context, String imageUrl, Map<String, dynamic> product) {
-    // ✅ Fix: Clean image URL
-    String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
-    
     return Stack(
       children: [
         SizedBox(
           height: MediaQuery.of(context).size.height * 0.58,
           width: double.infinity,
-          child: Image.network(
-            cleanImageUrl,
-            fit: BoxFit.cover,
-            loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                color: Colors.grey[200],
-                child: Center(
-                  child: CircularProgressIndicator(
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                        : null,
-                    color: oceanBlue,
-                  ),
-                ),
-              );
-            },
-            errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
-              print('❌ Image loading error: $error');
-              print('❌ Image URL: $imageUrl');
-              return Container(
-                color: Colors.grey[200],
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Image not available',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                    if (product['name'] != null)
-                      Text(
-                        product['name'],
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                  ],
-                ),
-              );
-            },
+          child: buildNetworkImage(
+            imageUrl,
+            height: MediaQuery.of(context).size.height * 0.58,
+            width: double.infinity,
           ),
         ),
         Positioned.fill(
@@ -659,7 +678,6 @@ ${product['description'] ?? ''}
         ),
         child: Row(
           children: [
-            // ✅ STAR RATING SECTION
             Expanded(
               child: Column(
                 children: [
@@ -709,7 +727,6 @@ ${product['description'] ?? ''}
               ),
             ),
             Container(height: 30, width: 1, color: outline.withOpacity(0.2)),
-            // ✅ DISTANCE SECTION
             Expanded(
               child: Column(
                 children: [
@@ -906,27 +923,19 @@ ${product['description'] ?? ''}
             itemCount: images.length > 4 ? 4 : images.length,
             itemBuilder: (context, index) {
               String imageUrl = images[index];
-              // ✅ Fix: Clean URL
-              String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
-              
               return GestureDetector(
                 onTap: () => _showGalleryDialog(images, initialIndex: index),
                 child: Container(
                   width: 220,
                   margin: const EdgeInsets.only(right: 14),
-                  decoration: BoxDecoration(
+                  child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    image: DecorationImage(
-                      image: NetworkImage(cleanImageUrl),
-                      fit: BoxFit.cover,
-                      onError: (exception, stackTrace) {
-                        print('❌ Gallery image error: $exception');
-                      },
+                    child: buildNetworkImage(
+                      imageUrl,
+                      height: 150,
+                      width: 220,
                     ),
                   ),
-                  child: imageUrl.isEmpty
-                      ? const Icon(Icons.broken_image, color: Colors.grey)
-                      : null,
                 ),
               );
             },
@@ -977,35 +986,15 @@ ${product['description'] ?? ''}
                   itemCount: images.length,
                   itemBuilder: (context, index) {
                     String imageUrl = images[index];
-                    String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
-                    
                     return Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          cleanImageUrl,
-                          fit: BoxFit.contain,
+                        child: buildNetworkImage(
+                          imageUrl,
+                          height: double.infinity,
                           width: double.infinity,
-                          loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: Colors.grey[200],
-                              child: const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            );
-                          },
-                          errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
-                            return Container(
-                              color: Colors.grey[200],
-                              child: const Icon(
-                                Icons.broken_image,
-                                size: 50,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
+                          fit: BoxFit.contain,
                         ),
                       ),
                     );
@@ -1038,7 +1027,7 @@ ${product['description'] ?? ''}
     );
   }
 
-  // ==================== REVIEWS SECTION WITH EDIT/DELETE ====================
+  // ==================== REVIEWS SECTION ====================
   Widget _buildReviewsSection() {
     return FutureBuilder<Map<String, dynamic>>(
       future: ReviewService.getItemReviews(
@@ -1071,10 +1060,8 @@ ${product['description'] ?? ''}
           return const SizedBox.shrink();
         }
 
-        // ✅ Get reviews list
         final reviewsList = data['reviews'] as List? ?? [];
         
-        // ✅ Convert to ReviewModel
         final reviews = reviewsList
             .where((r) => r is Map<String, dynamic>)
             .map((r) => ReviewModel.fromJson(r as Map<String, dynamic>))
@@ -1083,7 +1070,6 @@ ${product['description'] ?? ''}
         final averageRating = data['averageRating'] ?? 0;
         final totalReviews = data['totalReviews'] ?? 0;
 
-        // ✅ Update state variables
         if (_averageRating != averageRating || _totalReviews != totalReviews) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
@@ -1119,7 +1105,6 @@ ${product['description'] ?? ''}
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Rating summary
               Row(
                 children: [
                   const Text(
@@ -1146,7 +1131,6 @@ ${product['description'] ?? ''}
                 ],
               ),
               const SizedBox(height: 16),
-              // Reviews list
               ...reviews.map((review) => ReviewCard(
                 review: review,
                 onHelpfulTap: () async {
@@ -1212,8 +1196,6 @@ ${product['description'] ?? ''}
               final images = activity['images'] ?? [];
               final imageUrl = images.isNotEmpty ? images[0] : 
                   'https://via.placeholder.com/300x200';
-              // ✅ Fix: Clean URL
-              String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
               
               return GestureDetector(
                 onTap: () {
@@ -1248,17 +1230,15 @@ ${product['description'] ?? ''}
                         height: 72,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          image: DecorationImage(
-                            image: NetworkImage(cleanImageUrl),
-                            fit: BoxFit.cover,
-                            onError: (exception, stackTrace) {
-                              // Handle image load error silently
-                            },
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: buildNetworkImage(
+                            imageUrl,
+                            height: 72,
+                            width: 72,
                           ),
                         ),
-                        child: imageUrl.isEmpty
-                            ? const Icon(Icons.broken_image, color: Colors.grey)
-                            : null,
                       ),
                       const SizedBox(width: 16),
                       Expanded(

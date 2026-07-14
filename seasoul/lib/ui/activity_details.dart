@@ -274,6 +274,64 @@ ${activity['description'] ?? ''}
   }
   }
 
+  // ✅ Helper method to build network image with error handling
+  Widget buildNetworkImage(String imageUrl, {double? height, double? width, BoxFit fit = BoxFit.cover}) {
+    final cleanUrl = ImageUtils.getCleanImageUrl(imageUrl);
+    
+    // ✅ If URL is invalid, show placeholder
+    if (!ImageUtils.isValidImage(cleanUrl)) {
+      return Container(
+        height: height,
+        width: width,
+        color: Colors.grey[200],
+        child: const Icon(Icons.broken_image, color: Colors.grey, size: 40),
+      );
+    }
+    
+    return Image.network(
+      cleanUrl,
+      height: height,
+      width: width,
+      fit: fit,
+      loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          height: height,
+          width: width,
+          color: Colors.grey[200],
+          child: Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+              color: oceanBlue,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+        print('❌ Image error: $error');
+        print('❌ Image URL: $cleanUrl');
+        return Container(
+          height: height,
+          width: width,
+          color: Colors.grey[200],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.broken_image, color: Colors.grey, size: 30),
+              const SizedBox(height: 4),
+              Text(
+                'Image not available',
+                style: TextStyle(color: Colors.grey[600], fontSize: 10),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -429,54 +487,15 @@ ${activity['description'] ?? ''}
   }
 
   Widget _buildHeroSection(BuildContext context, String imageUrl, Map<String, dynamic> activity) {
-    // ✅ Fix: Clean image URL
-    String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
-    
     return Stack(
       children: [
         SizedBox(
           height: MediaQuery.of(context).size.height * 0.58,
           width: double.infinity,
-          child: Image.network(
-            cleanImageUrl,
-            fit: BoxFit.cover,
-            loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                color: Colors.grey[200],
-                child: Center(
-                  child: CircularProgressIndicator(
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                        : null,
-                    color: oceanBlue,
-                  ),
-                ),
-              );
-            },
-            errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
-              print('❌ Image loading error: $error');
-              print('❌ Image URL: $imageUrl');
-              return Container(
-                color: Colors.grey[200],
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Image not available',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                    if (activity['name'] != null)
-                      Text(
-                        activity['name'],
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                  ],
-                ),
-              );
-            },
+          child: buildNetworkImage(
+            imageUrl,
+            height: MediaQuery.of(context).size.height * 0.58,
+            width: double.infinity,
           ),
         ),
         Positioned.fill(
@@ -807,25 +826,17 @@ ${activity['description'] ?? ''}
             itemCount: displayImages.length,
             itemBuilder: (context, index) {
               String imageUrl = displayImages[index];
-              // ✅ Fix: Clean URL
-              String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
-              
               return Container(
                 width: 220,
                 margin: const EdgeInsets.only(right: 14),
-                decoration: BoxDecoration(
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  image: DecorationImage(
-                    image: NetworkImage(cleanImageUrl),
-                    fit: BoxFit.cover,
-                    onError: (exception, stackTrace) {
-                      print('❌ Gallery image error: $exception');
-                    },
+                  child: buildNetworkImage(
+                    imageUrl,
+                    height: 150,
+                    width: 220,
                   ),
                 ),
-                child: imageUrl.isEmpty
-                    ? const Icon(Icons.broken_image, color: Colors.grey)
-                    : null,
               );
             },
           ),
@@ -867,10 +878,8 @@ ${activity['description'] ?? ''}
           return const SizedBox.shrink();
         }
 
-        // ✅ Get reviews list - it's already List<dynamic>
         final reviewsList = data['reviews'] as List? ?? [];
         
-        // ✅ Convert to ReviewModel
         final reviews = reviewsList
             .where((r) => r is Map<String, dynamic>)
             .map((r) => ReviewModel.fromJson(r as Map<String, dynamic>))
@@ -879,7 +888,6 @@ ${activity['description'] ?? ''}
         final averageRating = data['averageRating'] ?? 0;
         final totalReviews = data['totalReviews'] ?? 0;
 
-        // ✅ Update state variables
         if (_averageRating != averageRating || _totalReviews != totalReviews) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
@@ -915,7 +923,6 @@ ${activity['description'] ?? ''}
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Rating summary
               Row(
                 children: [
                   const Text(
@@ -942,7 +949,6 @@ ${activity['description'] ?? ''}
                 ],
               ),
               const SizedBox(height: 16),
-              // Reviews list
               ...reviews.map((review) => ReviewCard(
                 review: review,
                 onHelpfulTap: () async {

@@ -11,9 +11,6 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cloudinary = require('../config/cloudinary');
 const { createNotificationForAllUsers } = require('../utils/createNotification');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 require('dotenv').config();
 
 // ==================== Token Generation ====================
@@ -122,29 +119,35 @@ router.post('/upload', isAdmin, async (req, res) => {
     }
 
     console.log('📤 Image data length:', imageData.length);
-    console.log('📤 Image data starts with:', imageData.substring(0, 30));
+    console.log('📤 Image data starts with:', imageData.substring(0, 50));
 
     // ✅ Check if it's base64
     if (typeof imageData === 'string' && imageData.startsWith('data:image')) {
       console.log('📤 Processing base64 image...');
       
-      // ✅ Upload to Cloudinary
+      // ✅ Upload to Cloudinary - Force JPG format for better browser compatibility
       const result = await cloudinary.uploader.upload(imageData, {
         folder: 'seasoul/products',
         width: 800,
         height: 600,
         crop: 'fill',
         quality: 'auto:good',
-        format: 'jpg'
+        format: 'jpg', // ✅ Force JPG format
+        transformation: [
+          { quality: 'auto:good' },
+          { fetch_format: 'auto' }
+        ]
       });
 
       console.log('✅ Cloudinary upload successful:', result.secure_url);
       console.log('📤 Public ID:', result.public_id);
+      console.log('📤 Format:', result.format);
 
       return res.json({
         success: true,
         url: result.secure_url,
         publicId: result.public_id,
+        format: result.format,
         message: 'Image uploaded successfully'
       });
     }
