@@ -1,75 +1,70 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 class ApiConstants {
-  // ==================== BASE URL - YOUR VERCEL BACKEND ====================
-  static const String baseUrl = 'https://sea-soul-backend.vercel.app';
+  // ✅ YOUR HOSTED BACKEND URL (Vercel)
+  static const String HOSTED_URL = 'https://sea-soul-backend.vercel.app';
   
-  // ==================== AUTH ENDPOINTS ====================
-  static const String login = '$baseUrl/api/auth/login';
-  static const String register = '$baseUrl/api/auth/register';
-  static const String logout = '$baseUrl/api/auth/logout';
-  static const String refreshToken = '$baseUrl/api/auth/refresh-token';
-  static const String forgotPassword = '$baseUrl/api/auth/forgot-password';
-  static const String resetPassword = '$baseUrl/api/auth/reset-password';
-  static const String verifyEmail = '$baseUrl/api/auth/verify-email';
-  static const String resendVerification = '$baseUrl/api/auth/resend-verification';
-  static const String googleAuth = '$baseUrl/api/auth/google';
+  // ✅ Local Backend URLs
+  static const String LOCAL_URL = 'http://localhost:5000';
+  static const String EMULATOR_URL = 'http://10.0.2.2:5000';
+
+  static String get baseUrl {
+    // ✅ ALWAYS USE HOSTED URL FOR NOW
+    // This will work on both web and mobile
+    return HOSTED_URL;
+  }
+
+  // ==================== AUTH ====================
+  static String get sendOTP => '$baseUrl/api/auth/send-otp';
+  static String get verifyOTP => '$baseUrl/api/auth/verify-otp';
+  static String get resendOTP => '$baseUrl/api/auth/resend-otp';
+  static String get register => '$baseUrl/api/auth/register';
+  static String get login => '$baseUrl/api/auth/login';
+  static String get forgotPassword => '$baseUrl/api/auth/forgot-password';
+  static String get resetPassword => '$baseUrl/api/auth/reset-password';
+  static String get changePassword => '$baseUrl/api/auth/change-password';
   
-  // ==================== OTP ENDPOINTS ====================
-  static const String sendOTP = '$baseUrl/api/auth/send-otp';
-  static const String verifyOTP = '$baseUrl/api/auth/verify-otp';
-  static const String resendOTP = '$baseUrl/api/auth/resend-otp';
-
-  // ==================== USER ENDPOINTS ====================
-  static const String profile = '$baseUrl/api/user/profile';
-  static const String users = '$baseUrl/api/users';
-  static const String uploadProfileImage = '$baseUrl/api/user/upload-profile-image';
-  static const String deleteProfileImage = '$baseUrl/api/user/delete-profile-image';
-  static const String updateProfile = '$baseUrl/api/user/update-profile';
-  static const String changePassword = '$baseUrl/api/user/change-password';
-  static const String userSettings = '$baseUrl/api/user/settings';
-  static const String userActivities = '$baseUrl/api/user/activities';
-
-  // ==================== PRODUCT ENDPOINTS ====================
-  static const String products = '$baseUrl/api/products';
+  // ==================== PROFILE ====================
+  static String get profile => '$baseUrl/api/profile';
+  static String get uploadProfileImage => '$baseUrl/api/profile/upload-image';
+  static String get deleteProfileImage => '$baseUrl/api/profile/image';
+  
+  // ==================== PRODUCTS ====================
+  static String get products => '$baseUrl/api/products';
+  static String get featuredProducts => '$baseUrl/api/products/featured';
+  static String get trendingProducts => '$baseUrl/api/products/trending';
   static String productById(String id) => '$baseUrl/api/products/$id';
   static String productsByCategory(String category) => '$baseUrl/api/products/category/$category';
-  static const String featuredProducts = '$baseUrl/api/products/featured';
-  static const String trendingProducts = '$baseUrl/api/products/trending';
-
-  // ==================== ACTIVITY ENDPOINTS ====================
-  static const String activities = '$baseUrl/api/activities';
+  
+  // ==================== ACTIVITIES ====================
+  static String get activities => '$baseUrl/api/activities';
+  static String get featuredActivities => '$baseUrl/api/activities/featured';
+  static String get trendingActivities => '$baseUrl/api/activities/trending';
   static String activityById(String id) => '$baseUrl/api/activities/$id';
   static String activitiesByCategory(String category) => '$baseUrl/api/activities/category/$category';
-  static const String featuredActivities = '$baseUrl/api/activities/featured';
-  static const String trendingActivities = '$baseUrl/api/activities/trending';
 
-  // ==================== REVIEW ENDPOINTS ====================
-  static const String reviews = '$baseUrl/api/reviews';
-  static String reviewById(String id) => '$baseUrl/api/reviews/$id';
-  static String reviewsByItem(String itemType, String itemId) => '$baseUrl/api/reviews/item/$itemType/$itemId';
-  static const String userReviews = '$baseUrl/api/reviews/user';
-  static const String recentReviews = '$baseUrl/api/reviews/recent';
+  // ==================== NOTIFICATIONS ====================
+  static String get notifications => '$baseUrl/api/notifications';
+  static String get unreadCount => '$baseUrl/api/notifications/unread-count';
+  static String markAsRead(String id) => '$baseUrl/api/notifications/$id/read';
+  static String get markAllAsRead => '$baseUrl/api/notifications/read-all';
+  static String deleteNotification(String id) => '$baseUrl/api/notifications/$id';
+  static String get deleteAllNotifications => '$baseUrl/api/notifications';
 
-  // ==================== NOTIFICATION ENDPOINTS ====================
-  static const String notifications = '$baseUrl/api/notifications';
-  static String notificationById(String id) => '$baseUrl/api/notifications/$id';
-  static const String unreadCount = '$baseUrl/api/notifications/unread-count';
-  static const String markAllRead = '$baseUrl/api/notifications/read-all';
+  // ==================== REVIEWS ====================
+  static String get reviews => '$baseUrl/api/reviews';
+  static String itemReviews(String itemId, String itemType) => '$baseUrl/api/reviews/item/$itemType/$itemId';
+  static String get userReviews => '$baseUrl/api/reviews/user';
+  static String reviewHelpful(String id) => '$baseUrl/api/reviews/$id/helpful';
+  static String deleteReview(String id) => '$baseUrl/api/reviews/$id';
 
-  // ==================== ORDER ENDPOINTS ====================
-  static const String orders = '$baseUrl/api/orders';
-  static String orderById(String id) => '$baseUrl/api/orders/$id';
-  static const String userOrders = '$baseUrl/api/orders/user';
-  static const String createOrder = '$baseUrl/api/orders/create';
-  static const String orderStatus = '$baseUrl/api/orders/status';
+  // ==================== CATEGORIES ====================
+  static String get categories => '$baseUrl/api/categories';
+  static String get activeCategories => '$baseUrl/api/categories/active';
 
-  // ==================== BOOKING ENDPOINTS ====================
-  static const String bookings = '$baseUrl/api/bookings';
-  static String bookingById(String id) => '$baseUrl/api/bookings/$id';
-  static const String userBookings = '$baseUrl/api/bookings/user';
-  static const String createBooking = '$baseUrl/api/bookings/create';
+  // ==================== BOOKINGS ====================
+  static String get bookings => '$baseUrl/api/bookings';
 
-  // ==================== PAYMENT ENDPOINTS ====================
-  static const String payments = '$baseUrl/api/payments';
-  static const String createPayment = '$baseUrl/api/payments/create';
-  static const String paymentStatus = '$baseUrl/api/payments/status';
+  // ==================== PAYMENTS ====================
+  static String get payments => '$baseUrl/api/payments';
 }

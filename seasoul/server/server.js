@@ -12,7 +12,7 @@ connectDB();
 
 const app = express();
 
-// ✅ CORS Configuration
+// ✅ CORS - Allow all origins
 app.use(cors({
   origin: '*',
   credentials: true,
@@ -39,13 +39,37 @@ app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/reviews', require('./routes/reviewRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes'));
 
+// ✅ Health Check
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'SeaSoul API is running locally!',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/', (req, res) => {
   res.send('SeaSoul API is running...');
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Admin API: http://localhost:${PORT}/api/admin`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`📱 Local: http://localhost:${PORT}`);
+  console.log(`📱 Network: http://${getLocalIP()}:${PORT}`);
   console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
 });
+
+// ✅ Get local IP address
+function getLocalIP() {
+  const { networkInterfaces } = require('os');
+  const nets = networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return 'localhost';
+}

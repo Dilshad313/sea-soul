@@ -3,14 +3,14 @@ const cors = require('cors');
 const path = require('path');
 const connectDB = require('../config/db');
 
-// ✅ Load environment variables from parent folder
+// ✅ Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 
-// ✅ CORS Configuration
+// ✅ CORS - Allow all origins (for local + hosted)
 app.use(cors({
-  origin: '*',
+  origin: '*',  // Allow all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
