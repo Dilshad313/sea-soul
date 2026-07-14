@@ -20,6 +20,7 @@ import 'package:seasoul/models/review_model.dart';
 import 'package:seasoul/widgets/review_card.dart';
 import 'package:seasoul/widgets/star_rating.dart';
 import 'package:seasoul/providers/notification_provider.dart';
+import 'package:seasoul/utils/image_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UserHome extends StatefulWidget {
@@ -556,48 +557,6 @@ class _UserHomeState extends State<UserHome> {
           ),
         ],
       ),
-      // child: Row(
-      //   children: [
-      //     const Padding(
-      //       padding: EdgeInsets.only(left: 16),
-      //       child: Icon(Icons.search, color: outline),
-      //     ),
-      //     Expanded(
-      //       child: TextField(
-      //         onChanged: _handleSearch,
-      //         decoration: const InputDecoration(
-      //           hintText: 'Search destinations, resorts...',
-      //           hintStyle: TextStyle(
-      //             color: outline,
-      //             fontFamily: 'Inter',
-      //             fontSize: 15,
-      //           ),
-      //           border: InputBorder.none,
-      //           contentPadding: EdgeInsets.symmetric(
-      //             vertical: 16,
-      //             horizontal: 12,
-      //           ),
-      //         ),
-      //       ),
-      //     ),
-      //     PopupMenuButton<String>(
-      //       icon: const Icon(Icons.sort, color: outline),
-      //       onSelected: _handleSort,
-      //       itemBuilder: (context) => _sortOptions.map((key) {
-      //         return PopupMenuItem(
-      //           value: key,
-      //           child: Row(
-      //             children: [
-      //               Icon(_sortIcons[key], size: 18, color: oceanBlue),
-      //               const SizedBox(width: 10),
-      //               Text(_sortLabels[key] ?? key),
-      //             ],
-      //           ),
-      //         );
-      //       }).toList(),
-      //     ),
-      //   ],
-      // ),
     );
   }
 
@@ -902,8 +861,11 @@ class _UserHomeState extends State<UserHome> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(20),
                             image: DecorationImage(
-                              image: NetworkImage(imageUrl),
+                              image: NetworkImage(ImageUtils.getCleanImageUrl(imageUrl)),
                               fit: BoxFit.cover,
+                              onError: (exception, stackTrace) {
+                                print('❌ Package image error: $exception');
+                              },
                             ),
                           ),
                           child: Stack(
@@ -1176,8 +1138,11 @@ class _UserHomeState extends State<UserHome> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(20),
                             image: DecorationImage(
-                              image: NetworkImage(imageUrl),
+                              image: NetworkImage(ImageUtils.getCleanImageUrl(imageUrl)),
                               fit: BoxFit.cover,
+                              onError: (exception, stackTrace) {
+                                print('❌ Activity image error: $exception');
+                              },
                             ),
                           ),
                           child: Stack(
@@ -1430,8 +1395,13 @@ class _UserHomeState extends State<UserHome> {
                   latestProducts[0]['images'] != null &&
                       latestProducts[0]['images'].isNotEmpty
                   ? DecorationImage(
-                      image: NetworkImage(latestProducts[0]['images'][0]),
+                      image: NetworkImage(
+                        ImageUtils.getCleanImageUrl(latestProducts[0]['images'][0]),
+                      ),
                       fit: BoxFit.cover,
+                      onError: (exception, stackTrace) {
+                        print('❌ Bento image error: $exception');
+                      },
                     )
                   : const DecorationImage(
                       image: NetworkImage(
@@ -1567,9 +1537,12 @@ class _UserHomeState extends State<UserHome> {
                               latestProducts[1]['images'].isNotEmpty
                           ? DecorationImage(
                               image: NetworkImage(
-                                latestProducts[1]['images'][0],
+                                ImageUtils.getCleanImageUrl(latestProducts[1]['images'][0]),
                               ),
                               fit: BoxFit.cover,
+                              onError: (exception, stackTrace) {
+                                print('❌ Bento image error: $exception');
+                              },
                             )
                           : const DecorationImage(
                               image: NetworkImage(
@@ -1677,9 +1650,12 @@ class _UserHomeState extends State<UserHome> {
                               latestProducts[2]['images'].isNotEmpty
                           ? DecorationImage(
                               image: NetworkImage(
-                                latestProducts[2]['images'][0],
+                                ImageUtils.getCleanImageUrl(latestProducts[2]['images'][0]),
                               ),
                               fit: BoxFit.cover,
+                              onError: (exception, stackTrace) {
+                                print('❌ Bento image error: $exception');
+                              },
                             )
                           : const DecorationImage(
                               image: NetworkImage(

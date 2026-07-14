@@ -3,6 +3,7 @@ import 'package:seasoul/services/wishlist_service.dart';
 import 'package:seasoul/ui/activity_details.dart';
 import 'package:seasoul/ui/product_details.dart';
 import 'package:seasoul/ui/user_home.dart';
+import 'package:seasoul/utils/image_utils.dart';
 
 class WishlistPage extends StatefulWidget {
   const WishlistPage({super.key});
@@ -308,11 +309,27 @@ class _WishlistPageState extends State<WishlistPage> {
                         topRight: Radius.circular(16),
                       ),
                       child: Image.network(
-                        imageUrl,
+                        ImageUtils.getCleanImageUrl(imageUrl),
                         height: 140,
                         width: double.infinity,
                         fit: BoxFit.cover,
+                        loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            height: 140,
+                            color: Colors.grey[200],
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                    : null,
+                                color: oceanBlue,
+                              ),
+                            ),
+                          );
+                        },
                         errorBuilder: (context, error, stackTrace) {
+                          print('❌ Wishlist image error: $error');
                           return Container(
                             height: 140,
                             color: Colors.grey[200],

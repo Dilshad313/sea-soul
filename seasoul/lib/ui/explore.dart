@@ -4,6 +4,7 @@ import 'package:seasoul/services/activity_service.dart';
 import 'package:seasoul/ui/activity_details.dart';
 import 'package:seasoul/ui/product_details.dart';
 import 'package:seasoul/widgets/star_rating.dart';
+import 'package:seasoul/utils/image_utils.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -427,8 +428,11 @@ class _ExplorePageState extends State<ExplorePage> {
                             ),
                           ],
                           image: DecorationImage(
-                            image: NetworkImage(imageUrl),
+                            image: NetworkImage(ImageUtils.getCleanImageUrl(imageUrl)),
                             fit: BoxFit.cover,
+                            onError: (exception, stackTrace) {
+                              print('❌ Explore image error: $exception');
+                            },
                           ),
                         ),
                       ),

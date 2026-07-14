@@ -11,6 +11,9 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cloudinary = require('../config/cloudinary');
 const { createNotificationForAllUsers } = require('../utils/createNotification');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 // ==================== Token Generation ====================
@@ -101,13 +104,13 @@ router.put('/profile', isAdmin, updateAdminProfile);
 router.post('/profile/upload-image', isAdmin, uploadAdminProfileImage);
 router.delete('/profile/image', isAdmin, deleteAdminProfileImage);
 
-// ==================== IMAGE UPLOAD ROUTE - Cloudinary (Vercel Compatible) ====================
+// ==================== IMAGE UPLOAD ROUTE - FIXED ====================
 router.post('/upload', isAdmin, async (req, res) => {
   try {
     console.log('📤 Upload request received');
     console.log('📤 Request body keys:', Object.keys(req.body));
 
-    // ✅ Accept both base64 and multipart uploads
+    // ✅ Get image from request body
     let imageData = req.body.image || req.body.file;
     
     if (!imageData) {
@@ -119,53 +122,48 @@ router.post('/upload', isAdmin, async (req, res) => {
     }
 
     console.log('📤 Image data length:', imageData.length);
-    console.log('📤 Image data type:', typeof imageData);
+    console.log('📤 Image data starts with:', imageData.substring(0, 30));
 
-    let result;
-    
-    // ✅ Check if it's base64 or already a URL
+    // ✅ Check if it's base64
     if (typeof imageData === 'string' && imageData.startsWith('data:image')) {
       console.log('📤 Processing base64 image...');
       
-      // ✅ Upload base64 to Cloudinary
-      result = await cloudinary.uploader.upload(imageData, {
+      // ✅ Upload to Cloudinary
+      const result = await cloudinary.uploader.upload(imageData, {
         folder: 'seasoul/products',
         width: 800,
         height: 600,
         crop: 'fill',
         quality: 'auto:good',
+        format: 'jpg'
       });
-    } else if (typeof imageData === 'string' && imageData.startsWith('http')) {
-      // ✅ It's already a URL - just return it
+
+      console.log('✅ Cloudinary upload successful:', result.secure_url);
+      console.log('📤 Public ID:', result.public_id);
+
+      return res.json({
+        success: true,
+        url: result.secure_url,
+        publicId: result.public_id,
+        message: 'Image uploaded successfully'
+      });
+    }
+    
+    // ✅ If it's already a URL
+    if (typeof imageData === 'string' && imageData.startsWith('http')) {
       console.log('📤 Image is already a URL');
       return res.json({
         success: true,
         url: imageData,
         message: 'Image URL already valid'
       });
-    } else {
-      // ✅ Try to upload as raw
-      console.log('📤 Trying to upload as raw...');
-      result = await cloudinary.uploader.upload(imageData, {
-        folder: 'seasoul/products',
-        width: 800,
-        height: 600,
-        crop: 'fill',
-      });
     }
 
-    if (!result || !result.secure_url) {
-      throw new Error('Upload failed - no URL returned');
-    }
-
-    console.log('✅ Cloudinary upload successful:', result.secure_url);
-    console.log('📤 Public ID:', result.public_id);
-
-    res.json({
-      success: true,
-      url: result.secure_url,
-      publicId: result.public_id,
-      message: 'Image uploaded successfully'
+    // ✅ If it's a file path (should not happen in production)
+    console.log('❌ Unsupported image format');
+    return res.status(400).json({
+      success: false,
+      message: 'Unsupported image format. Please send base64 image data.'
     });
 
   } catch (error) {

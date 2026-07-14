@@ -28,7 +28,7 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-// ✅ Update Profile - With Notification
+// ✅ Update Profile
 exports.updateProfile = async (req, res) => {
   try {
     const { fullName, phone, bio, location } = req.body;
@@ -44,7 +44,6 @@ exports.updateProfile = async (req, res) => {
       });
     }
 
-    // Check what changed
     const changes = [];
     let notificationMessage = 'Your profile has been updated: ';
     
@@ -77,7 +76,6 @@ exports.updateProfile = async (req, res) => {
 
     notificationMessage += changes.join(', ');
 
-    // ✅ Create notification for profile update
     await createNotification(
       userId,
       '👤 Profile Updated',
@@ -112,65 +110,57 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// ✅ Upload Profile Image - Supports both base64 and multipart
+// ✅ Upload Profile Image - FIXED
 exports.uploadProfileImage = async (req, res) => {
   try {
-    console.log('📤 Upload request received');
-    console.log('📤 Request file:', req.file);
+    console.log('📤 Profile Upload request received');
     console.log('📤 Request body keys:', Object.keys(req.body));
 
     const userId = req.user.id;
     let imageUrl;
 
-    // ✅ Check if image is in body (base64) or file (multipart)
+    // ✅ Check if image is in body (base64)
     if (req.body.image) {
       console.log('📤 Uploading base64 image...');
       
-      // Validate base64 data
-      if (!req.body.image.startsWith('data:image')) {
+      const imageData = req.body.image;
+      if (!imageData || typeof imageData !== 'string') {
         return res.status(400).json({
           success: false,
-          message: 'Invalid image data format'
+          message: 'Invalid image data'
         });
       }
       
-      const result = await cloudinary.uploader.upload(req.body.image, {
-        folder: 'seasoul/profiles',
-        width: 500,
-        height: 500,
-        crop: 'fill',
-        gravity: 'face',
-        quality: 'auto:good',
-      });
-      imageUrl = result.secure_url;
-    } else if (req.file) {
-      console.log('📤 Uploading file:', req.file.path);
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'seasoul/profiles',
-        width: 500,
-        height: 500,
-        crop: 'fill',
-        gravity: 'face',
-        quality: 'auto:good',
-      });
-      imageUrl = result.secure_url;
-      
-      // Delete temp file
-      try {
-        fs.unlinkSync(req.file.path);
-        console.log('✅ Temporary file deleted');
-      } catch (err) {
-        console.log('⚠️ Could not delete temp file:', err.message);
+      if (!imageData.startsWith('data:image')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid image format. Expected base64 image data.'
+        });
       }
+      
+      const result = await cloudinary.uploader.upload(imageData, {
+        folder: 'seasoul/profiles',
+        width: 500,
+        height: 500,
+        crop: 'fill',
+        gravity: 'face',
+        quality: 'auto:good',
+        format: 'jpg'
+      });
+      imageUrl = result.secure_url;
+      console.log('✅ Cloudinary upload successful:', imageUrl);
+      
     } else {
       console.log('❌ No image in request');
       return res.status(400).json({
         success: false,
-        message: 'No image file provided'
+        message: 'No image provided. Please send image as base64.'
       });
     }
 
-    console.log('✅ Cloudinary upload successful:', imageUrl);
+    if (!imageUrl) {
+      throw new Error('Image upload failed - no URL returned');
+    }
 
     const user = await User.findById(userId);
     if (!user) {
@@ -194,7 +184,6 @@ exports.uploadProfileImage = async (req, res) => {
     user.profileImage = imageUrl;
     await user.save();
 
-    // ✅ Create notification for profile image update
     await createNotification(
       userId,
       '🖼️ Profile Photo Updated',
@@ -220,24 +209,17 @@ exports.uploadProfileImage = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error in uploadProfileImage:', error);
+    console.error('❌ Error details:', error.message);
     
-    if (req.file && req.file.path) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (err) {
-        console.log('⚠️ Could not delete temp file:', err.message);
-      }
-    }
-
     res.status(500).json({
       success: false,
-      message: 'Server error',
+      message: error.message || 'Server error',
       error: error.message
     });
   }
 };
 
-// ✅ Delete Profile Image - With Notification
+// ✅ Delete Profile Image
 exports.deleteProfileImage = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -263,7 +245,6 @@ exports.deleteProfileImage = async (req, res) => {
     user.profileImage = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
     await user.save();
 
-    // ✅ Create notification for profile image removal
     await createNotification(
       userId,
       '🖼️ Profile Photo Removed',

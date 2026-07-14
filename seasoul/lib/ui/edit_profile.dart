@@ -69,10 +69,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _selectedImagePath = image.path;
         });
         
-        final response = await ApiService.uploadImage(
+        // ✅ Read file as base64
+        final bytes = await File(image.path).readAsBytes();
+        final base64Image = 'data:image/jpeg;base64,${bytesToBase64(bytes)}';
+        
+        print('📤 Uploading image to: ${ApiConstants.uploadProfileImage}');
+        print('📤 Image size: ${bytes.length} bytes');
+        
+        final response = await ApiService.postWithToken(
           ApiConstants.uploadProfileImage,
-          image.path,
+          {'image': base64Image},
         );
+
+        print('📥 Response: $response');
 
         if (response['success'] == true) {
           setState(() {
@@ -96,6 +105,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _isImageLoading = false;
         _selectedImagePath = null;
       });
+      print('❌ Error uploading image: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -105,11 +115,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  String bytesToBase64(List<int> bytes) {
+    // Convert bytes to base64
+    String base64 = '';
+    for (int i = 0; i < bytes.length; i++) {
+      base64 += String.fromCharCode(bytes[i]);
+    }
+    return base64;
+  }
+
   Future<void> _removeImage() async {
     try {
       setState(() => _isImageLoading = true);
       
-      final response = await ApiService.delete(ApiConstants.deleteProfileImage);
+      final response = await ApiService.deleteWithToken(ApiConstants.deleteProfileImage);
       
       if (response['success'] == true) {
         setState(() {
@@ -128,6 +147,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
     } catch (e) {
       setState(() => _isImageLoading = false);
+      print('❌ Error removing image: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -148,7 +168,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         'location': _locationController.text.trim(),
       };
 
-      final response = await ApiService.put(ApiConstants.profile, data);
+      final response = await ApiService.putWithToken(ApiConstants.profile, data);
       
       if (response['success'] == true) {
         await ApiService.saveUserData(response['user']);
@@ -160,12 +180,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
         );
 
-        // ✅ FIX: Pop back to ProfilePage (preserves bottom nav bar)
         Navigator.pop(context, true);
       } else {
         throw Exception(response['message'] ?? 'Update failed');
       }
     } catch (e) {
+      print('❌ Error saving profile: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -228,7 +248,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         ? DecorationImage(
                             image: NetworkImage(_profileImage),
                             fit: BoxFit.cover,
-                            onError: (exception, stackTrace) {},
+                            onError: (exception, stackTrace) {
+                              print('❌ Profile image load error: $exception');
+                            },
                           )
                         : null,
                     border: Border.all(
@@ -341,7 +363,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         vertical: 16,
                         horizontal: 16,
                       ),
-                      // ✅ Explicitly prevent error styling
                       errorText: null,
                       errorBorder: InputBorder.none,
                       focusedErrorBorder: InputBorder.none,

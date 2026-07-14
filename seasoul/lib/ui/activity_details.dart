@@ -8,6 +8,7 @@ import 'package:seasoul/models/review_model.dart';
 import 'package:seasoul/ui/payment.dart';
 import 'package:seasoul/widgets/review_card.dart';
 import 'package:seasoul/widgets/star_rating.dart';
+import 'package:seasoul/utils/image_utils.dart';
 import 'package:share_plus/share_plus.dart';
 
 class ActivityDetailsPage extends StatefulWidget {
@@ -428,18 +429,52 @@ ${activity['description'] ?? ''}
   }
 
   Widget _buildHeroSection(BuildContext context, String imageUrl, Map<String, dynamic> activity) {
+    // ✅ Fix: Clean image URL
+    String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
+    
     return Stack(
       children: [
         SizedBox(
           height: MediaQuery.of(context).size.height * 0.58,
           width: double.infinity,
           child: Image.network(
-            imageUrl,
+            cleanImageUrl,
             fit: BoxFit.cover,
-            errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+            loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+              if (loadingProgress == null) return child;
               return Container(
                 color: Colors.grey[200],
-                child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                        : null,
+                    color: oceanBlue,
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+              print('❌ Image loading error: $error');
+              print('❌ Image URL: $imageUrl');
+              return Container(
+                color: Colors.grey[200],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Image not available',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    ),
+                    if (activity['name'] != null)
+                      Text(
+                        activity['name'],
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                  ],
+                ),
               );
             },
           ),
@@ -771,20 +806,24 @@ ${activity['description'] ?? ''}
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: displayImages.length,
             itemBuilder: (context, index) {
+              String imageUrl = displayImages[index];
+              // ✅ Fix: Clean URL
+              String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
+              
               return Container(
                 width: 220,
                 margin: const EdgeInsets.only(right: 14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   image: DecorationImage(
-                    image: NetworkImage(displayImages[index]),
+                    image: NetworkImage(cleanImageUrl),
                     fit: BoxFit.cover,
                     onError: (exception, stackTrace) {
-                      // Handle image load error silently
+                      print('❌ Gallery image error: $exception');
                     },
                   ),
                 ),
-                child: displayImages[index].isEmpty
+                child: imageUrl.isEmpty
                     ? const Icon(Icons.broken_image, color: Colors.grey)
                     : null,
               );
@@ -916,7 +955,6 @@ ${activity['description'] ?? ''}
                         duration: Duration(seconds: 2),
                       ),
                     );
-                    // ✅ Refresh reviews after helpful toggle
                     _loadReviews();
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(

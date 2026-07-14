@@ -11,6 +11,7 @@ import 'package:seasoul/ui/payment.dart';
 import 'package:seasoul/ui/review_page.dart';
 import 'package:seasoul/widgets/review_card.dart';
 import 'package:seasoul/widgets/star_rating.dart';
+import 'package:seasoul/utils/image_utils.dart';
 import 'package:share_plus/share_plus.dart';
 
 class ProductDetailsPage extends StatefulWidget {
@@ -514,18 +515,52 @@ ${product['description'] ?? ''}
   }
 
   Widget _buildHeroSection(BuildContext context, String imageUrl, Map<String, dynamic> product) {
+    // ✅ Fix: Clean image URL
+    String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
+    
     return Stack(
       children: [
         SizedBox(
           height: MediaQuery.of(context).size.height * 0.58,
           width: double.infinity,
           child: Image.network(
-            imageUrl,
+            cleanImageUrl,
             fit: BoxFit.cover,
-            errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+            loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+              if (loadingProgress == null) return child;
               return Container(
                 color: Colors.grey[200],
-                child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                        : null,
+                    color: oceanBlue,
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
+              print('❌ Image loading error: $error');
+              print('❌ Image URL: $imageUrl');
+              return Container(
+                color: Colors.grey[200],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Image not available',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    ),
+                    if (product['name'] != null)
+                      Text(
+                        product['name'],
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                  ],
+                ),
               );
             },
           ),
@@ -870,6 +905,10 @@ ${product['description'] ?? ''}
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: images.length > 4 ? 4 : images.length,
             itemBuilder: (context, index) {
+              String imageUrl = images[index];
+              // ✅ Fix: Clean URL
+              String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
+              
               return GestureDetector(
                 onTap: () => _showGalleryDialog(images, initialIndex: index),
                 child: Container(
@@ -878,14 +917,14 @@ ${product['description'] ?? ''}
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
                     image: DecorationImage(
-                      image: NetworkImage(images[index]),
+                      image: NetworkImage(cleanImageUrl),
                       fit: BoxFit.cover,
                       onError: (exception, stackTrace) {
-                        // Handle image load error silently
+                        print('❌ Gallery image error: $exception');
                       },
                     ),
                   ),
-                  child: images[index].isEmpty
+                  child: imageUrl.isEmpty
                       ? const Icon(Icons.broken_image, color: Colors.grey)
                       : null,
                 ),
@@ -937,14 +976,26 @@ ${product['description'] ?? ''}
                   controller: pageController,
                   itemCount: images.length,
                   itemBuilder: (context, index) {
+                    String imageUrl = images[index];
+                    String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
+                    
                     return Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.network(
-                          images[index],
+                          cleanImageUrl,
                           fit: BoxFit.contain,
                           width: double.infinity,
+                          loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: Colors.grey[200],
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          },
                           errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
                             return Container(
                               color: Colors.grey[200],
@@ -1063,11 +1114,6 @@ ${product['description'] ?? ''}
           );
         }
 
-        // ✅ Get current user ID to check if review belongs to user
-        String currentUserId = '';
-        // You need to get current user ID from your auth service
-        // For now, we'll use a placeholder
-
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
@@ -1123,11 +1169,9 @@ ${product['description'] ?? ''}
                     );
                   }
                 },
-                // ✅ Edit Button
                 onEditTap: () {
                   _editReview(review);
                 },
-                // ✅ Delete Button
                 onDeleteTap: () {
                   _deleteReview(review);
                 },
@@ -1168,6 +1212,8 @@ ${product['description'] ?? ''}
               final images = activity['images'] ?? [];
               final imageUrl = images.isNotEmpty ? images[0] : 
                   'https://via.placeholder.com/300x200';
+              // ✅ Fix: Clean URL
+              String cleanImageUrl = ImageUtils.getCleanImageUrl(imageUrl);
               
               return GestureDetector(
                 onTap: () {
@@ -1203,7 +1249,7 @@ ${product['description'] ?? ''}
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           image: DecorationImage(
-                            image: NetworkImage(imageUrl),
+                            image: NetworkImage(cleanImageUrl),
                             fit: BoxFit.cover,
                             onError: (exception, stackTrace) {
                               // Handle image load error silently
