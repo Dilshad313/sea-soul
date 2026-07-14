@@ -16,13 +16,16 @@ export default function AdminProfile() {
     location: user?.location || '',
   });
 
+  // ✅ Cloudinary configuration - Replace with your values
+  const CLOUDINARY_CLOUD_NAME = 'eeua8tfb';
+  const CLOUDINARY_UPLOAD_PRESET = 'seasoul_profiles';
+
   const hasImage = profileImage && 
                    profileImage.trim() !== '' && 
                    !profileImage.includes('default-avatar');
 
   const initial = user?.fullName?.charAt(0)?.toUpperCase() || 'A';
 
-  // Load profile data
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -40,7 +43,6 @@ export default function AdminProfile() {
           location: userData.location || '',
         });
         
-        // Update auth context
         if (setUser) {
           setUser(userData);
         }
@@ -51,19 +53,97 @@ export default function AdminProfile() {
     }
   };
 
+  // ✅ Compress image
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDimension = 500;
+          
+          if (width > height && width > maxDimension) {
+            height = (height / width) * maxDimension;
+            width = maxDimension;
+          } else if (height > maxDimension) {
+            width = (width / height) * maxDimension;
+            height = maxDimension;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  // ✅ Upload directly to Cloudinary
+  const uploadToCloudinary = async (file) => {
+    try {
+      let compressedBase64;
+      if (file.size > 200 * 1024) {
+        compressedBase64 = await compressImage(file);
+      } else {
+        const reader = new FileReader();
+        compressedBase64 = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+      
+      const base64Data = compressedBase64.split(',')[1];
+      
+      const formData = new FormData();
+      formData.append('file', `data:image/jpeg;base64,${base64Data}`);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+      formData.append('folder', 'seasoul/admin-profiles');
+      
+      console.log('📤 Uploading to Cloudinary...');
+      
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+      
+      const data = await response.json();
+      console.log('📥 Cloudinary Response:', data);
+      
+      if (data.secure_url) {
+        return data.secure_url;
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('❌ Cloudinary upload error:', error);
+      throw error;
+    }
+  };
+
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size should be less than 5MB');
       return;
     }
 
@@ -71,19 +151,20 @@ export default function AdminProfile() {
     const toastId = toast.loading('Uploading image...');
 
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await api.post('/admin/profile/upload-image', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      // ✅ Upload directly to Cloudinary
+      const imageUrl = await uploadToCloudinary(file);
+      console.log('✅ Uploaded to Cloudinary:', imageUrl);
+      
+      // ✅ Send the Cloudinary URL to backend
+      const response = await api.post('/admin/profile/upload-image', { 
+        image: imageUrl
       });
+
+      console.log('📥 Backend Response:', response.data);
 
       if (response.data.success) {
         setProfileImage(response.data.profileImage);
         
-        // Update auth context
         if (setUser && response.data.user) {
           setUser(response.data.user);
         }
@@ -92,10 +173,12 @@ export default function AdminProfile() {
           id: toastId,
           duration: 3000,
         });
+      } else {
+        throw new Error(response.data.message || 'Failed to save image');
       }
     } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error(error.response?.data?.message || 'Failed to upload image', {
+      console.error('❌ Error uploading image:', error);
+      toast.error(error.response?.data?.message || error.message || 'Failed to upload image', {
         id: toastId,
         duration: 4000,
       });
@@ -117,7 +200,6 @@ export default function AdminProfile() {
       if (response.data.success) {
         setProfileImage('https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png');
         
-        // Update auth context
         if (setUser && response.data.user) {
           setUser(response.data.user);
         }
@@ -147,7 +229,6 @@ export default function AdminProfile() {
       const response = await api.put('/admin/profile', formData);
       
       if (response.data.success) {
-        // Update auth context
         if (setUser && response.data.user) {
           setUser(response.data.user);
         }
@@ -195,6 +276,7 @@ export default function AdminProfile() {
                   alt="Profile"
                   className="w-full h-full object-cover"
                   onError={(e) => {
+                    console.log('❌ Image load error:', profileImage);
                     e.target.style.display = 'none';
                     e.target.parentNode.innerHTML = `
                       <div class="w-full h-full bg-[#1A2B49] flex items-center justify-center">

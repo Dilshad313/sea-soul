@@ -9,6 +9,7 @@ export default function PackageForm() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [formData, setFormData] = useState({
@@ -25,6 +26,10 @@ export default function PackageForm() {
 
   const isEdit = !!id;
 
+  // ✅ Cloudinary configuration - Replace with your values
+  const CLOUDINARY_CLOUD_NAME = 'eeua8tfb'; // Your Cloudinary cloud name
+  const CLOUDINARY_UPLOAD_PRESET = 'seasoul_products'; // Your upload preset name
+
   useEffect(() => {
     fetchCategories();
     if (isEdit) {
@@ -32,11 +37,9 @@ export default function PackageForm() {
     }
   }, [id]);
 
-  // ✅ Fetch only categories added from Categories section
   const fetchCategories = async () => {
     try {
       const response = await api.get('/categories');
-      // ✅ Filter only active categories
       const activeCategories = response.data.categories?.filter(cat => cat.isActive !== false) || [];
       setCategories(activeCategories);
     } catch (error) {
@@ -68,67 +71,131 @@ export default function PackageForm() {
     }
   };
 
-  // ✅ Convert file to base64
-  const convertToBase64 = (file) => {
+  // ✅ Compress image before upload (max 500KB)
+  const compressImage = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDimension = 800;
+          
+          if (width > height && width > maxDimension) {
+            height = (height / width) * maxDimension;
+            width = maxDimension;
+          } else if (height > maxDimension) {
+            width = (width / height) * maxDimension;
+            height = maxDimension;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // ✅ Compress to JPEG with quality 0.7
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
     });
   };
 
-  // ✅ Upload image to Cloudinary
+  // ✅ Upload directly to Cloudinary from frontend
+  const uploadToCloudinary = async (file) => {
+    try {
+      console.log('📤 Uploading directly to Cloudinary...');
+      
+      // ✅ Compress image first
+      let compressedBase64;
+      if (file.size > 300 * 1024) {
+        console.log('📤 Compressing image...');
+        compressedBase64 = await compressImage(file);
+      } else {
+        const reader = new FileReader();
+        compressedBase64 = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+      
+      // ✅ Extract base64 data (remove data:image/jpeg;base64, prefix)
+      const base64Data = compressedBase64.split(',')[1];
+      
+      // ✅ Create FormData for Cloudinary
+      const formData = new FormData();
+      formData.append('file', `data:image/jpeg;base64,${base64Data}`);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+      formData.append('folder', 'seasoul/products');
+      
+      console.log('📤 Uploading to Cloudinary...');
+      
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+      
+      const data = await response.json();
+      console.log('📥 Cloudinary Response:', data);
+      
+      if (data.secure_url) {
+        return data.secure_url;
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('❌ Cloudinary upload error:', error);
+      throw error;
+    }
+  };
+
+  // ✅ Handle image upload
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
     setUploading(true);
+    setUploadProgress(0);
     const toastId = toast.loading('Uploading images...');
 
     const uploadedImages = [];
+    let completed = 0;
 
     for (const file of files) {
       try {
         console.log('📤 Processing file:', file.name, file.type, file.size);
         
-        // ✅ Validate file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error(`File ${file.name} is too large (max 5MB)`);
-          continue;
-        }
-
         // ✅ Validate file type
         if (!file.type.startsWith('image/')) {
           toast.error(`File ${file.name} is not an image`);
           continue;
         }
 
-        const base64 = await convertToBase64(file);
-        console.log('📤 Base64 length:', base64.length);
+        // ✅ Upload to Cloudinary directly
+        const url = await uploadToCloudinary(file);
+        uploadedImages.push(url);
+        console.log('✅ Uploaded:', url);
         
-        // ✅ Send base64 directly
-        const response = await api.post('/admin/upload', { 
-          image: base64 
-        }, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        completed++;
+        setUploadProgress((completed / files.length) * 100);
 
-        console.log('📤 Upload response:', response.data);
-
-        if (response.data.success) {
-          uploadedImages.push(response.data.url);
-          console.log('✅ Uploaded:', response.data.url);
-        } else {
-          console.error('❌ Upload failed:', response.data.message);
-          toast.error(`Failed to upload ${file.name}: ${response.data.message}`);
-        }
       } catch (error) {
         console.error('❌ Error uploading image:', error);
-        console.error('❌ Error response:', error.response?.data);
-        toast.error(`Failed to upload image: ${file.name}`);
+        toast.error(`Failed to upload ${file.name}: ${error.message}`);
       }
     }
 
@@ -137,6 +204,7 @@ export default function PackageForm() {
       images: [...prev.images, ...uploadedImages],
     }));
     setUploading(false);
+    setUploadProgress(0);
     e.target.value = '';
 
     if (uploadedImages.length > 0) {
@@ -261,7 +329,6 @@ export default function PackageForm() {
                   disabled={loadingCategories}
                 >
                   <option value="">{loadingCategories ? 'Loading...' : 'Select Category'}</option>
-                  {/* ✅ Show only categories added from Categories section */}
                   {categories.map((cat) => (
                     <option key={cat._id} value={cat.name}>
                       {cat.name}
@@ -336,7 +403,7 @@ export default function PackageForm() {
                     Click to upload images
                   </p>
                   <p className="text-xs text-gray-400 mt-1 text-center">
-                    PNG, JPG, JPEG, WEBP (Max 5MB each)
+                    PNG, JPG, JPEG, WEBP (Max 10MB each, will be compressed)
                   </p>
                 </div>
                 <input
@@ -350,7 +417,7 @@ export default function PackageForm() {
               </label>
               {uploading && (
                 <div className="text-center text-sm text-[#00E5FF] py-2">
-                  Uploading... Please wait
+                  Uploading... {uploadProgress > 0 ? `${Math.round(uploadProgress)}%` : ''}
                 </div>
               )}
             </div>
