@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
+const connectDB = require('./config/db');
 const path = require('path'); // ✅ ADD THIS - it's missing
 require('dotenv').config();
 
@@ -16,6 +17,9 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ✅ Connect to MongoDB
+connectDB();
 
 // ✅ Serve uploaded images
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

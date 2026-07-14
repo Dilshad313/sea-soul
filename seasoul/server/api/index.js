@@ -27,6 +27,9 @@ connectDB();
 app.use('/assets', express.static(path.join(__dirname, '../../assets')));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// ✅ Import Razorpay Routes
+const razorpayRoutes = require('../routes/razorpayRoutes');
+
 // ✅ API Routes
 app.use('/api/auth', require('../routes/authRoutes'));
 app.use('/api', require('../routes/productRoutes'));
@@ -38,6 +41,9 @@ app.use('/api/bookings', require('../routes/bookingRoutes'));
 app.use('/api/payments', require('../routes/paymentRoutes'));
 app.use('/api/reviews', require('../routes/reviewRoutes'));
 app.use('/api/categories', require('../routes/categoryRoutes'));
+
+// ✅ ADD THIS - Razorpay Routes
+app.use('/api/razorpay', razorpayRoutes);
 
 // ✅ Health Check Route
 app.get('/api/health', (req, res) => {
