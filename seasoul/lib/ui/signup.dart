@@ -50,6 +50,22 @@ class _signupState extends State<signup> {
     super.dispose();
   }
 
+  // ✅ Format phone number - extract 10 digits
+  String _formatPhoneNumber(String phone) {
+    String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
+    
+    // Remove +91 or 91 if present
+    if (cleanPhone.startsWith('+91')) {
+      cleanPhone = cleanPhone.substring(3);
+    } else if (cleanPhone.startsWith('91')) {
+      cleanPhone = cleanPhone.substring(2);
+    } else if (cleanPhone.startsWith('0')) {
+      cleanPhone = cleanPhone.substring(1);
+    }
+    
+    return cleanPhone;
+  }
+
   void _sendOTP() async {
     if (_isLoading) return;
 
@@ -82,15 +98,10 @@ class _signupState extends State<signup> {
       return;
     }
 
-    // ✅ Validate phone (10 digits)
+    // ✅ Format and validate phone (10 digits)
     final phoneRegex = RegExp(r'^[0-9]{10}$');
-    String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
-    if (cleanPhone.startsWith('+91')) {
-      cleanPhone = cleanPhone.substring(3);
-    }
-    if (cleanPhone.startsWith('91')) {
-      cleanPhone = cleanPhone.substring(2);
-    }
+    final cleanPhone = _formatPhoneNumber(phone);
+    
     if (!phoneRegex.hasMatch(cleanPhone)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -124,10 +135,10 @@ class _signupState extends State<signup> {
     setState(() => _isLoading = true);
 
     try {
-      // ✅ Send OTP with both email and phone
+      // ✅ Send OTP with both email and phone (10 digits only)
       final data = {
         'email': email,
-        'phone': cleanPhone,
+        'phone': cleanPhone,  // ✅ Send 10 digits only
       };
       
       print('📤 Sending OTP to:');
@@ -141,7 +152,6 @@ class _signupState extends State<signup> {
       if (response['success'] == false) {
         String errorMsg = response['message'] ?? 'Something went wrong';
         
-        // ✅ Check for specific error messages
         if (errorMsg.toLowerCase().contains('already registered') || 
             errorMsg.toLowerCase().contains('exists')) {
           errorMsg = 'This email or phone is already registered. Please login or use another.';
@@ -182,7 +192,7 @@ class _signupState extends State<signup> {
           MaterialPageRoute(
             builder: (context) => OTPPage(
               email: email,
-              phone: cleanPhone,
+              phone: cleanPhone,  // ✅ Send 10 digits
               fullName: fullName,
               password: password,
             ),
@@ -353,7 +363,7 @@ class _signupState extends State<signup> {
                                           child: _buildInputField(
                                             label: 'PHONE NUMBER',
                                             icon: Icons.call_outlined,
-                                            hint: '+91 9876543210',
+                                            hint: '9876543210',
                                             controller: _phoneController,
                                             focusNode: _phoneFocus,
                                             keyboardType: TextInputType.phone,
@@ -378,7 +388,7 @@ class _signupState extends State<signup> {
                                         _buildInputField(
                                           label: 'PHONE NUMBER',
                                           icon: Icons.call_outlined,
-                                          hint: '+91 9876543210',
+                                          hint: '9876543210',
                                           controller: _phoneController,
                                           focusNode: _phoneFocus,
                                           keyboardType: TextInputType.phone,

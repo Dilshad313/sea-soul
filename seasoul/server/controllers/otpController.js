@@ -15,6 +15,37 @@ const getOTPExpiry = () => {
   return new Date(Date.now() + 10 * 60 * 1000);
 };
 
+// ✅ Format phone number to 10 digits
+const formatPhoneNumber = (phone) => {
+  if (!phone) return '';
+  let cleanPhone = phone.replace(/\s/g, '');
+  
+  // Remove + if present
+  if (cleanPhone.startsWith('+')) {
+    cleanPhone = cleanPhone.substring(1);
+  }
+  
+  // If 10 digits, add 91
+  if (cleanPhone.length === 10) {
+    cleanPhone = '91' + cleanPhone;
+  }
+  // If 11 digits and starts with 0
+  else if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
+    cleanPhone = '91' + cleanPhone.substring(1);
+  }
+  // If 12 digits and already has 91
+  else if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {
+    // Keep as is
+  }
+  // If 13 digits (with country code)
+  else if (cleanPhone.length === 13) {
+    // Keep as is
+  }
+  
+  console.log(`📱 Formatted Phone: ${cleanPhone}`);
+  return cleanPhone;
+};
+
 // ✅ Send OTP to Email and SMS
 exports.sendOTP = async (req, res) => {
   try {
@@ -52,23 +83,34 @@ exports.sendOTP = async (req, res) => {
       }
     }
 
-    // ✅ Validate phone
+    // ✅ Validate and format phone
+    let cleanPhone = '';
     if (phone) {
       const phoneRegex = /^[0-9]{10}$/;
-      const cleanPhone = phone.replace(/\s/g, '');
-      let phoneNumber = cleanPhone;
+      cleanPhone = formatPhoneNumber(phone);
       
-      if (phoneNumber.startsWith('+91')) {
-        phoneNumber = phoneNumber.substring(3);
+      // Extract 10 digits for validation
+      let phoneDigits = cleanPhone;
+      if (phoneDigits.startsWith('91')) {
+        phoneDigits = phoneDigits.substring(2);
       }
-      if (phoneNumber.startsWith('91')) {
-        phoneNumber = phoneNumber.substring(2);
+      if (phoneDigits.startsWith('0')) {
+        phoneDigits = phoneDigits.substring(1);
       }
       
-      if (!phoneRegex.test(phoneNumber)) {
+      if (!phoneRegex.test(phoneDigits)) {
         return res.status(400).json({
           success: false,
           message: 'Please enter a valid 10-digit phone number'
+        });
+      }
+
+      // Check if phone already registered
+      const existingUser = await User.findOne({ phone: cleanPhone });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'This phone number is already registered. Please login or use another.'
         });
       }
     }
@@ -78,7 +120,7 @@ exports.sendOTP = async (req, res) => {
       await OTP.deleteMany({ email });
     }
     if (phone) {
-      await OTP.deleteMany({ phone });
+      await OTP.deleteMany({ phone: cleanPhone });
     }
 
     const otp = generateOTP();
@@ -90,7 +132,7 @@ exports.sendOTP = async (req, res) => {
     // ✅ Save OTP to database
     await OTP.create({
       email: email || '',
-      phone: phone || '',
+      phone: cleanPhone || '',
       otp,
       expiresAt,
       verified: false,
@@ -110,9 +152,9 @@ exports.sendOTP = async (req, res) => {
 
     // ✅ Send OTP via SMS (MSG91)
     let smsSent = false;
-    if (phone) {
+    if (cleanPhone) {
       try {
-        const smsResult = await smsService.sendOTP(phone, otp);
+        const smsResult = await smsService.sendOTP(cleanPhone, otp);
         if (smsResult.success) {
           smsSent = true;
           console.log('✅ OTP SMS sent successfully');
@@ -136,7 +178,9 @@ exports.sendOTP = async (req, res) => {
       message = 'Failed to send OTP. Please try again.';
       return res.status(500).json({
         success: false,
-        message: message
+        message: message,
+        emailSent: emailSent,
+        smsSent: smsSent,
       });
     }
 
@@ -145,6 +189,7 @@ exports.sendOTP = async (req, res) => {
       message: message,
       emailSent: emailSent,
       smsSent: smsSent,
+      phone: cleanPhone,
     });
   } catch (error) {
     console.error('❌ Error in sendOTP:', error);
@@ -175,10 +220,13 @@ exports.verifyOTP = async (req, res) => {
       });
     }
 
+    // ✅ Format phone if provided
+    let cleanPhone = phone ? formatPhoneNumber(phone) : '';
+
     // ✅ Find OTP by email or phone
     let query = {};
     if (email) query.email = email;
-    if (phone) query.phone = phone;
+    if (cleanPhone) query.phone = cleanPhone;
     query.verified = false;
 
     const otpRecord = await OTP.findOne(query);
@@ -240,12 +288,15 @@ exports.resendOTP = async (req, res) => {
       });
     }
 
+    // ✅ Format phone if provided
+    let cleanPhone = phone ? formatPhoneNumber(phone) : '';
+
     // ✅ Delete old OTPs
     if (email) {
       await OTP.deleteMany({ email });
     }
-    if (phone) {
-      await OTP.deleteMany({ phone });
+    if (cleanPhone) {
+      await OTP.deleteMany({ phone: cleanPhone });
     }
 
     const otp = generateOTP();
@@ -253,7 +304,7 @@ exports.resendOTP = async (req, res) => {
 
     await OTP.create({
       email: email || '',
-      phone: phone || '',
+      phone: cleanPhone || '',
       otp,
       expiresAt,
       verified: false,
@@ -273,9 +324,9 @@ exports.resendOTP = async (req, res) => {
 
     // ✅ Send OTP via SMS
     let smsSent = false;
-    if (phone) {
+    if (cleanPhone) {
       try {
-        const smsResult = await smsService.sendOTP(phone, otp);
+        const smsResult = await smsService.sendOTP(cleanPhone, otp);
         if (smsResult.success) {
           smsSent = true;
           console.log('✅ OTP SMS resent successfully');

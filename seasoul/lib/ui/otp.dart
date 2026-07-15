@@ -70,6 +70,17 @@ class _OTPPageState extends State<OTPPage> {
     });
   }
 
+  // ✅ Format phone for display
+  String _formatPhoneForDisplay(String phone) {
+    if (phone.isEmpty) return '';
+    if (phone.length == 10) {
+      return '+91 $phone';
+    } else if (phone.length == 12 && phone.startsWith('91')) {
+      return '+${phone.substring(0, 2)} ${phone.substring(2)}';
+    }
+    return phone;
+  }
+
   Future<void> _sendInitialOTP() async {
     try {
       print('📤 Sending initial OTP...');
@@ -88,7 +99,6 @@ class _OTPPageState extends State<OTPPage> {
         print('📧 Email sent: ${response['emailSent']}');
         print('📱 SMS sent: ${response['smsSent']}');
         
-        // Show message based on what was sent
         if (response['smsSent'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -375,6 +385,9 @@ class _OTPPageState extends State<OTPPage> {
     const colorOutline = Color(0xFF849396);
     const colorError = Color(0xFFFF6B6B);
 
+    // ✅ Format phone for display
+    final displayPhone = _formatPhoneForDisplay(widget.phone);
+
     return Scaffold(
       backgroundColor: colorBackground,
       body: Stack(
@@ -484,7 +497,7 @@ class _OTPPageState extends State<OTPPage> {
                             const TextSpan(text: "We've sent a code to "),
                             if (widget.phone.isNotEmpty)
                               TextSpan(
-                                text: '${widget.phone} and ',
+                                text: '$displayPhone and ',
                                 style: const TextStyle(
                                   color: Color(0xFFC3F5FF),
                                   fontWeight: FontWeight.w500,
