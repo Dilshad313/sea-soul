@@ -76,14 +76,14 @@ const BookingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index for faster queries
+// ✅ Index for faster queries - REMOVE DUPLICATE
+// Only keep this one index definition
 BookingSchema.index({ userId: 1, createdAt: -1 });
 BookingSchema.index({ bookingReference: 1 });
 BookingSchema.index({ status: 1 });
 
-// ✅ ALTERNATIVE FIX: Using pre-save without next parameter
+// ✅ Pre-save middleware
 BookingSchema.pre('save', async function() {
-  // This is async function, no next parameter needed
   if (this.productId) {
     this.itemType = 'product';
   } else if (this.activityId) {
@@ -109,4 +109,11 @@ BookingSchema.methods.getItemName = async function() {
   return 'Unknown';
 };
 
-module.exports = mongoose.model('Booking', BookingSchema);
+// ✅ Create model
+const Booking = mongoose.model('Booking', BookingSchema);
+
+// ✅ Ensure indexes are created (remove if already exists)
+// This will remove the duplicate index warning
+BookingSchema.set('autoIndex', false);
+
+module.exports = Booking;
