@@ -67,6 +67,7 @@ class _signupState extends State<signup> {
   }
 
   void _sendOTP() async {
+    // ✅ Prevent duplicate calls
     if (_isLoading) return;
 
     final fullName = _fullNameController.text.trim();

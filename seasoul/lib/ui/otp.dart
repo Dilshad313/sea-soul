@@ -37,6 +37,9 @@ class _OTPPageState extends State<OTPPage> {
   bool _isLoading = false;
   bool _isVerifying = false;
   String _errorMessage = '';
+  
+  // ✅ Track if OTP already sent to prevent duplicate
+  bool _otpSent = false;
 
   @override
   void initState() {
@@ -47,7 +50,11 @@ class _OTPPageState extends State<OTPPage> {
       (index) => TextEditingController(),
     );
     _startTimer();
-    _sendInitialOTP();
+    
+    // ✅ Send OTP only once, not multiple times
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sendInitialOTP();
+    });
   }
 
   void _startTimer() {
@@ -82,6 +89,13 @@ class _OTPPageState extends State<OTPPage> {
   }
 
   Future<void> _sendInitialOTP() async {
+    // ✅ Prevent duplicate sends
+    if (_otpSent) {
+      print('⚠️ OTP already sent, skipping duplicate');
+      return;
+    }
+    _otpSent = true;
+    
     try {
       print('📤 Sending initial OTP...');
       print('📧 Email: ${widget.email}');
@@ -633,7 +647,7 @@ class _OTPPageState extends State<OTPPage> {
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
