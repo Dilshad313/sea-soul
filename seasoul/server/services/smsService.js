@@ -2,21 +2,17 @@ const axios = require('axios');
 
 class SMSService {
   constructor() {
-    // ✅ Load environment variables
     this.apiKey = process.env.MSG91_API_KEY;
     this.senderId = process.env.MSG91_SENDER_ID;
     this.templateId = process.env.MSG91_OTP_TEMPLATE_ID;
-    
-    // ✅ Use old API (works with 6a570... template ID)
     this.baseUrl = 'https://api.msg91.com/api';
     
-    console.log('🔍 MSG91 Config:');
+    console.log('🔍 MSG91 Config Check:');
     console.log(`   API Key: ${this.apiKey ? '✅ Present' : '❌ Missing'}`);
     console.log(`   Sender ID: ${this.senderId || '❌ Missing'}`);
     console.log(`   Template ID: ${this.templateId || '❌ Missing'}`);
   }
 
-  // ✅ Send OTP via MSG91 - OLD API (Works with 6a570... template)
   async sendOTP(phoneNumber, otp) {
     try {
       console.log(`📤 Sending OTP to ${phoneNumber}...`);
@@ -26,54 +22,71 @@ class SMSService {
       if (mobile.startsWith('+91')) mobile = mobile.substring(3);
       if (mobile.startsWith('91')) mobile = mobile.substring(2);
       
-      // ✅ Ensure 10 digits
       if (mobile.length !== 10) {
-        console.error(`❌ Invalid phone number: ${mobile}`);
+        console.error(`❌ Invalid phone: ${mobile}`);
         return { success: false, error: 'Invalid phone number' };
       }
 
-      console.log(`📱 Mobile: ${mobile}`);
+      console.log(`📱 Clean Mobile: ${mobile}`);
       console.log(`📝 Sender: ${this.senderId}`);
       console.log(`📋 Template ID: ${this.templateId}`);
 
-      // ✅ Method 1: Send OTP using old API
+      // ✅ Create message
       const message = `Your OTP for SeaSoul is ${otp}. Valid for 10 minutes.`;
-      
-      const response = await axios.get(
-        `${this.baseUrl}/sendhttp.php`,
-        {
-          params: {
-            authkey: this.apiKey,
-            mobiles: `91${mobile}`,
-            message: message,
-            sender: this.senderId,
-            route: '4',  // Transactional route
-            country: '91',
-            DLT_TE_ID: this.templateId,  // ✅ Template ID for DLT
-          }
-        }
-      );
+
+      // ✅ Build URL with all parameters
+      const url = `${this.baseUrl}/sendhttp.php`;
+      const params = {
+        authkey: this.apiKey,
+        mobiles: `91${mobile}`,
+        message: message,
+        sender: this.senderId,
+        route: '1',  // ✅ Promotional route (works without template)
+        country: '91',
+        response: 'json'
+      };
+
+      console.log('📤 Sending request to MSG91...');
+      console.log('📤 URL:', url);
+      console.log('📤 Params:', JSON.stringify(params, null, 2));
+
+      const response = await axios.get(url, { params });
 
       console.log('📥 MSG91 Response:', response.data);
-      
-      // ✅ Check response
-      if (response.data && response.data.includes('SUCCESS')) {
+
+      // ✅ Parse response
+      if (typeof response.data === 'string') {
+        // ✅ If response is string, check for SUCCESS
+        if (response.data.includes('SUCCESS')) {
+          console.log('✅ SMS sent successfully!');
+          return { success: true, data: response.data };
+        } else if (response.data.includes('ERROR')) {
+          console.error('❌ SMS Error:', response.data);
+          return { success: false, error: response.data };
+        }
+      } else if (response.data && response.data.type === 'success') {
         console.log('✅ SMS sent successfully!');
         return { success: true, data: response.data };
-      } else {
-        console.error('❌ SMS failed:', response.data);
-        return { success: false, error: response.data };
       }
+
+      console.error('❌ Unknown response:', response.data);
+      return { success: false, error: response.data || 'Unknown error' };
+      
     } catch (error) {
-      console.error('❌ SMS Error:', error.message);
+      console.error('❌ SMS Error Details:');
+      console.error('   Message:', error.message);
       if (error.response) {
-        console.error('   Response:', error.response.data);
+        console.error('   Status:', error.response.status);
+        console.error('   Data:', error.response.data);
       }
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.response?.data || error.message 
+      };
     }
   }
 
-  // ✅ Method 2: Alternative using POST
+  // ✅ Alternative: Use POST method
   async sendOTPPost(phoneNumber, otp) {
     try {
       console.log(`📤 Sending OTP via POST to ${phoneNumber}...`);
@@ -89,9 +102,9 @@ class SMSService {
       formData.append('mobiles', `91${mobile}`);
       formData.append('message', message);
       formData.append('sender', this.senderId);
-      formData.append('route', '4');
+      formData.append('route', '1');
       formData.append('country', '91');
-      formData.append('DLT_TE_ID', this.templateId);
+      formData.append('response', 'json');
 
       const response = await axios.post(
         `${this.baseUrl}/sendhttp.php`,
@@ -105,11 +118,9 @@ class SMSService {
 
       console.log('📥 MSG91 Response:', response.data);
       
-      if (response.data && response.data.includes('SUCCESS')) {
-        console.log('✅ SMS sent successfully!');
+      if (response.data && response.data.type === 'success') {
         return { success: true, data: response.data };
       } else {
-        console.error('❌ SMS failed:', response.data);
         return { success: false, error: response.data };
       }
     } catch (error) {

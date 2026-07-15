@@ -154,7 +154,10 @@ exports.sendOTP = async (req, res) => {
     let smsSent = false;
     if (cleanPhone) {
       try {
+        console.log(`📱 Sending SMS to: ${cleanPhone}`);
         const smsResult = await smsService.sendOTP(cleanPhone, otp);
+        console.log('📥 SMS Result:', smsResult);
+        
         if (smsResult.success) {
           smsSent = true;
           console.log('✅ OTP SMS sent successfully');
