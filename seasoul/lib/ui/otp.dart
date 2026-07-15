@@ -647,7 +647,7 @@ class _OTPPageState extends State<OTPPage> {
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
