@@ -10,15 +10,15 @@ import '../constants/api_constants.dart';
 
 class OTPPage extends StatefulWidget {
   final String email;
-  final String fullName;
   final String phone;
+  final String fullName;
   final String password;
 
   const OTPPage({
     super.key,
     required this.email,
-    required this.fullName,
     required this.phone,
+    required this.fullName,
     required this.password,
   });
 
@@ -72,31 +72,65 @@ class _OTPPageState extends State<OTPPage> {
 
   Future<void> _sendInitialOTP() async {
     try {
-      print('📤 Sending initial OTP to: ${widget.email}');
+      print('📤 Sending initial OTP...');
+      print('📧 Email: ${widget.email}');
+      print('📱 Phone: ${widget.phone}');
+      
       final response = await ApiService.post(ApiConstants.sendOTP, {
         'email': widget.email,
+        'phone': widget.phone,
       });
+      
       print('📥 Initial OTP Response: $response');
       
       if (response['success'] == true) {
         print('✅ OTP sent successfully');
+        print('📧 Email sent: ${response['emailSent']}');
+        print('📱 SMS sent: ${response['smsSent']}');
+        
+        // Show message based on what was sent
+        if (response['smsSent'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ OTP sent to your phone and email!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else if (response['emailSent'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ OTP sent to your email! (SMS failed)'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Failed to send OTP. Please try again.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       } else {
         print('⚠️ OTP send failed: ${response['message']}');
-        // Try alternative endpoint
-        try {
-          final altResponse = await ApiService.post(ApiConstants.resendOTP, {
-            'email': widget.email,
-          });
-          if (altResponse['success'] == true) {
-            print('✅ OTP sent via alternative endpoint');
-          }
-        } catch (e) {
-          print('⚠️ Alternative OTP send failed: $e');
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Failed to send OTP'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       print('⚠️ Initial OTP send error: $e');
-      // Don't show error to user as they might have already received OTP
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -142,11 +176,14 @@ class _OTPPageState extends State<OTPPage> {
     try {
       final data = {
         'email': widget.email,
+        'phone': widget.phone,
         'otp': otp,
       };
 
-      print('📤 Verifying OTP for email: ${widget.email}');
-      print('📤 OTP: $otp');
+      print('📤 Verifying OTP...');
+      print('📧 Email: ${widget.email}');
+      print('📱 Phone: ${widget.phone}');
+      print('🔑 OTP: $otp');
       
       final verifyResponse = await ApiService.post(ApiConstants.verifyOTP, data);
       print('📥 Verify Response: $verifyResponse');
@@ -166,7 +203,6 @@ class _OTPPageState extends State<OTPPage> {
         print('📥 Register Response: $registerResponse');
 
         if (registerResponse['success'] == true || registerResponse['token'] != null) {
-          // Save token and user data
           if (registerResponse['token'] != null) {
             await ApiService.saveToken(registerResponse['token']);
           }
@@ -206,25 +242,15 @@ class _OTPPageState extends State<OTPPage> {
       
       String errorMessage = e.toString().replaceAll('Exception: ', '');
       
-      // Handle specific error types
       if (errorMessage.toLowerCase().contains('expired')) {
         errorMessage = 'OTP has expired. Please request a new one.';
-        _resendOTP(); // Auto resend
+        _resendOTP();
       } else if (errorMessage.toLowerCase().contains('invalid')) {
         errorMessage = 'Invalid OTP. Please check and try again.';
-        // Clear all fields
         for (var controller in _controllers) {
           controller.clear();
         }
         _focusNodes[0].requestFocus();
-      } else if (errorMessage.toLowerCase().contains('already verified')) {
-        errorMessage = 'Email already verified. Please login.';
-        // Navigate to login
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const signup()),
-        );
-        return;
       }
       
       setState(() {
@@ -254,87 +280,38 @@ class _OTPPageState extends State<OTPPage> {
     });
 
     try {
-      final data = {'email': widget.email};
+      final data = {
+        'email': widget.email,
+        'phone': widget.phone,
+      };
       
-      print('📤 Resending OTP to: ${widget.email}');
+      print('📤 Resending OTP...');
+      print('📧 Email: ${widget.email}');
+      print('📱 Phone: ${widget.phone}');
       
-      // Try multiple possible endpoints
-      bool success = false;
-      String errorMessage = 'Failed to resend OTP';
-      
-      // List of endpoints to try in order
-      List<Map<String, dynamic>> endpoints = [
-        {'url': ApiConstants.resendOTP, 'name': 'resendOTP'},
-        {'url': ApiConstants.sendOTP, 'name': 'sendOTP'},
-        {'url': '${ApiConstants.baseUrl}/api/auth/resend-otp', 'name': 'resend-otp-alt'},
-        {'url': '${ApiConstants.baseUrl}/api/auth/send-otp', 'name': 'send-otp-alt'},
-      ];
-      
-      for (var endpoint in endpoints) {
-        try {
-          print('📤 Trying endpoint: ${endpoint['name']} - ${endpoint['url']}');
-          final response = await ApiService.post(endpoint['url'], data);
-          print('📥 Response from ${endpoint['name']}: $response');
-          
-          if (response['success'] == true) {
-            success = true;
-            print('✅ OTP resent successfully via ${endpoint['name']}');
-            break;
-          }
-        } catch (e) {
-          print('⚠️ Endpoint ${endpoint['name']} failed: $e');
-          // Continue to next endpoint
-        }
-      }
-      
-      if (success) {
-        // Clear all OTP fields
+      final response = await ApiService.post(ApiConstants.resendOTP, data);
+      print('📥 Resend Response: $response');
+
+      if (response['success'] == true) {
         for (var controller in _controllers) {
           controller.clear();
         }
         _focusNodes[0].requestFocus();
         _startTimer();
         
+        print('✅ OTP resent successfully');
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✅ OTP resent successfully! Please check your email.'),
+              content: Text('✅ OTP resent successfully!'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 3),
             ),
           );
         }
       } else {
-        // Try one more time with a different approach - using GET request
-        try {
-          print('📤 Trying GET request for resend...');
-          final response = await ApiService.get('${ApiConstants.baseUrl}/api/auth/resend-otp?email=${widget.email}');
-          print('📥 GET Response: $response');
-          if (response['success'] == true) {
-            success = true;
-          }
-        } catch (e) {
-          print('⚠️ GET request failed: $e');
-        }
-        
-        if (success) {
-          for (var controller in _controllers) {
-            controller.clear();
-          }
-          _focusNodes[0].requestFocus();
-          _startTimer();
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✅ OTP resent successfully!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        } else {
-          throw Exception('Unable to resend OTP. Please try again later.');
-        }
+        throw Exception(response['message'] ?? 'Failed to resend OTP');
       }
     } catch (e) {
       print('❌ Resend OTP Error: $e');
@@ -368,7 +345,6 @@ class _OTPPageState extends State<OTPPage> {
         _focusNodes[index + 1].requestFocus();
       } else {
         _focusNodes[index].unfocus();
-        // Auto-verify when last digit is entered
         if (_controllers.every((c) => c.text.isNotEmpty)) {
           _verifyOTP();
         }
@@ -486,7 +462,7 @@ class _OTPPageState extends State<OTPPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Verify Email',
+                      'Verify Your Identity',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.montserrat(
                         fontSize: 24,
@@ -506,6 +482,14 @@ class _OTPPageState extends State<OTPPage> {
                           ),
                           children: [
                             const TextSpan(text: "We've sent a code to "),
+                            if (widget.phone.isNotEmpty)
+                              TextSpan(
+                                text: '${widget.phone} and ',
+                                style: const TextStyle(
+                                  color: Color(0xFFC3F5FF),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             TextSpan(
                               text: widget.email,
                               style: const TextStyle(

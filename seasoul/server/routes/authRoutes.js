@@ -10,11 +10,13 @@ const {
   changePassword 
 } = require('../controllers/authController');
 
-const { sendOTP, verifyOTP, resendOTP } = require('../controllers/otpController');
+const { 
+  sendOTP, 
+  verifyOTP, 
+  resendOTP 
+} = require('../controllers/otpController');
 
-// ✅ Google Auth Controller - Import correctly
 const { googleLogin } = require('../controllers/googleAuthController');
-
 const { protect } = require('../middleware/authMiddleware');
 
 // ==================== Test Route ====================

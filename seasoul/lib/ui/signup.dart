@@ -21,7 +21,7 @@ class _signupState extends State<signup> {
 
   bool _termsAccepted = false;
   bool _isLoading = false;
-  bool _obscurePassword = true; // ✅ Password visibility toggle
+  bool _obscurePassword = true;
 
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
@@ -58,6 +58,7 @@ class _signupState extends State<signup> {
     final phone = _phoneController.text.trim();
     final password = _passwordController.text.trim();
 
+    // ✅ Validate all fields
     if (fullName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -68,7 +69,7 @@ class _signupState extends State<signup> {
       return;
     }
 
-    // ✅ CHECK: Valid email format
+    // ✅ Validate email format
     final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
     if (!emailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,11 +82,29 @@ class _signupState extends State<signup> {
       return;
     }
 
-    // Phone validation (basic)
-    if (phone.length < 10) {
+    // ✅ Validate phone (10 digits)
+    final phoneRegex = RegExp(r'^[0-9]{10}$');
+    String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
+    if (cleanPhone.startsWith('+91')) {
+      cleanPhone = cleanPhone.substring(3);
+    }
+    if (cleanPhone.startsWith('91')) {
+      cleanPhone = cleanPhone.substring(2);
+    }
+    if (!phoneRegex.hasMatch(cleanPhone)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter a valid phone number'),
+          content: Text('Please enter a valid 10-digit phone number'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must be at least 6 characters'),
           backgroundColor: Colors.red,
         ),
       );
@@ -105,16 +124,32 @@ class _signupState extends State<signup> {
     setState(() => _isLoading = true);
 
     try {
-      final data = {'email': email};
+      // ✅ Send OTP with both email and phone
+      final data = {
+        'email': email,
+        'phone': cleanPhone,
+      };
+      
+      print('📤 Sending OTP to:');
+      print('📧 Email: $email');
+      print('📱 Phone: $cleanPhone');
+      
       final response = await ApiService.post(ApiConstants.sendOTP, data);
 
       print('📱 API Response: $response');
 
-      // ✅ Check response from backend
       if (response['success'] == false) {
+        String errorMsg = response['message'] ?? 'Something went wrong';
+        
+        // ✅ Check for specific error messages
+        if (errorMsg.toLowerCase().contains('already registered') || 
+            errorMsg.toLowerCase().contains('exists')) {
+          errorMsg = 'This email or phone is already registered. Please login or use another.';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response['message'] ?? 'Something went wrong'),
+            content: Text(errorMsg),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
@@ -123,12 +158,21 @@ class _signupState extends State<signup> {
         return;
       }
 
-      // Success - OTP sent
+      // ✅ Success - OTP sent
+      String successMsg = '✅ OTP sent successfully!';
+      if (response['smsSent'] == true && response['emailSent'] == true) {
+        successMsg = '✅ OTP sent to your phone and email!';
+      } else if (response['smsSent'] == true) {
+        successMsg = '✅ OTP sent to your phone! (Check SMS)';
+      } else if (response['emailSent'] == true) {
+        successMsg = '✅ OTP sent to your email! (SMS failed)';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ OTP has been sent to your email address'),
+        SnackBar(
+          content: Text(successMsg),
           backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
 
@@ -138,8 +182,8 @@ class _signupState extends State<signup> {
           MaterialPageRoute(
             builder: (context) => OTPPage(
               email: email,
+              phone: cleanPhone,
               fullName: fullName,
-              phone: phone,
               password: password,
             ),
           ),
@@ -148,14 +192,13 @@ class _signupState extends State<signup> {
     } catch (e) {
       print('❌ Error: $e');
       
-      // ✅ Check error message and show appropriate toast
       final errorMsg = e.toString().toLowerCase();
       if (errorMsg.contains('invalid email') || errorMsg.contains('valid email')) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please enter a valid email address'),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 3),
           ),
         );
       } else if (errorMsg.contains('already registered') || 
@@ -163,15 +206,15 @@ class _signupState extends State<signup> {
                  (errorMsg.contains('email') && errorMsg.contains('registered'))) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('This email is already registered. Please login or use another email.'),
+            content: Text('This email or phone is already registered. Please login or use another.'),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
+            duration: const Duration(seconds: 4),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -558,7 +601,7 @@ class _signupState extends State<signup> {
     TextInputType keyboardType = TextInputType.text,
   }) {
     final isFocused = focusNode.hasFocus;
-    final isPasswordField = label == 'PASSWORD'; // ✅ Check if password field
+    final isPasswordField = label == 'PASSWORD';
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -598,7 +641,6 @@ class _signupState extends State<signup> {
                     ? const Color(0xFF00E5FF)
                     : const Color(0xFF849396),
               ),
-              // ✅ Password visibility toggle
               suffixIcon: isPasswordField
                   ? IconButton(
                       icon: Icon(

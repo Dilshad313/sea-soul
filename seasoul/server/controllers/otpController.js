@@ -1,12 +1,12 @@
 const OTP = require('../models/OTP');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-// ✅ Import email service
 const { sendOTPEmail } = require('../services/emailService');
+const smsService = require('../services/smsService');
 require('dotenv').config();
 
 const generateOTP = () => {
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
   console.log('Generated OTP:', otp);
   return otp;
 };
@@ -15,120 +15,196 @@ const getOTPExpiry = () => {
   return new Date(Date.now() + 10 * 60 * 1000);
 };
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-};
-
-// ✅ Send OTP to Email
+// ✅ Send OTP to Email and SMS
 exports.sendOTP = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, phone } = req.body;
 
     console.log('========================================');
     console.log('📧 Send OTP Request');
     console.log(`📧 Email: ${email}`);
+    console.log(`📱 Phone: ${phone}`);
     console.log('========================================');
 
-    if (!email) {
-      return res.status(400).json({ 
+    if (!email && !phone) {
+      return res.status(400).json({
         success: false,
-        message: 'Email is required' 
+        message: 'Email or Phone is required'
       });
     }
 
-    // ✅ CHECK: Valid email format using regex
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(email)) {
-      console.log('❌ Invalid email format:', email);
-      return res.status(400).json({ 
-        success: false,
-        message: 'Please enter a valid email address (e.g., name@domain.com)' 
-      });
+    // ✅ Validate email
+    if (email) {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please enter a valid email address'
+        });
+      }
+
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'This email is already registered. Please login or use another email.'
+        });
+      }
     }
 
-    // ✅ CHECK: Email already registered?
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      console.log('❌ Email already registered:', email);
-      return res.status(400).json({ 
-        success: false,
-        message: 'This email is already registered. Please login or use another email.' 
-      });
+    // ✅ Validate phone
+    if (phone) {
+      const phoneRegex = /^[0-9]{10}$/;
+      const cleanPhone = phone.replace(/\s/g, '');
+      let phoneNumber = cleanPhone;
+      
+      if (phoneNumber.startsWith('+91')) {
+        phoneNumber = phoneNumber.substring(3);
+      }
+      if (phoneNumber.startsWith('91')) {
+        phoneNumber = phoneNumber.substring(2);
+      }
+      
+      if (!phoneRegex.test(phoneNumber)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please enter a valid 10-digit phone number'
+        });
+      }
     }
 
-    // Delete old OTPs
-    await OTP.deleteMany({ email });
+    // ✅ Delete old OTPs
+    if (email) {
+      await OTP.deleteMany({ email });
+    }
+    if (phone) {
+      await OTP.deleteMany({ phone });
+    }
 
     const otp = generateOTP();
     const expiresAt = getOTPExpiry();
 
     console.log('✅ OTP Generated Successfully!');
     console.log(`🔑 OTP: ${otp}`);
-    console.log(`⏰ Expires At: ${expiresAt}`);
 
+    // ✅ Save OTP to database
     await OTP.create({
-      email,
+      email: email || '',
+      phone: phone || '',
       otp,
       expiresAt,
       verified: false,
     });
 
-    // ✅ Send email using email service
-    try {
-      await sendOTPEmail(email, otp);
-      console.log('✅ OTP email sent successfully');
-    } catch (emailError) {
-      console.error('❌ Email sending failed:', emailError);
+    // ✅ Send OTP via Email
+    let emailSent = false;
+    if (email) {
+      try {
+        await sendOTPEmail(email, otp);
+        emailSent = true;
+        console.log('✅ OTP email sent successfully');
+      } catch (emailError) {
+        console.error('❌ Email sending failed:', emailError);
+      }
+    }
+
+    // ✅ Send OTP via SMS (MSG91)
+    let smsSent = false;
+    if (phone) {
+      try {
+        const smsResult = await smsService.sendOTP(phone, otp);
+        if (smsResult.success) {
+          smsSent = true;
+          console.log('✅ OTP SMS sent successfully');
+        } else {
+          console.error('❌ SMS sending failed:', smsResult.error);
+        }
+      } catch (smsError) {
+        console.error('❌ SMS sending error:', smsError);
+      }
+    }
+
+    // ✅ Response message based on what was sent
+    let message = '';
+    if (emailSent && smsSent) {
+      message = 'OTP sent successfully to your email and phone';
+    } else if (emailSent) {
+      message = 'OTP sent successfully to your email (SMS failed)';
+    } else if (smsSent) {
+      message = 'OTP sent successfully to your phone (Email failed)';
+    } else {
+      message = 'Failed to send OTP. Please try again.';
+      return res.status(500).json({
+        success: false,
+        message: message
+      });
     }
 
     res.status(200).json({
       success: true,
-      message: 'OTP sent successfully to your email',
+      message: message,
+      emailSent: emailSent,
+      smsSent: smsSent,
     });
   } catch (error) {
     console.error('❌ Error in sendOTP:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: 'Server error',
+      error: error.message
     });
   }
 };
 
-// ✅ Verify OTP
+// ✅ Verify OTP (supports both email and phone)
 exports.verifyOTP = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { email, phone, otp } = req.body;
 
     console.log('========================================');
     console.log('🔍 Verifying OTP');
     console.log(`📧 Email: ${email}`);
+    console.log(`📱 Phone: ${phone}`);
     console.log(`🔑 OTP: ${otp}`);
     console.log('========================================');
 
-    if (!email || !otp) {
-      return res.status(400).json({ 
+    if (!otp) {
+      return res.status(400).json({
         success: false,
-        message: 'Email and OTP are required' 
+        message: 'OTP is required'
       });
     }
 
-    const otpRecord = await OTP.findOne({ email, otp, verified: false });
+    // ✅ Find OTP by email or phone
+    let query = {};
+    if (email) query.email = email;
+    if (phone) query.phone = phone;
+    query.verified = false;
+
+    const otpRecord = await OTP.findOne(query);
 
     if (!otpRecord) {
       console.log('❌ Invalid OTP or already verified');
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Invalid OTP or OTP already verified' 
+        message: 'Invalid OTP or OTP already verified'
+      });
+    }
+
+    if (otpRecord.otp !== otp) {
+      console.log('❌ Invalid OTP');
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP'
       });
     }
 
     if (new Date() > otpRecord.expiresAt) {
       await OTP.deleteOne({ _id: otpRecord._id });
       console.log('❌ OTP Expired');
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'OTP expired. Please request a new one.' 
+        message: 'OTP expired. Please request a new one.'
       });
     }
 
@@ -144,10 +220,10 @@ exports.verifyOTP = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error in verifyOTP:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: 'Server error',
+      error: error.message
     });
   }
 };
@@ -155,113 +231,76 @@ exports.verifyOTP = async (req, res) => {
 // ✅ Resend OTP
 exports.resendOTP = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, phone } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ 
+    if (!email && !phone) {
+      return res.status(400).json({
         success: false,
-        message: 'Email is required' 
+        message: 'Email or Phone is required'
       });
     }
 
-    await OTP.deleteMany({ email });
+    // ✅ Delete old OTPs
+    if (email) {
+      await OTP.deleteMany({ email });
+    }
+    if (phone) {
+      await OTP.deleteMany({ phone });
+    }
 
     const otp = generateOTP();
     const expiresAt = getOTPExpiry();
 
     await OTP.create({
-      email,
+      email: email || '',
+      phone: phone || '',
       otp,
       expiresAt,
       verified: false,
     });
 
-    // ✅ Send email using email service
-    await sendOTPEmail(email, otp);
+    // ✅ Send OTP via Email
+    let emailSent = false;
+    if (email) {
+      try {
+        await sendOTPEmail(email, otp);
+        emailSent = true;
+        console.log('✅ OTP email resent successfully');
+      } catch (emailError) {
+        console.error('❌ Email sending failed:', emailError);
+      }
+    }
 
-    console.log('✅ OTP Resent Successfully to:', email);
+    // ✅ Send OTP via SMS
+    let smsSent = false;
+    if (phone) {
+      try {
+        const smsResult = await smsService.sendOTP(phone, otp);
+        if (smsResult.success) {
+          smsSent = true;
+          console.log('✅ OTP SMS resent successfully');
+        } else {
+          console.error('❌ SMS sending failed:', smsResult.error);
+        }
+      } catch (smsError) {
+        console.error('❌ SMS sending error:', smsError);
+      }
+    }
+
+    console.log('✅ OTP Resent Successfully');
 
     res.status(200).json({
       success: true,
-      message: 'OTP resent successfully to your email',
+      message: 'OTP resent successfully',
+      emailSent: emailSent,
+      smsSent: smsSent,
     });
   } catch (error) {
     console.error('❌ Error in resendOTP:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error', 
-      error: error.message 
-    });
-  }
-};
-
-// ✅ Register User
-exports.register = async (req, res) => {
-  try {
-    const { fullName, email, phone, password } = req.body;
-
-    console.log('========================================');
-    console.log('📝 Registering User');
-    console.log(`👤 Name: ${fullName}`);
-    console.log(`📧 Email: ${email}`);
-    console.log(`📱 Phone: ${phone}`);
-    console.log('========================================');
-
-    if (!fullName || !email || !phone || !password) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Please fill all fields' 
-      });
-    }
-
-    const otpRecord = await OTP.findOne({ email, verified: true });
-    if (!otpRecord) {
-      console.log('❌ Email not verified');
-      return res.status(400).json({ 
-        success: false,
-        message: 'Email not verified. Please verify OTP first.' 
-      });
-    }
-
-    const userExists = await User.findOne({ $or: [{ email }, { phone }] });
-    if (userExists) {
-      console.log('❌ User already exists');
-      return res.status(400).json({ 
-        success: false,
-        message: 'User already exists' 
-      });
-    }
-
-    const user = new User({
-      fullName,
-      email,
-      phone,
-      password,
-    });
-
-    await user.save();
-
-    await OTP.deleteOne({ _id: otpRecord._id });
-
-    console.log('✅ User Registered Successfully!');
-    console.log(`🆔 User ID: ${user._id}`);
-
-    const token = generateToken(user._id);
-
-    res.status(201).json({
-      success: true,
-      _id: user._id,
-      fullName: user.fullName,
-      email: user.email,
-      phone: user.phone,
-      token: token,
-    });
-  } catch (error) {
-    console.error('❌ Error in register:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: 'Server error',
+      error: error.message
     });
   }
 };

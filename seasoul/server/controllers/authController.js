@@ -226,12 +226,17 @@ exports.register = async (req, res) => {
       });
     }
 
-    const otpRecord = await OTP.findOne({ email, verified: true });
+    // ✅ Check OTP verification (Email OR Phone)
+    const otpRecord = await OTP.findOne({ 
+      $or: [{ email }, { phone }],
+      verified: true 
+    });
+    
     if (!otpRecord) {
-      console.log('❌ Email not verified');
+      console.log('❌ OTP not verified');
       return res.status(400).json({
         success: false,
-        message: 'Email not verified. Please verify OTP first.'
+        message: 'OTP not verified. Please verify OTP first.'
       });
     }
 
@@ -243,7 +248,7 @@ exports.register = async (req, res) => {
     });
 
     await user.save();
-    await OTP.deleteOne({ _id: otpRecord._id });
+    await OTP.deleteMany({ $or: [{ email }, { phone }] });
 
     console.log('✅ User Registered Successfully!');
     console.log(`🆔 User ID: ${user._id}`);
