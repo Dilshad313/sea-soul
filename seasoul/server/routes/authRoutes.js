@@ -1,9 +1,8 @@
-// routes/authRoutes.js - UPDATED
-
+// routes/authRoutes.js - FIXED
 const express = require('express');
 const router = express.Router();
 
-// ✅ Existing Controllers
+// ✅ Import Controllers
 const { 
   register, 
   login, 
@@ -31,14 +30,14 @@ router.post('/register', register);
 router.post('/login', login);
 
 // ==================== OTP Routes - Phone ONLY ====================
-router.post('/send-otp', sendOTP);  // ✅ Only phone
-router.post('/verify-otp', verifyOTP);  // ✅ Only phone
-router.post('/resend-otp', resendOTP);  // ✅ Only phone
+router.post('/send-otp', sendOTP);
+router.post('/verify-otp', verifyOTP);
+router.post('/resend-otp', resendOTP);
 
 // ==================== Password Management ====================
-router.post('/forgot-password', forgotPassword);  // ✅ Only phone
-router.post('/reset-password', resetPassword);  // ✅ Only phone
-router.post('/change-password', protect, changePassword);  // ✅ Email notification
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
+router.post('/change-password', protect, changePassword);
 
 // ==================== Google Login Route ====================
 router.post('/google', googleLogin);
