@@ -1,3 +1,4 @@
+// ui/forgot_password.dart - 4-Digit OTP
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,7 +14,7 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -22,112 +23,120 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   bool _otpSent = false;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
-  int _otpLength = 6;
+  
+  // ✅ 4-digit OTP
+  static const int _otpLength = 4;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _phoneController.dispose();
     _otpController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
+  String _formatPhoneNumber(String phone) {
+    String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
+    
+    if (cleanPhone.startsWith('+91')) {
+      cleanPhone = cleanPhone.substring(3);
+    } else if (cleanPhone.startsWith('91')) {
+      cleanPhone = cleanPhone.substring(2);
+    } else if (cleanPhone.startsWith('0')) {
+      cleanPhone = cleanPhone.substring(1);
+    }
+    
+    return cleanPhone;
+  }
+
   void _sendOTP() async {
-  if (_isLoading) return;
+    if (_isLoading) return;
 
-  final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
 
-  if (email.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please enter your email address'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your phone number'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-  // ✅ CHECK: Valid email format
-  final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-  if (!emailRegex.hasMatch(email)) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please enter a valid email address (e.g., name@domain.com)'),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 3),
-      ),
-    );
-    return;
-  }
+    final phoneRegex = RegExp(r'^[0-9]{10}$');
+    final cleanPhone = _formatPhoneNumber(phone);
+    
+    if (!phoneRegex.hasMatch(cleanPhone)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid 10-digit phone number'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
 
-  setState(() {
-    _isLoading = true;
-  });
+    setState(() {
+      _isLoading = true;
+    });
 
-  try {
-    final data = {'email': email};
-    final response = await ApiService.post(ApiConstants.forgotPassword, data);
+    try {
+      final data = {'phone': cleanPhone};
+      final response = await ApiService.post(ApiConstants.forgotPassword, data);
 
-    if (response['success'] == true) {
+      if (response['success'] == true) {
+        setState(() {
+          _otpSent = true;
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 4-digit OTP sent to your phone'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else {
+        throw Exception(response['message'] ?? 'Failed to send OTP');
+      }
+    } catch (e) {
       setState(() {
-        _otpSent = true;
         _isLoading = false;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ OTP sent to your email'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    } else {
-      throw Exception(response['message'] ?? 'Failed to send OTP');
-    }
-  } catch (e) {
-    setState(() {
-      _isLoading = false;
-    });
-    
-    // ✅ Check error and show appropriate message
-    final errorMsg = e.toString().toLowerCase();
-    if (errorMsg.contains('invalid email') || errorMsg.contains('valid email')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid email address'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    } else if (errorMsg.contains('not found') || errorMsg.contains('no user')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No account found with this email'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      
+      final errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('not found') || errorMsg.contains('no user')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No account found with this phone number'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
-}
 
   void _resetPassword() async {
     if (_isLoading) return;
 
-    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
     final otp = _otpController.text.trim();
     final newPassword = _newPasswordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
 
-    if (email.isEmpty || otp.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
+    if (phone.isEmpty || otp.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please fill all fields'),
@@ -137,10 +146,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       return;
     }
 
+    // ✅ Check 4-digit OTP
     if (otp.length != _otpLength) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter complete OTP'),
+          content: Text('Please enter complete 4-digit OTP'),
           backgroundColor: Colors.red,
         ),
       );
@@ -170,8 +180,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     setState(() => _isLoading = true);
 
     try {
+      final cleanPhone = _formatPhoneNumber(phone);
+      
       final data = {
-        'email': email,
+        'phone': cleanPhone,
         'otp': otp,
         'newPassword': newPassword,
       };
@@ -268,7 +280,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Icon
                   Container(
                     width: 80,
                     height: 80,
@@ -283,7 +294,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Title
                   Text(
                     'Reset Password',
                     style: GoogleFonts.montserrat(
@@ -295,8 +305,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   const SizedBox(height: 8),
                   Text(
                     _otpSent 
-                        ? 'Enter OTP and new password' 
-                        : 'Enter your email to receive OTP',
+                        ? 'Enter 4-digit OTP and new password' 
+                        : 'Enter your phone number to receive 4-digit OTP',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.montserrat(
                       fontSize: 14,
@@ -304,7 +314,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
                   ),
                   const SizedBox(height: 40),
-                  // Glassmorphic Card
                   ClipRRect(
                     borderRadius: BorderRadius.circular(24),
                     child: BackdropFilter(
@@ -324,9 +333,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Email
+                            // ✅ Phone Number (instead of email)
                             Text(
-                              'EMAIL ADDRESS',
+                              'PHONE NUMBER',
                               style: GoogleFonts.montserrat(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -340,20 +349,21 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: TextField(
-                                controller: _emailController,
+                                controller: _phoneController,
                                 enabled: !_otpSent,
+                                keyboardType: TextInputType.phone,
                                 style: GoogleFonts.montserrat(
                                   color: _otpSent ? Colors.grey : Colors.white,
                                   fontSize: 16,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: 'your@email.com',
+                                  hintText: '9876543210',
                                   hintStyle: GoogleFonts.montserrat(
                                     color: Colors.white24,
                                     fontSize: 16,
                                   ),
                                   prefixIcon: const Icon(
-                                    Icons.email_outlined,
+                                    Icons.phone_outlined,
                                     color: colorOutline,
                                   ),
                                   filled: true,
@@ -442,9 +452,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                             ],
                             if (_otpSent) ...[
                               const SizedBox(height: 16),
-                              // OTP
+                              // ✅ OTP (4-digit)
                               Text(
-                                'OTP',
+                                'OTP (4-digit)',
                                 style: GoogleFonts.montserrat(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -460,13 +470,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                 child: TextField(
                                   controller: _otpController,
                                   keyboardType: TextInputType.number,
-                                  maxLength: 6,
+                                  maxLength: 4,
                                   style: GoogleFonts.montserrat(
                                     color: Colors.white,
                                     fontSize: 16,
                                   ),
                                   decoration: InputDecoration(
-                                    hintText: 'Enter 6-digit OTP',
+                                    hintText: 'Enter 4-digit OTP',
                                     hintStyle: GoogleFonts.montserrat(
                                       color: Colors.white24,
                                       fontSize: 16,

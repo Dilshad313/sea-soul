@@ -1,8 +1,10 @@
+// controllers/otpController.js - UPDATED
+
 const OTP = require('../models/OTP');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { sendOTPEmail } = require('../services/emailService');
-const smsService = require('../services/smsService');
+const smsService = require('../services/smsService'); // Already using MSG91
 require('dotenv').config();
 
 const generateOTP = () => {
@@ -32,148 +34,85 @@ const formatPhoneNumber = (phone) => {
   return cleanPhone;
 };
 
-// ✅ Send OTP - FIXED (No duplicate sends)
+// ✅ Send OTP - ONLY PHONE (No Email)
 exports.sendOTP = async (req, res) => {
   try {
-    const { email, phone } = req.body;
+    const { phone } = req.body;  // ✅ Only phone now
 
     console.log('========================================');
     console.log('📧 Send OTP Request');
-    console.log(`📧 Email: ${email}`);
     console.log(`📱 Phone: ${phone}`);
     console.log('========================================');
 
-    if (!email && !phone) {
+    if (!phone) {
       return res.status(400).json({
         success: false,
-        message: 'Email or Phone is required'
+        message: 'Phone number is required'
       });
-    }
-
-    // ✅ Validate email
-    if (email) {
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please enter a valid email address'
-        });
-      }
-
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: 'This email is already registered. Please login or use another email.'
-        });
-      }
     }
 
     // ✅ Validate phone
-    let cleanPhone = '';
-    if (phone) {
-      const phoneRegex = /^[0-9]{10}$/;
-      cleanPhone = formatPhoneNumber(phone);
-      
-      let phoneDigits = cleanPhone;
-      if (phoneDigits.startsWith('91')) {
-        phoneDigits = phoneDigits.substring(2);
-      }
-      
-      if (!phoneRegex.test(phoneDigits)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please enter a valid 10-digit phone number'
-        });
-      }
-
-      const existingUser = await User.findOne({ phone: cleanPhone });
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: 'This phone number is already registered. Please login or use another.'
-        });
-      }
+    let cleanPhone = formatPhoneNumber(phone);
+    const phoneRegex = /^[0-9]{10}$/;
+    
+    let phoneDigits = cleanPhone;
+    if (phoneDigits.startsWith('91')) {
+      phoneDigits = phoneDigits.substring(2);
     }
-
-    // ✅ Delete old OTPs
-    if (email) {
-      await OTP.deleteMany({ email });
-    }
-    if (phone) {
-      await OTP.deleteMany({ phone: cleanPhone });
-    }
-
-    const otp = generateOTP();
-    const expiresAt = getOTPExpiry();
-
-    console.log('✅ OTP Generated:', otp);
-
-    // ✅ Save OTP to database
-    await OTP.create({
-      email: email || '',
-      phone: cleanPhone || '',
-      otp,
-      expiresAt,
-      verified: false,
-    });
-
-    // ✅ Send OTP via Email (Only once)
-    let emailSent = false;
-    if (email) {
-      try {
-        await sendOTPEmail(email, otp);
-        emailSent = true;
-        console.log('✅ OTP email sent successfully');
-      } catch (emailError) {
-        console.error('❌ Email sending failed:', emailError);
-      }
-    }
-
-    // ✅ Send OTP via SMS (Only once - FIXED)
-    let smsSent = false;
-    if (cleanPhone) {
-      try {
-        console.log(`📱 Sending SMS to: ${cleanPhone}`);
-        const smsResult = await smsService.sendOTP(cleanPhone, otp);
-        console.log('📥 SMS Result:', smsResult);
-        
-        if (smsResult.success) {
-          smsSent = true;
-          console.log('✅ OTP SMS sent successfully');
-        } else {
-          console.error('❌ SMS failed:', smsResult.error);
-        }
-      } catch (smsError) {
-        console.error('❌ SMS error:', smsError);
-      }
-    }
-
-    // ✅ Response
-    let message = '';
-    if (emailSent && smsSent) {
-      message = 'OTP sent successfully to your email and phone';
-    } else if (emailSent) {
-      message = 'OTP sent successfully to your email (SMS failed)';
-    } else if (smsSent) {
-      message = 'OTP sent successfully to your phone (Email failed)';
-    } else {
-      message = 'Failed to send OTP. Please try again.';
-      return res.status(500).json({
+    
+    if (!phoneRegex.test(phoneDigits)) {
+      return res.status(400).json({
         success: false,
-        message: message,
-        emailSent: emailSent,
-        smsSent: smsSent,
+        message: 'Please enter a valid 10-digit phone number'
       });
     }
 
+    // ✅ Check if user exists (for registration)
+    const existingUser = await User.findOne({ phone: cleanPhone });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'This phone number is already registered. Please login or use another.'
+      });
+    }
+
+    // ✅ Delete old OTPs
+    await OTP.deleteMany({ phone: cleanPhone });
+
+    // ✅ Send OTP via SMS ONLY (Using MSG91)
+    console.log(`📱 Sending OTP via MSG91 to: ${cleanPhone}`);
+    const smsResult = await smsService.sendOTP(cleanPhone, null);
+    console.log('📥 SMS Result:', smsResult);
+
+    if (!smsResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send OTP. Please try again.',
+        error: smsResult.error
+      });
+    }
+
+    // ✅ Store OTP in database for verification
+    const otp = smsResult.data?.otp || generateOTP();
+    const expiresAt = getOTPExpiry();
+
+    await OTP.create({
+      phone: cleanPhone,
+      otp: otp,
+      expiresAt: expiresAt,
+      verified: false,
+      msg91OrderId: smsResult.data?.order_id || null
+    });
+
+    console.log('✅ OTP SMS sent successfully');
+
     res.status(200).json({
       success: true,
-      message: message,
-      emailSent: emailSent,
-      smsSent: smsSent,
+      message: 'OTP sent successfully to your phone',
       phone: cleanPhone,
+      orderId: smsResult.data?.order_id || null
     });
+
   } catch (error) {
     console.error('❌ Error in sendOTP:', error);
     res.status(500).json({
@@ -184,14 +123,13 @@ exports.sendOTP = async (req, res) => {
   }
 };
 
-// ✅ Verify OTP
+// ✅ Verify OTP - Using MSG91
 exports.verifyOTP = async (req, res) => {
   try {
-    const { email, phone, otp } = req.body;
+    const { phone, otp } = req.body;
 
     console.log('========================================');
     console.log('🔍 Verifying OTP');
-    console.log(`📧 Email: ${email}`);
     console.log(`📱 Phone: ${phone}`);
     console.log(`🔑 OTP: ${otp}`);
     console.log('========================================');
@@ -203,42 +141,54 @@ exports.verifyOTP = async (req, res) => {
       });
     }
 
-    let cleanPhone = phone ? formatPhoneNumber(phone) : '';
+    let cleanPhone = formatPhoneNumber(phone);
 
-    let query = {};
-    if (email) query.email = email;
-    if (cleanPhone) query.phone = cleanPhone;
-    query.verified = false;
+    // ✅ First, try MSG91 verification
+    const verifyResult = await smsService.verifyOTP(cleanPhone, otp);
+    console.log('📥 MSG91 Verify Result:', verifyResult);
 
-    const otpRecord = await OTP.findOne(query);
+    let otpRecord = null;
 
-    if (!otpRecord) {
-      console.log('❌ Invalid OTP or already verified');
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid OTP or OTP already verified'
+    if (verifyResult.success) {
+      // ✅ MSG91 verification successful
+      console.log('✅ MSG91 OTP verification successful');
+      
+      // Update local OTP record
+      otpRecord = await OTP.findOne({ phone: cleanPhone, verified: false });
+      if (otpRecord) {
+        otpRecord.verified = true;
+        await otpRecord.save();
+      }
+    } else {
+      // ✅ Fallback: Check local database
+      console.log('⚠️ MSG91 verification failed, checking local DB...');
+      
+      otpRecord = await OTP.findOne({
+        phone: cleanPhone,
+        otp: otp,
+        verified: false
       });
-    }
 
-    if (otpRecord.otp !== otp) {
-      console.log('❌ Invalid OTP');
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid OTP'
-      });
-    }
+      if (!otpRecord) {
+        console.log('❌ Invalid OTP or already verified');
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid OTP or OTP already verified'
+        });
+      }
 
-    if (new Date() > otpRecord.expiresAt) {
-      await OTP.deleteOne({ _id: otpRecord._id });
-      console.log('❌ OTP Expired');
-      return res.status(400).json({
-        success: false,
-        message: 'OTP expired. Please request a new one.'
-      });
-    }
+      if (new Date() > otpRecord.expiresAt) {
+        await OTP.deleteOne({ _id: otpRecord._id });
+        console.log('❌ OTP Expired');
+        return res.status(400).json({
+          success: false,
+          message: 'OTP expired. Please request a new one.'
+        });
+      }
 
-    otpRecord.verified = true;
-    await otpRecord.save();
+      otpRecord.verified = true;
+      await otpRecord.save();
+    }
 
     console.log('✅ OTP Verified Successfully!');
 
@@ -247,6 +197,7 @@ exports.verifyOTP = async (req, res) => {
       message: 'OTP verified successfully',
       verified: true,
     });
+
   } catch (error) {
     console.error('❌ Error in verifyOTP:', error);
     res.status(500).json({
@@ -257,70 +208,56 @@ exports.verifyOTP = async (req, res) => {
   }
 };
 
-// ✅ Resend OTP
+// ✅ Resend OTP - ONLY PHONE
 exports.resendOTP = async (req, res) => {
   try {
-    const { email, phone } = req.body;
+    const { phone } = req.body;
 
-    if (!email && !phone) {
+    if (!phone) {
       return res.status(400).json({
         success: false,
-        message: 'Email or Phone is required'
+        message: 'Phone number is required'
       });
     }
 
-    let cleanPhone = phone ? formatPhoneNumber(phone) : '';
+    let cleanPhone = formatPhoneNumber(phone);
 
-    if (email) {
-      await OTP.deleteMany({ email });
-    }
-    if (cleanPhone) {
-      await OTP.deleteMany({ phone: cleanPhone });
+    // ✅ Delete old OTPs
+    await OTP.deleteMany({ phone: cleanPhone });
+
+    // ✅ Send OTP via SMS
+    console.log(`📱 Resending OTP to: ${cleanPhone}`);
+    const smsResult = await smsService.sendOTP(cleanPhone, null);
+
+    if (!smsResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to resend OTP. Please try again.',
+        error: smsResult.error
+      });
     }
 
-    const otp = generateOTP();
+    // ✅ Store OTP in database
+    const otp = smsResult.data?.otp || generateOTP();
     const expiresAt = getOTPExpiry();
 
     await OTP.create({
-      email: email || '',
-      phone: cleanPhone || '',
-      otp,
-      expiresAt,
+      phone: cleanPhone,
+      otp: otp,
+      expiresAt: expiresAt,
       verified: false,
+      msg91OrderId: smsResult.data?.order_id || null
     });
 
-    let emailSent = false;
-    if (email) {
-      try {
-        await sendOTPEmail(email, otp);
-        emailSent = true;
-        console.log('✅ OTP email resent successfully');
-      } catch (emailError) {
-        console.error('❌ Email sending failed:', emailError);
-      }
-    }
-
-    let smsSent = false;
-    if (cleanPhone) {
-      try {
-        const smsResult = await smsService.sendOTP(cleanPhone, otp);
-        if (smsResult.success) {
-          smsSent = true;
-          console.log('✅ OTP SMS resent successfully');
-        } else {
-          console.error('❌ SMS sending failed:', smsResult.error);
-        }
-      } catch (smsError) {
-        console.error('❌ SMS sending error:', smsError);
-      }
-    }
+    console.log('✅ OTP resent successfully');
 
     res.status(200).json({
       success: true,
       message: 'OTP resent successfully',
-      emailSent: emailSent,
-      smsSent: smsSent,
+      phone: cleanPhone,
+      orderId: smsResult.data?.order_id || null
     });
+
   } catch (error) {
     console.error('❌ Error in resendOTP:', error);
     res.status(500).json({
@@ -330,3 +267,6 @@ exports.resendOTP = async (req, res) => {
     });
   }
 };
+
+// ✅ For password reset - also only phone
+// But keep email for other communications

@@ -1,3 +1,5 @@
+// routes/authRoutes.js - UPDATED
+
 const express = require('express');
 const router = express.Router();
 
@@ -28,15 +30,15 @@ router.get('/test', (req, res) => {
 router.post('/register', register);
 router.post('/login', login);
 
-// ==================== OTP Routes ====================
-router.post('/send-otp', sendOTP);
-router.post('/verify-otp', verifyOTP);
-router.post('/resend-otp', resendOTP);
+// ==================== OTP Routes - Phone ONLY ====================
+router.post('/send-otp', sendOTP);  // ✅ Only phone
+router.post('/verify-otp', verifyOTP);  // ✅ Only phone
+router.post('/resend-otp', resendOTP);  // ✅ Only phone
 
 // ==================== Password Management ====================
-router.post('/forgot-password', forgotPassword);
-router.post('/reset-password', resetPassword);
-router.post('/change-password', protect, changePassword);
+router.post('/forgot-password', forgotPassword);  // ✅ Only phone
+router.post('/reset-password', resetPassword);  // ✅ Only phone
+router.post('/change-password', protect, changePassword);  // ✅ Email notification
 
 // ==================== Google Login Route ====================
 router.post('/google', googleLogin);

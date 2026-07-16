@@ -28,6 +28,9 @@ app.use('/assets', express.static(path.join(__dirname, '../assets')));
 // ✅ Import Razorpay Routes
 const razorpayRoutes = require('./routes/razorpayRoutes');
 
+// ✅ Import MSG91 Webhook Routes
+const otpWebhookRoutes = require('./routes/otpWebhookRoutes');
+
 // ✅ API Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api', require('./routes/productRoutes'));
@@ -42,6 +45,9 @@ app.use('/api/categories', require('./routes/categoryRoutes'));
 
 // ✅ ADD THIS - Razorpay Routes
 app.use('/api/razorpay', razorpayRoutes);
+
+// ✅ ADD - MSG91 Webhook Routes
+app.use('/api', otpWebhookRoutes);
 
 // ==================== ERROR HANDLING ====================
 app.use((err, req, res, next) => {

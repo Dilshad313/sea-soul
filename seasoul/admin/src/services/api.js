@@ -1,3 +1,5 @@
+// admin/src/services/api.js - UPDATED
+
 import axios from 'axios';
 
 // ✅ Use Vercel hosted backend URL
@@ -34,5 +36,8 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// ✅ Webhook URL for MSG91 - Add this to your MSG91 widget settings
+export const MSG91_WEBHOOK_URL = 'https://sea-soul-backend.vercel.app/api/otp-webhook';
 
 export default api;

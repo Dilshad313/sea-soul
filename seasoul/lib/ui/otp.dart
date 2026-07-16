@@ -1,3 +1,4 @@
+// ui/otp.dart - 4-Digit OTP
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -9,14 +10,12 @@ import '../services/api_service.dart';
 import '../constants/api_constants.dart';
 
 class OTPPage extends StatefulWidget {
-  final String email;
   final String phone;
   final String fullName;
   final String password;
 
   const OTPPage({
     super.key,
-    required this.email,
     required this.phone,
     required this.fullName,
     required this.password,
@@ -27,7 +26,8 @@ class OTPPage extends StatefulWidget {
 }
 
 class _OTPPageState extends State<OTPPage> {
-  final int _otpLength = 4;
+  // ✅ 4-Digit OTP
+  static const int _otpLength = 4;
   late List<FocusNode> _focusNodes;
   late List<TextEditingController> _controllers;
 
@@ -38,7 +38,6 @@ class _OTPPageState extends State<OTPPage> {
   bool _isVerifying = false;
   String _errorMessage = '';
   
-  // ✅ Track if OTP already sent to prevent duplicate
   bool _otpSent = false;
 
   @override
@@ -51,7 +50,6 @@ class _OTPPageState extends State<OTPPage> {
     );
     _startTimer();
     
-    // ✅ Send OTP only once, not multiple times
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _sendInitialOTP();
     });
@@ -77,7 +75,6 @@ class _OTPPageState extends State<OTPPage> {
     });
   }
 
-  // ✅ Format phone for display
   String _formatPhoneForDisplay(String phone) {
     if (phone.isEmpty) return '';
     if (phone.length == 10) {
@@ -89,7 +86,6 @@ class _OTPPageState extends State<OTPPage> {
   }
 
   Future<void> _sendInitialOTP() async {
-    // ✅ Prevent duplicate sends
     if (_otpSent) {
       print('⚠️ OTP already sent, skipping duplicate');
       return;
@@ -98,11 +94,9 @@ class _OTPPageState extends State<OTPPage> {
     
     try {
       print('📤 Sending initial OTP...');
-      print('📧 Email: ${widget.email}');
       print('📱 Phone: ${widget.phone}');
       
       final response = await ApiService.post(ApiConstants.sendOTP, {
-        'email': widget.email,
         'phone': widget.phone,
       });
       
@@ -110,34 +104,14 @@ class _OTPPageState extends State<OTPPage> {
       
       if (response['success'] == true) {
         print('✅ OTP sent successfully');
-        print('📧 Email sent: ${response['emailSent']}');
-        print('📱 SMS sent: ${response['smsSent']}');
         
-        if (response['smsSent'] == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ OTP sent to your phone and email!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        } else if (response['emailSent'] == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ OTP sent to your email! (SMS failed)'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Failed to send OTP. Please try again.'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 4-digit OTP sent to your phone!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
       } else {
         print('⚠️ OTP send failed: ${response['message']}');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -182,13 +156,14 @@ class _OTPPageState extends State<OTPPage> {
       otp += controller.text;
     }
 
+    // ✅ Check 4-digit OTP
     if (otp.length != _otpLength) {
       setState(() {
-        _errorMessage = 'Please enter complete OTP';
+        _errorMessage = 'Please enter complete 4-digit OTP';
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter complete OTP'),
+          content: Text('Please enter complete 4-digit OTP'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -199,13 +174,11 @@ class _OTPPageState extends State<OTPPage> {
 
     try {
       final data = {
-        'email': widget.email,
         'phone': widget.phone,
         'otp': otp,
       };
 
       print('📤 Verifying OTP...');
-      print('📧 Email: ${widget.email}');
       print('📱 Phone: ${widget.phone}');
       print('🔑 OTP: $otp');
       
@@ -217,7 +190,6 @@ class _OTPPageState extends State<OTPPage> {
 
         final registerData = {
           'fullName': widget.fullName,
-          'email': widget.email,
           'phone': widget.phone,
           'password': widget.password,
         };
@@ -234,7 +206,7 @@ class _OTPPageState extends State<OTPPage> {
           await ApiService.saveUserData({
             '_id': registerResponse['_id'] ?? registerResponse['user']?['_id'],
             'fullName': registerResponse['fullName'] ?? registerResponse['user']?['fullName'] ?? widget.fullName,
-            'email': registerResponse['email'] ?? registerResponse['user']?['email'] ?? widget.email,
+            'email': registerResponse['email'] ?? registerResponse['user']?['email'] ?? '',
             'phone': registerResponse['phone'] ?? registerResponse['user']?['phone'] ?? widget.phone,
           });
           
@@ -305,12 +277,10 @@ class _OTPPageState extends State<OTPPage> {
 
     try {
       final data = {
-        'email': widget.email,
         'phone': widget.phone,
       };
       
       print('📤 Resending OTP...');
-      print('📧 Email: ${widget.email}');
       print('📱 Phone: ${widget.phone}');
       
       final response = await ApiService.post(ApiConstants.resendOTP, data);
@@ -399,7 +369,6 @@ class _OTPPageState extends State<OTPPage> {
     const colorOutline = Color(0xFF849396);
     const colorError = Color(0xFFFF6B6B);
 
-    // ✅ Format phone for display
     final displayPhone = _formatPhoneForDisplay(widget.phone);
 
     return Scaffold(
@@ -499,7 +468,7 @@ class _OTPPageState extends State<OTPPage> {
                     ),
                     const SizedBox(height: 8),
                     Padding(
-                      padding: const EdgeInsets.only(top: 100),
+                      padding: const EdgeInsets.only(top: 80),
                       child: RichText(
                         textAlign: TextAlign.center,
                         text: TextSpan(
@@ -508,17 +477,9 @@ class _OTPPageState extends State<OTPPage> {
                             color: colorOnSurfaceVariant,
                           ),
                           children: [
-                            const TextSpan(text: "We've sent a code to "),
-                            if (widget.phone.isNotEmpty)
-                              TextSpan(
-                                text: '$displayPhone and ',
-                                style: const TextStyle(
-                                  color: Color(0xFFC3F5FF),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                            const TextSpan(text: "We've sent a 4-digit code to "),
                             TextSpan(
-                              text: widget.email,
+                              text: displayPhone,
                               style: const TextStyle(
                                 color: Color(0xFFC3F5FF),
                                 fontWeight: FontWeight.w500,
@@ -528,7 +489,8 @@ class _OTPPageState extends State<OTPPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 40),
+                    // ✅ 4-Digit OTP Fields
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(

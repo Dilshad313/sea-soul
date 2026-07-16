@@ -1,3 +1,4 @@
+// ui/signup.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -136,15 +137,12 @@ class _signupState extends State<signup> {
     setState(() => _isLoading = true);
 
     try {
-      // ✅ Send OTP with both email and phone (10 digits only)
+      // ✅ Send OTP - Phone ONLY (4-digit OTP via MSG91)
       final data = {
-        'email': email,
-        'phone': cleanPhone,  // ✅ Send 10 digits only
+        'phone': cleanPhone,
       };
       
-      print('📤 Sending OTP to:');
-      print('📧 Email: $email');
-      print('📱 Phone: $cleanPhone');
+      print('📤 Sending OTP to phone: $cleanPhone');
       
       final response = await ApiService.post(ApiConstants.sendOTP, data);
 
@@ -155,7 +153,7 @@ class _signupState extends State<signup> {
         
         if (errorMsg.toLowerCase().contains('already registered') || 
             errorMsg.toLowerCase().contains('exists')) {
-          errorMsg = 'This email or phone is already registered. Please login or use another.';
+          errorMsg = 'This phone number is already registered. Please login or use another.';
         }
         
         ScaffoldMessenger.of(context).showSnackBar(
@@ -170,14 +168,7 @@ class _signupState extends State<signup> {
       }
 
       // ✅ Success - OTP sent
-      String successMsg = '✅ OTP sent successfully!';
-      if (response['smsSent'] == true && response['emailSent'] == true) {
-        successMsg = '✅ OTP sent to your phone and email!';
-      } else if (response['smsSent'] == true) {
-        successMsg = '✅ OTP sent to your phone! (Check SMS)';
-      } else if (response['emailSent'] == true) {
-        successMsg = '✅ OTP sent to your email! (SMS failed)';
-      }
+      String successMsg = '✅ 4-digit OTP sent to your phone!';
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -192,8 +183,7 @@ class _signupState extends State<signup> {
           context,
           MaterialPageRoute(
             builder: (context) => OTPPage(
-              email: email,
-              phone: cleanPhone,  // ✅ Send 10 digits
+              phone: cleanPhone,
               fullName: fullName,
               password: password,
             ),
@@ -204,22 +194,14 @@ class _signupState extends State<signup> {
       print('❌ Error: $e');
       
       final errorMsg = e.toString().toLowerCase();
-      if (errorMsg.contains('invalid email') || errorMsg.contains('valid email')) {
+      if (errorMsg.contains('already registered') || 
+          errorMsg.contains('exists') ||
+          (errorMsg.contains('phone') && errorMsg.contains('registered'))) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please enter a valid email address'),
+            content: Text('This phone number is already registered. Please login or use another.'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      } else if (errorMsg.contains('already registered') || 
-                 errorMsg.contains('exists') ||
-                 (errorMsg.contains('email') && errorMsg.contains('registered'))) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('This email or phone is already registered. Please login or use another.'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
+            duration: Duration(seconds: 4),
           ),
         );
       } else {
@@ -713,6 +695,7 @@ class _signupState extends State<signup> {
   }
 }
 
+// Wave Painter for background
 class WavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

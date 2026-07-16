@@ -12,48 +12,64 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
+// controllers/authController.js - UPDATED password reset section
+
 // ==================== FORGOT PASSWORD ====================
 exports.forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { phone } = req.body;  // ✅ Changed from email to phone
 
     console.log('========================================');
     console.log('🔑 Forgot Password Request');
-    console.log(`📧 Email: ${email}`);
+    console.log(`📱 Phone: ${phone}`);
     console.log('========================================');
 
-    if (!email) {
+    if (!phone) {
       return res.status(400).json({
         success: false,
-        message: 'Email is required'
+        message: 'Phone number is required'
       });
     }
 
-    const user = await User.findOne({ email });
+    // ✅ Find user by phone
+    const cleanPhone = formatPhoneNumber(phone);
+    const user = await User.findOne({ phone: cleanPhone });
+    
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'No user found with this email'
+        message: 'No user found with this phone number'
       });
     }
 
-    // Generate OTP (6 digits)
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // ✅ Send OTP via SMS using MSG91
+    const smsResult = await smsService.sendOTP(cleanPhone, null);
+    
+    if (!smsResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send OTP. Please try again.'
+      });
+    }
+
+    // ✅ Store OTP in database
+    const otp = smsResult.data?.otp || generateOTP();
     const otpExpiry = Date.now() + 10 * 60 * 1000;
 
     user.resetPasswordOTP = otp;
     user.resetPasswordExpires = otpExpiry;
     await user.save();
 
-    // ✅ Send OTP email using email service
-    await sendPasswordResetOTPEmail(email, otp);
+    console.log('✅ Password reset OTP sent to:', cleanPhone);
 
-    console.log('✅ Password reset OTP sent to:', email);
+    // ✅ Send confirmation email (NOT OTP)
+    await sendPasswordResetEmail(user.email);
 
     res.status(200).json({
       success: true,
-      message: 'OTP sent to your email'
+      message: 'OTP sent to your phone'
     });
+
   } catch (error) {
     console.error('❌ Error in forgotPassword:', error);
     res.status(500).json({
@@ -67,18 +83,18 @@ exports.forgotPassword = async (req, res) => {
 // ==================== RESET PASSWORD ====================
 exports.resetPassword = async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
+    const { phone, otp, newPassword } = req.body;  // ✅ Changed from email to phone
 
     console.log('========================================');
     console.log('🔑 Reset Password Request');
-    console.log(`📧 Email: ${email}`);
+    console.log(`📱 Phone: ${phone}`);
     console.log(`🔑 OTP: ${otp}`);
     console.log('========================================');
 
-    if (!email || !otp || !newPassword) {
+    if (!phone || !otp || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Email, OTP and new password are required'
+        message: 'Phone, OTP and new password are required'
       });
     }
 
@@ -89,33 +105,67 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({
-      email,
-      resetPasswordOTP: otp,
-      resetPasswordExpires: { $gt: Date.now() }
-    });
+    const cleanPhone = formatPhoneNumber(phone);
 
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired OTP'
+    // ✅ Verify OTP using MSG91
+    const verifyResult = await smsService.verifyOTP(cleanPhone, otp);
+    
+    let user = null;
+
+    if (verifyResult.success) {
+      // ✅ MSG91 verification successful
+      console.log('✅ MSG91 OTP verified for password reset');
+      
+      user = await User.findOne({
+        phone: cleanPhone,
+        resetPasswordOTP: otp,
+        resetPasswordExpires: { $gt: Date.now() }
       });
+
+      if (!user) {
+        // Try to find user by phone
+        user = await User.findOne({ phone: cleanPhone });
+        if (!user) {
+          return res.status(400).json({
+            success: false,
+            message: 'User not found'
+          });
+        }
+      }
+    } else {
+      // ✅ Fallback: Check local database
+      console.log('⚠️ MSG91 verification failed, checking local DB...');
+      
+      user = await User.findOne({
+        phone: cleanPhone,
+        resetPasswordOTP: otp,
+        resetPasswordExpires: { $gt: Date.now() }
+      });
+
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired OTP'
+        });
+      }
     }
 
+    // ✅ Reset password
     user.password = newPassword;
     user.resetPasswordOTP = null;
     user.resetPasswordExpires = null;
     await user.save();
 
-    // ✅ Send confirmation email using email service
+    // ✅ Send confirmation email (NOT OTP)
     await sendPasswordChangedEmail(user.email);
 
-    console.log('✅ Password change confirmation email sent to:', user.email);
+    console.log('✅ Password reset confirmation email sent to:', user.email);
 
     res.status(200).json({
       success: true,
       message: 'Password reset successfully'
     });
+
   } catch (error) {
     console.error('❌ Error in resetPassword:', error);
     res.status(500).json({
@@ -124,6 +174,23 @@ exports.resetPassword = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Add helper function to format phone
+const formatPhoneNumber = (phone) => {
+  if (!phone) return '';
+  let cleanPhone = phone.replace(/\s/g, '');
+  
+  if (cleanPhone.startsWith('+')) {
+    cleanPhone = cleanPhone.substring(1);
+  }
+  if (cleanPhone.length === 10) {
+    cleanPhone = '91' + cleanPhone;
+  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
+    cleanPhone = '91' + cleanPhone.substring(1);
+  }
+  
+  return cleanPhone;
 };
 
 // ==================== CHANGE PASSWORD ====================

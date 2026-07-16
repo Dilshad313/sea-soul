@@ -1,3 +1,4 @@
+// services/auth_services.dart
 import 'dart:convert';
 import 'package:seasoul/services/api_service.dart';
 import 'package:seasoul/constants/api_constants.dart';
@@ -33,18 +34,16 @@ class AuthService {
       final response = await ApiService.post(
         ApiConstants.login,
         {
-          'identifier': email, // ✅ Backend uses 'identifier'
+          'identifier': email,
           'password': password,
         },
       );
 
       if (response['success'] == true) {
-        // Save token and user data
         if (response['token'] != null) {
           await ApiService.saveToken(response['token']);
         }
         
-        // ✅ Backend returns user data directly in response
         final userData = {
           '_id': response['_id'],
           'fullName': response['fullName'],
@@ -85,7 +84,6 @@ class AuthService {
       );
 
       if (response['success'] == true) {
-        // Save token and user data if returned
         if (response['token'] != null) {
           await ApiService.saveToken(response['token']);
         }
@@ -115,12 +113,10 @@ class AuthService {
   // Logout user
   static Future<void> logout() async {
     try {
-      // ✅ Clear local data
       await ApiService.deleteToken();
       print('✅ Logged out successfully');
     } catch (e) {
       print('❌ Logout error: $e');
-      // Always clear local data even if API fails
       await ApiService.deleteToken();
     }
   }
@@ -145,7 +141,6 @@ class AuthService {
       final response = await ApiService.putWithToken(ApiConstants.profile, data);
 
       if (response['success'] == true && response['user'] != null) {
-        // Update stored user data
         await ApiService.saveUserData(response['user']);
       }
 
@@ -176,12 +171,21 @@ class AuthService {
     }
   }
 
-  // Forgot password
-  static Future<Map<String, dynamic>> forgotPassword(String email) async {
+  // ✅ Forgot Password - Phone ONLY (4-digit OTP)
+  static Future<Map<String, dynamic>> forgotPassword(String phone) async {
     try {
+      print('🔑 Forgot password for phone: $phone');
+      
+      String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
+      if (cleanPhone.startsWith('+91')) {
+        cleanPhone = cleanPhone.substring(3);
+      } else if (cleanPhone.startsWith('91')) {
+        cleanPhone = cleanPhone.substring(2);
+      }
+      
       final response = await ApiService.post(
         ApiConstants.forgotPassword,
-        {'email': email},
+        {'phone': cleanPhone},
       );
       return response;
     } catch (e) {
@@ -190,17 +194,24 @@ class AuthService {
     }
   }
 
-  // Reset password
+  // ✅ Reset Password - Phone ONLY (4-digit OTP)
   static Future<Map<String, dynamic>> resetPassword({
-    required String email,
+    required String phone,
     required String otp,
     required String newPassword,
   }) async {
     try {
+      String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
+      if (cleanPhone.startsWith('+91')) {
+        cleanPhone = cleanPhone.substring(3);
+      } else if (cleanPhone.startsWith('91')) {
+        cleanPhone = cleanPhone.substring(2);
+      }
+      
       final response = await ApiService.post(
         ApiConstants.resetPassword,
         {
-          'email': email,
+          'phone': cleanPhone,
           'otp': otp,
           'newPassword': newPassword,
         },
@@ -212,7 +223,82 @@ class AuthService {
     }
   }
 
-  // ✅ Verify Email (using OTP)
+  // ✅ Send OTP - Phone ONLY (4-digit OTP)
+  static Future<Map<String, dynamic>> sendOTP(String phone) async {
+    try {
+      print('📤 Sending OTP to phone: $phone');
+      
+      String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
+      if (cleanPhone.startsWith('+91')) {
+        cleanPhone = cleanPhone.substring(3);
+      } else if (cleanPhone.startsWith('91')) {
+        cleanPhone = cleanPhone.substring(2);
+      }
+      
+      final response = await ApiService.post(
+        ApiConstants.sendOTP,
+        {'phone': cleanPhone},
+      );
+      return response;
+    } catch (e) {
+      print('❌ Send OTP error: $e');
+      throw Exception('Failed to send OTP: $e');
+    }
+  }
+
+  // ✅ Verify OTP - Phone ONLY (4-digit OTP)
+  static Future<Map<String, dynamic>> verifyOTP({
+    required String phone,
+    required String otp,
+  }) async {
+    try {
+      print('🔍 Verifying OTP for phone: $phone');
+      
+      String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
+      if (cleanPhone.startsWith('+91')) {
+        cleanPhone = cleanPhone.substring(3);
+      } else if (cleanPhone.startsWith('91')) {
+        cleanPhone = cleanPhone.substring(2);
+      }
+      
+      final response = await ApiService.post(
+        ApiConstants.verifyOTP,
+        {
+          'phone': cleanPhone,
+          'otp': otp,
+        },
+      );
+      return response;
+    } catch (e) {
+      print('❌ Verify OTP error: $e');
+      throw Exception('OTP verification failed: $e');
+    }
+  }
+
+  // ✅ Resend OTP - Phone ONLY (4-digit OTP)
+  static Future<Map<String, dynamic>> resendOTP(String phone) async {
+    try {
+      print('📤 Resending OTP to phone: $phone');
+      
+      String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
+      if (cleanPhone.startsWith('+91')) {
+        cleanPhone = cleanPhone.substring(3);
+      } else if (cleanPhone.startsWith('91')) {
+        cleanPhone = cleanPhone.substring(2);
+      }
+      
+      final response = await ApiService.post(
+        ApiConstants.resendOTP,
+        {'phone': cleanPhone},
+      );
+      return response;
+    } catch (e) {
+      print('❌ Resend OTP error: $e');
+      throw Exception('Failed to resend OTP: $e');
+    }
+  }
+
+  // ✅ Verify Email (using OTP) - For backward compatibility
   static Future<Map<String, dynamic>> verifyEmail({
     required String email,
     required String otp,
@@ -274,54 +360,6 @@ class AuthService {
     } catch (e) {
       print('❌ Google auth error: $e');
       throw Exception('Google authentication failed: $e');
-    }
-  }
-
-  // ✅ Send OTP for registration
-  static Future<Map<String, dynamic>> sendOTP(String email) async {
-    try {
-      final response = await ApiService.post(
-        ApiConstants.sendOTP,
-        {'email': email},
-      );
-      return response;
-    } catch (e) {
-      print('❌ Send OTP error: $e');
-      throw Exception('Failed to send OTP: $e');
-    }
-  }
-
-  // ✅ Verify OTP for registration
-  static Future<Map<String, dynamic>> verifyOTP({
-    required String email,
-    required String otp,
-  }) async {
-    try {
-      final response = await ApiService.post(
-        ApiConstants.verifyOTP,
-        {
-          'email': email,
-          'otp': otp,
-        },
-      );
-      return response;
-    } catch (e) {
-      print('❌ Verify OTP error: $e');
-      throw Exception('OTP verification failed: $e');
-    }
-  }
-
-  // ✅ Resend OTP
-  static Future<Map<String, dynamic>> resendOTP(String email) async {
-    try {
-      final response = await ApiService.post(
-        ApiConstants.resendOTP,
-        {'email': email},
-      );
-      return response;
-    } catch (e) {
-      print('❌ Resend OTP error: $e');
-      throw Exception('Failed to resend OTP: $e');
     }
   }
 }
