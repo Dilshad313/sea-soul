@@ -1,19 +1,8 @@
-// controllers/otpController.js - Using only msg91Service
+// controllers/otpController.js
 const OTP = require('../models/OTP');
 const User = require('../models/User');
 const msg91Service = require('../services/msg91Service');
 require('dotenv').config();
-
-const generateOTP = () => {
-  // ✅ 4-digit OTP
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
-  console.log('Generated OTP:', otp);
-  return otp;
-};
-
-const getOTPExpiry = () => {
-  return new Date(Date.now() + 10 * 60 * 1000);
-};
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return '';
@@ -75,7 +64,7 @@ exports.sendOTP = async (req, res) => {
     // Delete old OTPs
     await OTP.deleteMany({ phone: cleanPhone });
 
-    // ✅ Send OTP using MSG91 Service only
+    // ✅ Send OTP using MSG91 Service
     console.log(`📱 Sending OTP to: ${cleanPhone}`);
     const result = await msg91Service.sendOTP(cleanPhone);
     console.log('📥 MSG91 Result:', result);
@@ -85,6 +74,7 @@ exports.sendOTP = async (req, res) => {
       if (result.error && result.error.includes('Invalid')) {
         errorMsg = 'Invalid phone number format.';
       }
+      console.error('❌ OTP Send Failed:', result.error);
       return res.status(500).json({
         success: false,
         message: errorMsg,
@@ -92,18 +82,20 @@ exports.sendOTP = async (req, res) => {
       });
     }
 
-    // ✅ Store OTP in database
-    const otp = result.otp || generateOTP();
-    const expiresAt = getOTPExpiry();
+    // ✅ Store OTP in database with the OTP from MSG91
+    const otp = result.otp; // This is the 4-digit OTP sent via SMS
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    await OTP.create({
+    const otpRecord = new OTP({
       phone: cleanPhone,
       otp: otp,
       expiresAt: expiresAt,
       verified: false,
-      msg91OrderId: result.data?.order_id || null
     });
 
+    await otpRecord.save();
+
+    console.log('✅ OTP stored in database:', otp);
     console.log('✅ OTP sent successfully via', result.method || 'MSG91');
 
     res.status(200).json({
@@ -143,56 +135,49 @@ exports.verifyOTP = async (req, res) => {
     }
 
     let cleanPhone = formatPhoneNumber(phone);
-    let phoneDigits = cleanPhone;
-    if (phoneDigits.startsWith('91')) {
-      phoneDigits = phoneDigits.substring(2);
-    }
 
-    // ✅ Verify using MSG91 Service
-    const verifyResult = await msg91Service.verifyOTP(cleanPhone, otp);
-    console.log('📥 MSG91 Verify Result:', verifyResult);
+    // ✅ Check local database first (since we stored it)
+    const otpRecord = await OTP.findOne({
+      phone: cleanPhone,
+      otp: otp,
+      verified: false
+    });
 
-    let otpRecord = null;
-
-    if (verifyResult.success) {
-      console.log('✅ MSG91 OTP verification successful');
-      
-      // Update local OTP record
-      otpRecord = await OTP.findOne({ phone: cleanPhone, verified: false });
-      if (otpRecord) {
-        otpRecord.verified = true;
-        await otpRecord.save();
-      }
-    } else {
-      // ✅ Fallback: Check local database
-      console.log('⚠️ MSG91 verification failed, checking local DB...');
-      
-      otpRecord = await OTP.findOne({
-        phone: cleanPhone,
-        otp: otp,
-        verified: false
+    if (!otpRecord) {
+      console.log('❌ Invalid OTP or already verified');
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP or OTP already verified'
       });
-
-      if (!otpRecord) {
-        console.log('❌ Invalid OTP or already verified');
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid OTP or OTP already verified'
-        });
-      }
-
-      if (new Date() > otpRecord.expiresAt) {
-        await OTP.deleteOne({ _id: otpRecord._id });
-        console.log('❌ OTP Expired');
-        return res.status(400).json({
-          success: false,
-          message: 'OTP expired. Please request a new one.'
-        });
-      }
-
-      otpRecord.verified = true;
-      await otpRecord.save();
     }
+
+    if (new Date() > otpRecord.expiresAt) {
+      await OTP.deleteOne({ _id: otpRecord._id });
+      console.log('❌ OTP Expired');
+      return res.status(400).json({
+        success: false,
+        message: 'OTP expired. Please request a new one.'
+      });
+    }
+
+    // ✅ Try MSG91 verification as extra check
+    try {
+      const verifyResult = await msg91Service.verifyOTP(cleanPhone, otp);
+      console.log('📥 MSG91 Verify Result:', verifyResult);
+      
+      if (verifyResult.success) {
+        console.log('✅ MSG91 also verified the OTP');
+      } else {
+        console.log('⚠️ MSG91 verification failed, but local DB has it');
+        // Continue anyway since we have local record
+      }
+    } catch (verifyError) {
+      console.log('⚠️ MSG91 verify API error, using local DB:', verifyError.message);
+    }
+
+    // ✅ Mark as verified
+    otpRecord.verified = true;
+    await otpRecord.save();
 
     console.log('✅ OTP Verified Successfully!');
 
@@ -242,16 +227,15 @@ exports.resendOTP = async (req, res) => {
       });
     }
 
-    // Store OTP in database
-    const otp = result.otp || generateOTP();
-    const expiresAt = getOTPExpiry();
+    // Store new OTP in database
+    const otp = result.otp;
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     await OTP.create({
       phone: cleanPhone,
       otp: otp,
       expiresAt: expiresAt,
       verified: false,
-      msg91OrderId: result.data?.order_id || null
     });
 
     console.log('✅ OTP resent successfully');
