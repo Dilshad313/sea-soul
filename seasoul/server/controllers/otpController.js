@@ -8,12 +8,9 @@ const formatPhoneNumber = (phone) => {
   if (!phone) return '';
   let cleanPhone = phone.replace(/\s/g, '');
   
-  if (cleanPhone.startsWith('+')) {
-    cleanPhone = cleanPhone.substring(1);
-  }
-  if (cleanPhone.length === 10) {
-    cleanPhone = '91' + cleanPhone;
-  } else if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
+  if (cleanPhone.startsWith('+')) cleanPhone = cleanPhone.substring(1);
+  if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+  else if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
     cleanPhone = '91' + cleanPhone.substring(1);
   }
   
@@ -40,9 +37,7 @@ exports.sendOTP = async (req, res) => {
     const phoneRegex = /^[0-9]{10}$/;
     
     let phoneDigits = cleanPhone;
-    if (phoneDigits.startsWith('91')) {
-      phoneDigits = phoneDigits.substring(2);
-    }
+    if (phoneDigits.startsWith('91')) phoneDigits = phoneDigits.substring(2);
     
     if (!phoneRegex.test(phoneDigits)) {
       return res.status(400).json({
@@ -63,7 +58,7 @@ exports.sendOTP = async (req, res) => {
     // ✅ Delete old OTPs
     await OTP.deleteMany({ phone: cleanPhone });
 
-    // ✅ Send OTP via MSG91 Widget
+    // ✅ Send OTP via Widget
     console.log(`📱 Sending OTP via Widget to: ${cleanPhone}`);
     const result = await msg91Service.sendOTP(cleanPhone);
     console.log('📥 MSG91 Result:', result);
@@ -87,7 +82,7 @@ exports.sendOTP = async (req, res) => {
       isDemo: false
     });
 
-    console.log(`✅ OTP stored in database: ${otp}`);
+    console.log(`✅ OTP stored: ${otp}`);
 
     res.status(200).json({
       success: true,
@@ -98,7 +93,7 @@ exports.sendOTP = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error in sendOTP:', error);
+    console.error('❌ Error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -111,11 +106,9 @@ exports.verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
 
-    console.log('========================================');
     console.log('🔍 Verifying OTP');
     console.log(`📱 Phone: ${phone}`);
     console.log(`🔑 OTP: ${otp}`);
-    console.log('========================================');
 
     if (!otp) {
       return res.status(400).json({
@@ -134,7 +127,6 @@ exports.verifyOTP = async (req, res) => {
     });
 
     if (!otpRecord) {
-      console.log('❌ Invalid OTP');
       return res.status(400).json({
         success: false,
         message: 'Invalid OTP. Please check and try again.'
@@ -143,7 +135,6 @@ exports.verifyOTP = async (req, res) => {
 
     if (new Date() > otpRecord.expiresAt) {
       await OTP.deleteOne({ _id: otpRecord._id });
-      console.log('❌ OTP Expired');
       return res.status(400).json({
         success: false,
         message: 'OTP expired. Please request a new one.'
@@ -152,8 +143,7 @@ exports.verifyOTP = async (req, res) => {
 
     // ✅ Try MSG91 verification
     try {
-      const verifyResult = await msg91Service.verifyOTP(cleanPhone, otp);
-      console.log('📥 MSG91 Verify Result:', verifyResult);
+      await msg91Service.verifyOTP(cleanPhone, otp);
     } catch (error) {
       console.log('⚠️ MSG91 verify error:', error.message);
     }
@@ -162,7 +152,7 @@ exports.verifyOTP = async (req, res) => {
     otpRecord.verified = true;
     await otpRecord.save();
 
-    console.log('✅ OTP Verified Successfully!');
+    console.log('✅ OTP Verified!');
 
     res.status(200).json({
       success: true,
@@ -171,7 +161,7 @@ exports.verifyOTP = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error in verifyOTP:', error);
+    console.error('❌ Error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -193,10 +183,8 @@ exports.resendOTP = async (req, res) => {
 
     const cleanPhone = formatPhoneNumber(phone);
 
-    // ✅ Delete old OTPs
     await OTP.deleteMany({ phone: cleanPhone });
 
-    // ✅ Resend OTP
     const result = await msg91Service.resendOTP(cleanPhone);
 
     if (!result.success) {
@@ -226,7 +214,7 @@ exports.resendOTP = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error in resendOTP:', error);
+    console.error('❌ Error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
