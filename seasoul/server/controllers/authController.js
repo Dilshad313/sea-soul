@@ -1,5 +1,6 @@
 // controllers/authController.js - Complete Working Version
 const User = require('../models/User');
+const OTP = require('../models/OTP');
 const jwt = require('jsonwebtoken');
 const msg91Service = require('../services/msg91Service');
 const { 
@@ -100,7 +101,6 @@ exports.register = async (req, res) => {
     }
 
     // ✅ Check OTP verification
-    const OTP = require('../models/OTP');
     const otpRecord = await OTP.findOne({ 
       phone: cleanPhone,
       verified: true 

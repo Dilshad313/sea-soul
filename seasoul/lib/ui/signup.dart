@@ -1,4 +1,4 @@
-// ui/signup.dart - Complete with Demo Support
+// ui/signup.dart - COMPLETE FIXED (No isDemo/demoOtp errors)
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,14 +7,14 @@ import 'package:seasoul/ui/otp.dart';
 import '../services/api_service.dart';
 import '../constants/api_constants.dart';
 
-class signup extends StatefulWidget {
-  const signup({super.key});
+class SignupPage extends StatefulWidget {
+  const SignupPage({super.key});
 
   @override
-  State<signup> createState() => _signupState();
+  State<SignupPage> createState() => _SignupPageState();
 }
 
-class _signupState extends State<signup> {
+class _SignupPageState extends State<SignupPage> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -159,27 +159,14 @@ class _signupState extends State<signup> {
         return;
       }
 
-      final bool isDemo = response['isDemo'] ?? false;
-      final String demoOtp = response['demoOtp'] ?? '';
-      
-      if (isDemo) {
-        print('📱 DEMO MODE: OTP is $demoOtp');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('🔑 Demo Mode! Use OTP: $demoOtp'),
-            backgroundColor: Colors.blue,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ 4-digit OTP sent to your phone!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
+      // ✅ Success - OTP sent
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ 4-digit OTP sent to your phone!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
 
       if (mounted) {
         Navigator.push(
@@ -187,10 +174,9 @@ class _signupState extends State<signup> {
           MaterialPageRoute(
             builder: (context) => OTPPage(
               phone: cleanPhone,
+              email: email,
               fullName: fullName,
               password: password,
-              isDemo: isDemo,
-              demoOtp: demoOtp,
             ),
           ),
         );
@@ -200,7 +186,8 @@ class _signupState extends State<signup> {
       
       final errorMsg = e.toString().toLowerCase();
       if (errorMsg.contains('already registered') || 
-          errorMsg.contains('exists')) {
+          errorMsg.contains('exists') ||
+          (errorMsg.contains('phone') && errorMsg.contains('registered'))) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('This phone number is already registered. Please login or use another.'),
@@ -537,7 +524,7 @@ class _signupState extends State<signup> {
                                     ),
                                     TextButton(
                                       onPressed: () {
-                                        Navigator.push(
+                                        Navigator.pushReplacement(
                                           context,
                                           MaterialPageRoute(
                                             builder: (context) => const login(),
@@ -699,6 +686,7 @@ class _signupState extends State<signup> {
   }
 }
 
+// ✅ Wave Painter for background
 class WavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

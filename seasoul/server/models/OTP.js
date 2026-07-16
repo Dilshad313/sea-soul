@@ -32,7 +32,7 @@ const OTPSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ Auto-delete expired OTPs
+// Auto-delete expired OTPs
 OTPSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model('OTP', OTPSchema);

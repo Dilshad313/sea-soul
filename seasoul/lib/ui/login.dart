@@ -398,7 +398,7 @@ class _loginState extends State<login> {
                                     Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => const signup(),
+                                        builder: (context) => const SignupPage(),
                                       ),
                                     );
                                   },

@@ -1,4 +1,4 @@
-// ui/otp.dart - Complete with Demo Support
+// ui/otp.dart - COMPLETE FIXED
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -11,18 +11,16 @@ import '../constants/api_constants.dart';
 
 class OTPPage extends StatefulWidget {
   final String phone;
+  final String email;
   final String fullName;
   final String password;
-  final bool isDemo;
-  final String demoOtp;
 
   const OTPPage({
     super.key,
     required this.phone,
+    required this.email,
     required this.fullName,
     required this.password,
-    this.isDemo = false,
-    this.demoOtp = '',
   });
 
   @override
@@ -54,25 +52,6 @@ class _OTPPageState extends State<OTPPage> {
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _sendInitialOTP();
-      
-      if (widget.isDemo && widget.demoOtp.isNotEmpty) {
-        // ✅ Auto-fill demo OTP
-        for (int i = 0; i < widget.demoOtp.length && i < _otpLength; i++) {
-          _controllers[i].text = widget.demoOtp[i];
-        }
-        // Move focus to last field
-        if (widget.demoOtp.length == _otpLength) {
-          _focusNodes.last.unfocus();
-        }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('🔑 Demo OTP: ${widget.demoOtp} (Auto-filled)'),
-            backgroundColor: Colors.blue,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
     });
   }
 
@@ -121,41 +100,18 @@ class _OTPPageState extends State<OTPPage> {
       print('📥 Initial OTP Response: $response');
       
       if (response['success'] == true) {
-        if (response['isDemo'] == true) {
-          final demoOtp = response['demoOtp'] ?? '1234';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('🔑 Demo OTP: $demoOtp'),
-              backgroundColor: Colors.blue,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ OTP sent to your phone!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-      } else {
-        print('⚠️ OTP send failed: ${response['message']}');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? 'Failed to send OTP'),
-            backgroundColor: Colors.red,
+          const SnackBar(
+            content: Text('✅ OTP sent to your phone!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
           ),
         );
+      } else {
+        print('⚠️ OTP send failed: ${response['message']}');
       }
     } catch (e) {
       print('⚠️ Initial OTP send error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -216,6 +172,7 @@ class _OTPPageState extends State<OTPPage> {
 
         final registerData = {
           'fullName': widget.fullName,
+          'email': widget.email,
           'phone': widget.phone,
           'password': widget.password,
         };
@@ -232,7 +189,7 @@ class _OTPPageState extends State<OTPPage> {
           await ApiService.saveUserData({
             '_id': registerResponse['_id'] ?? registerResponse['user']?['_id'],
             'fullName': registerResponse['fullName'] ?? registerResponse['user']?['fullName'] ?? widget.fullName,
-            'email': registerResponse['email'] ?? registerResponse['user']?['email'] ?? '',
+            'email': registerResponse['email'] ?? registerResponse['user']?['email'] ?? widget.email,
             'phone': registerResponse['phone'] ?? registerResponse['user']?['phone'] ?? widget.phone,
           });
           
@@ -323,23 +280,12 @@ class _OTPPageState extends State<OTPPage> {
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                response['isDemo'] == true 
-                    ? '🔑 Demo OTP: ${response['demoOtp'] ?? '1234'}' 
-                    : '✅ OTP resent successfully!'
-              ),
-              backgroundColor: response['isDemo'] == true ? Colors.blue : Colors.green,
+            const SnackBar(
+              content: Text('✅ OTP resent successfully!'),
+              backgroundColor: Colors.green,
               duration: Duration(seconds: 3),
             ),
           );
-          
-          if (response['isDemo'] == true && response['demoOtp'] != null) {
-            final demoOtp = response['demoOtp'];
-            for (int i = 0; i < demoOtp.length && i < _otpLength; i++) {
-              _controllers[i].text = demoOtp[i];
-            }
-          }
         }
       } else {
         throw Exception(response['message'] ?? 'Failed to resend OTP');
@@ -391,7 +337,7 @@ class _OTPPageState extends State<OTPPage> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => const signup(),
+        builder: (context) => SignupPage(),
       ),
     );
   }
@@ -473,40 +419,13 @@ class _OTPPageState extends State<OTPPage> {
                         ),
                       ],
                     ),
-                    Row(
-                      children: [
-                        if (widget.isDemo)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.blue.withOpacity(0.5),
-                              ),
-                            ),
-                            child: const Text(
-                              '🔑 DEMO',
-                              style: TextStyle(
-                                color: Colors.blue,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: colorOnSurface),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.white.withOpacity(0.05),
-                            side: BorderSide(color: Colors.white.withOpacity(0.1)),
-                          ),
-                          onPressed: _goBackToSignup,
-                        ),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.close, color: colorOnSurface),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.05),
+                        side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                      ),
+                      onPressed: _goBackToSignup,
                     ),
                   ],
                 ),
@@ -667,36 +586,6 @@ class _OTPPageState extends State<OTPPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    if (widget.isDemo)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.blue.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.info_outline,
-                              color: Colors.blue,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                '🔑 Demo Mode: Use OTP ${widget.demoOtp.isNotEmpty ? widget.demoOtp : '1234'}',
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 14,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                   ],
                 ),
               ),
