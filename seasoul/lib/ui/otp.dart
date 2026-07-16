@@ -1,4 +1,4 @@
-// ui/otp.dart - COMPLETE FIXED
+// ui/otp.dart - COMPLETE FULL CODE
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -109,9 +109,21 @@ class _OTPPageState extends State<OTPPage> {
         );
       } else {
         print('⚠️ OTP send failed: ${response['message']}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Failed to send OTP'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       print('⚠️ Initial OTP send error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

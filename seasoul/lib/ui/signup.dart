@@ -1,4 +1,4 @@
-// ui/signup.dart - COMPLETE FIXED (No isDemo/demoOtp errors)
+// ui/signup.dart - COMPLETE FULL CODE
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -51,6 +51,7 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
+  // ✅ Format phone number - extract 10 digits
   String _formatPhoneNumber(String phone) {
     String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
     
@@ -73,6 +74,7 @@ class _SignupPageState extends State<SignupPage> {
     final phone = _phoneController.text.trim();
     final password = _passwordController.text.trim();
 
+    // ✅ Validate all fields
     if (fullName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -83,6 +85,7 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
+    // ✅ Validate email format
     final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
     if (!emailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -95,6 +98,7 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
+    // ✅ Format and validate phone (10 digits)
     final phoneRegex = RegExp(r'^[0-9]{10}$');
     final cleanPhone = _formatPhoneNumber(phone);
     
@@ -131,6 +135,7 @@ class _SignupPageState extends State<SignupPage> {
     setState(() => _isLoading = true);
 
     try {
+      // ✅ Send OTP - Phone ONLY
       final data = {
         'phone': cleanPhone,
       };
@@ -215,7 +220,6 @@ class _SignupPageState extends State<SignupPage> {
     const colorOutline = Color(0xFF849396);
     const colorOnSurface = Color(0xFFDCE4E5);
     const colorOnSurfaceVariant = Color(0xFFBAC9CC);
-    const colorInputBg = Color(0xFF05080B);
 
     return Scaffold(
       backgroundColor: colorBackground,

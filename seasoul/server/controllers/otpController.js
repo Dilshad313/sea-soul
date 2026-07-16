@@ -1,4 +1,4 @@
-// controllers/otpController.js - COMPLETE FIXED
+// controllers/otpController.js - LIVE SMS VERSION
 const OTP = require('../models/OTP');
 const User = require('../models/User');
 const msg91Service = require('../services/msg91Service');
@@ -20,7 +20,7 @@ const formatPhoneNumber = (phone) => {
   return cleanPhone;
 };
 
-// ✅ Send OTP - Always stores in DB before returning
+// ✅ Send OTP - LIVE SMS
 exports.sendOTP = async (req, res) => {
   try {
     const { phone } = req.body;
@@ -64,40 +64,40 @@ exports.sendOTP = async (req, res) => {
     // ✅ Delete old OTPs
     await OTP.deleteMany({ phone: cleanPhone });
 
-    // ✅ Store demo OTP in database FIRST
-    // MSG91 handles demo internally, but we store it for verification
-    const demoOTP = '1234';
+    // ✅ Send OTP via MSG91 - LIVE SMS
+    console.log(`📱 Sending LIVE SMS to: ${cleanPhone}`);
+    const result = await msg91Service.sendOTP(cleanPhone);
+    console.log('📥 MSG91 Result:', result);
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send OTP. Please try again.',
+        error: result.error
+      });
+    }
+
+    // ✅ Store OTP in database (MSG91 may or may not return OTP)
+    // We generate our own OTP for backup verification
+    const otp = result.otp || Math.floor(1000 + Math.random() * 9000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     await OTP.create({
       phone: cleanPhone,
-      otp: demoOTP,
+      otp: otp,
       expiresAt: expiresAt,
       verified: false,
-      isDemo: true
+      isDemo: false
     });
 
-    console.log(`✅ Demo OTP stored in database: ${demoOTP}`);
-
-    // ✅ Send via MSG91 Widget (handles demo internally)
-    try {
-      const result = await msg91Service.sendOTP(cleanPhone);
-      console.log('📥 MSG91 Result:', result);
-      
-      if (result.success) {
-        console.log('✅ OTP sent via MSG91 Widget');
-      } else {
-        console.warn('⚠️ MSG91 failed, but OTP stored in DB');
-      }
-    } catch (error) {
-      console.warn('⚠️ MSG91 error, but OTP stored in DB:', error.message);
-    }
+    console.log(`✅ OTP stored in database: ${otp}`);
 
     res.status(200).json({
       success: true,
       message: 'OTP sent to your phone',
       phone: cleanPhone,
-      method: 'msg91'
+      orderId: result.data?.order_id || null,
+      method: result.method || 'msg91'
     });
 
   } catch (error) {
@@ -110,7 +110,7 @@ exports.sendOTP = async (req, res) => {
   }
 };
 
-// ✅ Verify OTP - Checks DB first, then MSG91
+// ✅ Verify OTP
 exports.verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
@@ -160,8 +160,12 @@ exports.verifyOTP = async (req, res) => {
     try {
       const verifyResult = await msg91Service.verifyOTP(cleanPhone, otp);
       console.log('📥 MSG91 Verify Result:', verifyResult);
+      
+      if (!verifyResult.success) {
+        console.log('⚠️ MSG91 verification failed, but DB has record');
+      }
     } catch (verifyError) {
-      console.log('⚠️ MSG91 verify error, but DB has record:', verifyError.message);
+      console.log('⚠️ MSG91 verify error:', verifyError.message);
     }
 
     // ✅ Mark as verified in DB
@@ -203,19 +207,19 @@ exports.resendOTP = async (req, res) => {
     // ✅ Delete old OTPs
     await OTP.deleteMany({ phone: cleanPhone });
 
-    // ✅ Store new demo OTP
-    const demoOTP = '1234';
+    // ✅ Generate new OTP
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     await OTP.create({
       phone: cleanPhone,
-      otp: demoOTP,
+      otp: otp,
       expiresAt: expiresAt,
       verified: false,
-      isDemo: true
+      isDemo: false
     });
 
-    console.log(`✅ Demo OTP stored: ${demoOTP}`);
+    console.log(`✅ New OTP stored: ${otp}`);
 
     // ✅ Try MSG91 resend
     try {
