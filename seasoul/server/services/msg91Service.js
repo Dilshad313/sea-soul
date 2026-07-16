@@ -1,13 +1,14 @@
-// services/msg91Service.js - LIVE SMS VERSION
+// services/msg91Service.js - COMPLETE WITH TRANSACTIONAL ROUTE
 const axios = require('axios');
 require('dotenv').config();
 
 class MSG91Service {
   constructor() {
-    // ✅ Only 3 credentials needed
+    // ✅ Only 3 credentials
     this.authKey = process.env.MSG91_AUTH_KEY;
     this.widgetId = process.env.MSG91_WIDGET_ID;
     this.tokenAuth = process.env.MSG91_TOKEN_AUTH;
+    this.senderId = process.env.MSG91_SENDER_ID || 'SEASOU';
     this.baseUrl = 'https://api.msg91.com/api/v5';
     
     console.log('========================================');
@@ -15,37 +16,32 @@ class MSG91Service {
     console.log(`📌 Widget ID: ${this.widgetId ? '✅ Present' : '❌ Missing'}`);
     console.log(`📌 Token Auth: ${this.tokenAuth ? '✅ Present' : '❌ Missing'}`);
     console.log(`📌 Auth Key: ${this.authKey ? '✅ Present' : '❌ Missing'}`);
+    console.log(`📌 Sender ID: ${this.senderId}`);
     console.log('========================================');
   }
 
-  /**
-   * ✅ Send OTP via MSG91 Widget - LIVE SMS
-   * No demo - SMS will be sent to user's phone
-   */
+  // ✅ Send OTP via MSG91 Widget - TRANSACTIONAL
   async sendOTP(phoneNumber) {
     try {
       console.log('========================================');
-      console.log('📤 MSG91: Sending LIVE OTP');
+      console.log('📤 MSG91: Sending LIVE OTP (Transactional)');
       console.log(`📱 Phone: ${phoneNumber}`);
       console.log('========================================');
 
-      // Clean phone number
       let mobile = this._cleanPhoneNumber(phoneNumber);
       if (!mobile) {
         return { success: false, error: 'Invalid phone number' };
       }
 
       const fullMobile = `91${mobile}`;
-      console.log(`📤 Full Mobile: ${fullMobile}`);
 
-      // ✅ Call MSG91 Widget API - NO DEMO FLAG
+      // ✅ Send via Widget API
       const response = await axios.post(
         `${this.baseUrl}/otp`,
         {
           widget_id: this.widgetId,
           token_auth: this.tokenAuth,
           identifier: fullMobile
-          // ❌ NO is_demo flag - LIVE SMS will be sent
         },
         {
           headers: {
@@ -64,13 +60,11 @@ class MSG91Service {
           success: true, 
           data: response.data,
           orderId: response.data.order_id,
-          method: 'widget',
-          // ✅ MSG91 returns the OTP in response
-          otp: response.data.otp || null
+          method: 'widget'
         };
       }
 
-      // ✅ If Widget fails, try Direct SMS as fallback
+      // ✅ Fallback: Direct SMS with Transactional Route
       console.log('⚠️ Widget API failed, trying Direct SMS...');
       return await this._sendDirectSMS(mobile);
 
@@ -81,7 +75,6 @@ class MSG91Service {
         console.error('   Data:', error.response.data);
       }
       
-      // ✅ Try Direct SMS as fallback
       let mobile = this._cleanPhoneNumber(phoneNumber);
       if (mobile) {
         console.log('🔄 Trying Direct SMS fallback...');
@@ -93,13 +86,12 @@ class MSG91Service {
   }
 
   /**
-   * ✅ Direct SMS (Fallback)
+   * ✅ Direct SMS with TRANSACTIONAL ROUTE
    */
   async _sendDirectSMS(mobile) {
     try {
       console.log(`📤 Direct SMS to: 91${mobile}`);
 
-      // ✅ Generate OTP
       const otp = Math.floor(1000 + Math.random() * 9000).toString();
       console.log(`🔑 OTP: ${otp}`);
 
@@ -112,8 +104,8 @@ class MSG91Service {
             authkey: this.authKey,
             mobiles: `91${mobile}`,
             message: message,
-            sender: this.senderId || 'SEASOU',
-            route: '1',
+            sender: this.senderId || 'SEASOUL',
+            route: '1',              // ✅ TRANSACTIONAL ROUTE
             country: '91',
             response: 'json'
           },
@@ -124,6 +116,7 @@ class MSG91Service {
       console.log('📥 Direct SMS Response:', response.data);
 
       if (response.data && response.data.type === 'success') {
+        console.log('✅ SMS sent via Direct API (Transactional)');
         return { 
           success: true, 
           data: response.data,
@@ -136,6 +129,10 @@ class MSG91Service {
 
     } catch (error) {
       console.error('❌ Direct SMS Error:', error.message);
+      if (error.response) {
+        console.error('   Status:', error.response.status);
+        console.error('   Data:', error.response.data);
+      }
       return { success: false, error: error.message };
     }
   }
@@ -185,10 +182,6 @@ class MSG91Service {
 
     } catch (error) {
       console.error('❌ Verify Error:', error.message);
-      if (error.response) {
-        console.error('   Status:', error.response.status);
-        console.error('   Data:', error.response.data);
-      }
       return { success: false, error: error.message };
     }
   }
