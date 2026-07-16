@@ -1,4 +1,4 @@
-// services/msg91Service.js - COMPLETE WORKING WITH WIDGET
+// services/msg91Service.js - FIXED with correct tokenAuth
 const axios = require('axios');
 require('dotenv').config();
 
@@ -18,7 +18,7 @@ class MSG91Service {
   }
 
   /**
-   * ✅ Send OTP via Widget API - PRIMARY METHOD
+   * ✅ Send OTP via Widget API - FIXED tokenAuth
    */
   async sendOTP(phoneNumber) {
     try {
@@ -27,7 +27,6 @@ class MSG91Service {
       console.log(`📱 Phone: ${phoneNumber}`);
       console.log('========================================');
 
-      // Clean phone number
       let mobile = this._cleanPhoneNumber(phoneNumber);
       if (!mobile) {
         return { success: false, error: 'Invalid phone number' };
@@ -40,14 +39,14 @@ class MSG91Service {
       const otp = Math.floor(1000 + Math.random() * 9000).toString();
       console.log(`🔑 OTP: ${otp}`);
 
-      // ✅ Widget API Call
+      // ✅ API Call with correct body key: tokenAuth (not token_auth)
       const response = await axios.post(
         `${this.baseUrl}/otp`,
         {
           widget_id: this.widgetId,
-          token_auth: this.tokenAuth,
+          tokenAuth: this.tokenAuth,   // ✅ FIXED: key is tokenAuth
           identifier: fullMobile,
-          otp: otp  // ✅ Send OTP explicitly
+          otp: otp
         },
         {
           headers: {
@@ -63,9 +62,8 @@ class MSG91Service {
         data: response.data
       });
 
-      // ✅ Check Widget API response
       if (response.data && response.data.success === true) {
-        console.log(`✅ OTP sent via Widget! Order ID: ${response.data.order_id}`);
+        console.log(`✅ OTP sent! Order ID: ${response.data.order_id}`);
         console.log(`🔑 OTP: ${otp}`);
         return { 
           success: true, 
@@ -76,10 +74,8 @@ class MSG91Service {
         };
       }
 
-      // ✅ If Widget returns error but says success is false
       if (response.data && response.data.success === false) {
-        console.log('⚠️ Widget API returned error:', response.data.message);
-        // Don't fallback - let it fail so we know
+        console.log('⚠️ Widget API error:', response.data.message);
         return { 
           success: false, 
           error: response.data.message || 'Widget API failed',
@@ -87,24 +83,21 @@ class MSG91Service {
         };
       }
 
-      // ✅ If no response data
       return { success: false, error: 'No response from Widget API' };
 
     } catch (error) {
       console.error('❌ Widget API Error:', error.message);
-      
-      // Log detailed error
       if (error.response) {
         console.error('   Status:', error.response.status);
         console.error('   Data:', error.response.data);
-        
-        // ✅ If widget fails, try Direct SMS as fallback
-        console.log('🔄 Widget failed, trying Direct SMS fallback...');
-        let mobile = this._cleanPhoneNumber(phoneNumber);
-        if (mobile) {
-          const otp = Math.floor(1000 + Math.random() * 9000).toString();
-          return await this._sendDirectSMS(mobile, otp);
-        }
+      }
+      
+      // ✅ Fallback to Direct SMS (if Sender ID approved)
+      console.log('🔄 Trying Direct SMS fallback...');
+      let mobile = this._cleanPhoneNumber(phoneNumber);
+      if (mobile) {
+        const otp = Math.floor(1000 + Math.random() * 9000).toString();
+        return await this._sendDirectSMS(mobile, otp);
       }
       
       return { success: false, error: error.message };
@@ -161,11 +154,7 @@ class MSG91Service {
    */
   async verifyOTP(phoneNumber, otp) {
     try {
-      console.log('========================================');
-      console.log('🔍 MSG91: Verifying OTP');
-      console.log(`📱 Phone: ${phoneNumber}`);
-      console.log(`🔑 OTP: ${otp}`);
-      console.log('========================================');
+      console.log(`🔍 Verifying OTP for ${phoneNumber}...`);
 
       let mobile = this._cleanPhoneNumber(phoneNumber);
       if (!mobile) {
@@ -174,12 +163,11 @@ class MSG91Service {
 
       const fullMobile = `91${mobile}`;
 
-      // ✅ Verify via Widget API
       const response = await axios.post(
         `${this.baseUrl}/otp/verify`,
         {
           widget_id: this.widgetId,
-          token_auth: this.tokenAuth,
+          tokenAuth: this.tokenAuth,   // ✅ FIXED
           identifier: fullMobile,
           otp: otp
         },
@@ -202,10 +190,6 @@ class MSG91Service {
 
     } catch (error) {
       console.error('❌ Verify Error:', error.message);
-      if (error.response) {
-        console.error('   Status:', error.response.status);
-        console.error('   Data:', error.response.data);
-      }
       return { success: false, error: error.message };
     }
   }
@@ -225,13 +209,12 @@ class MSG91Service {
       const fullMobile = `91${mobile}`;
       const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
-      // ✅ Try Widget API resend
       try {
         const response = await axios.post(
           `${this.baseUrl}/otp/resend`,
           {
             widget_id: this.widgetId,
-            token_auth: this.tokenAuth,
+            tokenAuth: this.tokenAuth,   // ✅ FIXED
             identifier: fullMobile,
             otp: otp
           },
@@ -244,21 +227,13 @@ class MSG91Service {
           }
         );
 
-        console.log('📥 Resend Response:', response.data);
-
         if (response.data && response.data.success === true) {
-          return { 
-            success: true, 
-            data: response.data,
-            otp: otp
-          };
+          return { success: true, data: response.data, otp: otp };
         }
       } catch (error) {
-        console.log('⚠️ Widget resend failed:', error.message);
+        console.log('⚠️ Resend failed:', error.message);
       }
 
-      // ✅ Fallback: Direct SMS
-      console.log('🔄 Trying Direct SMS resend...');
       return await this._sendDirectSMS(mobile, otp);
 
     } catch (error) {
@@ -267,9 +242,6 @@ class MSG91Service {
     }
   }
 
-  /**
-   * ✅ Clean phone number
-   */
   _cleanPhoneNumber(phone) {
     if (!phone) return null;
     
