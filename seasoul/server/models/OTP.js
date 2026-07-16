@@ -1,4 +1,4 @@
-// models/OTP.js - Add isDemo field
+// models/OTP.js
 const mongoose = require('mongoose');
 
 const OTPSchema = new mongoose.Schema(
@@ -26,16 +26,13 @@ const OTPSchema = new mongoose.Schema(
     },
     isDemo: {
       type: Boolean,
-      default: false,  // ✅ New field for demo OTP
-    },
-    msg91OrderId: {
-      type: String,
-      default: null,
+      default: false,
     },
   },
   { timestamps: true }
 );
 
+// ✅ Auto-delete expired OTPs
 OTPSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model('OTP', OTPSchema);
