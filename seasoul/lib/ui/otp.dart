@@ -1,4 +1,4 @@
-// ui/otp.dart - 4-Digit OTP
+// ui/otp.dart - Complete with Demo Support
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -13,12 +13,16 @@ class OTPPage extends StatefulWidget {
   final String phone;
   final String fullName;
   final String password;
+  final bool isDemo;
+  final String demoOtp;
 
   const OTPPage({
     super.key,
     required this.phone,
     required this.fullName,
     required this.password,
+    this.isDemo = false,
+    this.demoOtp = '',
   });
 
   @override
@@ -26,7 +30,6 @@ class OTPPage extends StatefulWidget {
 }
 
 class _OTPPageState extends State<OTPPage> {
-  // ✅ 4-Digit OTP
   static const int _otpLength = 4;
   late List<FocusNode> _focusNodes;
   late List<TextEditingController> _controllers;
@@ -37,7 +40,6 @@ class _OTPPageState extends State<OTPPage> {
   bool _isLoading = false;
   bool _isVerifying = false;
   String _errorMessage = '';
-  
   bool _otpSent = false;
 
   @override
@@ -52,6 +54,25 @@ class _OTPPageState extends State<OTPPage> {
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _sendInitialOTP();
+      
+      if (widget.isDemo && widget.demoOtp.isNotEmpty) {
+        // ✅ Auto-fill demo OTP
+        for (int i = 0; i < widget.demoOtp.length && i < _otpLength; i++) {
+          _controllers[i].text = widget.demoOtp[i];
+        }
+        // Move focus to last field
+        if (widget.demoOtp.length == _otpLength) {
+          _focusNodes.last.unfocus();
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🔑 Demo OTP: ${widget.demoOtp} (Auto-filled)'),
+            backgroundColor: Colors.blue,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     });
   }
 
@@ -86,10 +107,7 @@ class _OTPPageState extends State<OTPPage> {
   }
 
   Future<void> _sendInitialOTP() async {
-    if (_otpSent) {
-      print('⚠️ OTP already sent, skipping duplicate');
-      return;
-    }
+    if (_otpSent) return;
     _otpSent = true;
     
     try {
@@ -103,15 +121,24 @@ class _OTPPageState extends State<OTPPage> {
       print('📥 Initial OTP Response: $response');
       
       if (response['success'] == true) {
-        print('✅ OTP sent successfully');
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ 4-digit OTP sent to your phone!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
+        if (response['isDemo'] == true) {
+          final demoOtp = response['demoOtp'] ?? '1234';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🔑 Demo OTP: $demoOtp'),
+              backgroundColor: Colors.blue,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ OTP sent to your phone!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       } else {
         print('⚠️ OTP send failed: ${response['message']}');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -156,7 +183,6 @@ class _OTPPageState extends State<OTPPage> {
       otp += controller.text;
     }
 
-    // ✅ Check 4-digit OTP
     if (otp.length != _otpLength) {
       setState(() {
         _errorMessage = 'Please enter complete 4-digit OTP';
@@ -297,12 +323,23 @@ class _OTPPageState extends State<OTPPage> {
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ OTP resent successfully!'),
-              backgroundColor: Colors.green,
+            SnackBar(
+              content: Text(
+                response['isDemo'] == true 
+                    ? '🔑 Demo OTP: ${response['demoOtp'] ?? '1234'}' 
+                    : '✅ OTP resent successfully!'
+              ),
+              backgroundColor: response['isDemo'] == true ? Colors.blue : Colors.green,
               duration: Duration(seconds: 3),
             ),
           );
+          
+          if (response['isDemo'] == true && response['demoOtp'] != null) {
+            final demoOtp = response['demoOtp'];
+            for (int i = 0; i < demoOtp.length && i < _otpLength; i++) {
+              _controllers[i].text = demoOtp[i];
+            }
+          }
         }
       } else {
         throw Exception(response['message'] ?? 'Failed to resend OTP');
@@ -436,13 +473,40 @@ class _OTPPageState extends State<OTPPage> {
                         ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: colorOnSurface),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.05),
-                        side: BorderSide(color: Colors.white.withOpacity(0.1)),
-                      ),
-                      onPressed: _goBackToSignup,
+                    Row(
+                      children: [
+                        if (widget.isDemo)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.blue.withOpacity(0.5),
+                              ),
+                            ),
+                            child: const Text(
+                              '🔑 DEMO',
+                              style: TextStyle(
+                                color: Colors.blue,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: colorOnSurface),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(0.05),
+                            side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          ),
+                          onPressed: _goBackToSignup,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -490,7 +554,6 @@ class _OTPPageState extends State<OTPPage> {
                       ),
                     ),
                     const SizedBox(height: 40),
-                    // ✅ 4-Digit OTP Fields
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(
@@ -604,6 +667,36 @@ class _OTPPageState extends State<OTPPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    if (widget.isDemo)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.blue.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.info_outline,
+                              color: Colors.blue,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '🔑 Demo Mode: Use OTP ${widget.demoOtp.isNotEmpty ? widget.demoOtp : '1234'}',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 14,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),

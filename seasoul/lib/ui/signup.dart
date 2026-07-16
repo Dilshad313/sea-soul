@@ -1,4 +1,4 @@
-// ui/signup.dart
+// ui/signup.dart - Complete with Demo Support
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -51,11 +51,9 @@ class _signupState extends State<signup> {
     super.dispose();
   }
 
-  // ✅ Format phone number - extract 10 digits
   String _formatPhoneNumber(String phone) {
     String cleanPhone = phone.replaceAll(RegExp(r'\s'), '');
     
-    // Remove +91 or 91 if present
     if (cleanPhone.startsWith('+91')) {
       cleanPhone = cleanPhone.substring(3);
     } else if (cleanPhone.startsWith('91')) {
@@ -68,7 +66,6 @@ class _signupState extends State<signup> {
   }
 
   void _sendOTP() async {
-    // ✅ Prevent duplicate calls
     if (_isLoading) return;
 
     final fullName = _fullNameController.text.trim();
@@ -76,7 +73,6 @@ class _signupState extends State<signup> {
     final phone = _phoneController.text.trim();
     final password = _passwordController.text.trim();
 
-    // ✅ Validate all fields
     if (fullName.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -87,12 +83,11 @@ class _signupState extends State<signup> {
       return;
     }
 
-    // ✅ Validate email format
     final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
     if (!emailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter a valid email address (e.g., name@domain.com)'),
+          content: Text('Please enter a valid email address'),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 3),
         ),
@@ -100,7 +95,6 @@ class _signupState extends State<signup> {
       return;
     }
 
-    // ✅ Format and validate phone (10 digits)
     final phoneRegex = RegExp(r'^[0-9]{10}$');
     final cleanPhone = _formatPhoneNumber(phone);
     
@@ -137,7 +131,6 @@ class _signupState extends State<signup> {
     setState(() => _isLoading = true);
 
     try {
-      // ✅ Send OTP - Phone ONLY (4-digit OTP via MSG91)
       final data = {
         'phone': cleanPhone,
       };
@@ -145,7 +138,6 @@ class _signupState extends State<signup> {
       print('📤 Sending OTP to phone: $cleanPhone');
       
       final response = await ApiService.post(ApiConstants.sendOTP, data);
-
       print('📱 API Response: $response');
 
       if (response['success'] == false) {
@@ -167,16 +159,27 @@ class _signupState extends State<signup> {
         return;
       }
 
-      // ✅ Success - OTP sent
-      String successMsg = '✅ 4-digit OTP sent to your phone!';
+      final bool isDemo = response['isDemo'] ?? false;
+      final String demoOtp = response['demoOtp'] ?? '';
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(successMsg),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      if (isDemo) {
+        print('📱 DEMO MODE: OTP is $demoOtp');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🔑 Demo Mode! Use OTP: $demoOtp'),
+            backgroundColor: Colors.blue,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 4-digit OTP sent to your phone!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
 
       if (mounted) {
         Navigator.push(
@@ -186,6 +189,8 @@ class _signupState extends State<signup> {
               phone: cleanPhone,
               fullName: fullName,
               password: password,
+              isDemo: isDemo,
+              demoOtp: demoOtp,
             ),
           ),
         );
@@ -195,8 +200,7 @@ class _signupState extends State<signup> {
       
       final errorMsg = e.toString().toLowerCase();
       if (errorMsg.contains('already registered') || 
-          errorMsg.contains('exists') ||
-          (errorMsg.contains('phone') && errorMsg.contains('registered'))) {
+          errorMsg.contains('exists')) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('This phone number is already registered. Please login or use another.'),
@@ -695,7 +699,6 @@ class _signupState extends State<signup> {
   }
 }
 
-// Wave Painter for background
 class WavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
