@@ -1,14 +1,12 @@
-// controllers/otpController.js - UPDATED
-
+// controllers/otpController.js - Using only msg91Service
 const OTP = require('../models/OTP');
 const User = require('../models/User');
-const jwt = require('jsonwebtoken');
-const { sendOTPEmail } = require('../services/emailService');
-const smsService = require('../services/smsService'); // Already using MSG91
+const msg91Service = require('../services/msg91Service');
 require('dotenv').config();
 
 const generateOTP = () => {
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  // ✅ 4-digit OTP
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
   console.log('Generated OTP:', otp);
   return otp;
 };
@@ -17,7 +15,6 @@ const getOTPExpiry = () => {
   return new Date(Date.now() + 10 * 60 * 1000);
 };
 
-// ✅ Format phone number
 const formatPhoneNumber = (phone) => {
   if (!phone) return '';
   let cleanPhone = phone.replace(/\s/g, '');
@@ -34,10 +31,10 @@ const formatPhoneNumber = (phone) => {
   return cleanPhone;
 };
 
-// ✅ Send OTP - ONLY PHONE (No Email)
+// ✅ Send OTP - Phone ONLY
 exports.sendOTP = async (req, res) => {
   try {
-    const { phone } = req.body;  // ✅ Only phone now
+    const { phone } = req.body;
 
     console.log('========================================');
     console.log('📧 Send OTP Request');
@@ -51,7 +48,6 @@ exports.sendOTP = async (req, res) => {
       });
     }
 
-    // ✅ Validate phone
     let cleanPhone = formatPhoneNumber(phone);
     const phoneRegex = /^[0-9]{10}$/;
     
@@ -67,7 +63,7 @@ exports.sendOTP = async (req, res) => {
       });
     }
 
-    // ✅ Check if user exists (for registration)
+    // Check if user exists (for registration)
     const existingUser = await User.findOne({ phone: cleanPhone });
     if (existingUser) {
       return res.status(400).json({
@@ -76,24 +72,28 @@ exports.sendOTP = async (req, res) => {
       });
     }
 
-    // ✅ Delete old OTPs
+    // Delete old OTPs
     await OTP.deleteMany({ phone: cleanPhone });
 
-    // ✅ Send OTP via SMS ONLY (Using MSG91)
-    console.log(`📱 Sending OTP via MSG91 to: ${cleanPhone}`);
-    const smsResult = await smsService.sendOTP(cleanPhone, null);
-    console.log('📥 SMS Result:', smsResult);
+    // ✅ Send OTP using MSG91 Service only
+    console.log(`📱 Sending OTP to: ${cleanPhone}`);
+    const result = await msg91Service.sendOTP(cleanPhone);
+    console.log('📥 MSG91 Result:', result);
 
-    if (!smsResult.success) {
+    if (!result.success) {
+      let errorMsg = 'Failed to send OTP. Please try again.';
+      if (result.error && result.error.includes('Invalid')) {
+        errorMsg = 'Invalid phone number format.';
+      }
       return res.status(500).json({
         success: false,
-        message: 'Failed to send OTP. Please try again.',
-        error: smsResult.error
+        message: errorMsg,
+        error: result.error
       });
     }
 
-    // ✅ Store OTP in database for verification
-    const otp = smsResult.data?.otp || generateOTP();
+    // ✅ Store OTP in database
+    const otp = result.otp || generateOTP();
     const expiresAt = getOTPExpiry();
 
     await OTP.create({
@@ -101,16 +101,17 @@ exports.sendOTP = async (req, res) => {
       otp: otp,
       expiresAt: expiresAt,
       verified: false,
-      msg91OrderId: smsResult.data?.order_id || null
+      msg91OrderId: result.data?.order_id || null
     });
 
-    console.log('✅ OTP SMS sent successfully');
+    console.log('✅ OTP sent successfully via', result.method || 'MSG91');
 
     res.status(200).json({
       success: true,
       message: 'OTP sent successfully to your phone',
       phone: cleanPhone,
-      orderId: smsResult.data?.order_id || null
+      orderId: result.data?.order_id || null,
+      method: result.method || 'msg91'
     });
 
   } catch (error) {
@@ -123,7 +124,7 @@ exports.sendOTP = async (req, res) => {
   }
 };
 
-// ✅ Verify OTP - Using MSG91
+// ✅ Verify OTP
 exports.verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
@@ -142,15 +143,18 @@ exports.verifyOTP = async (req, res) => {
     }
 
     let cleanPhone = formatPhoneNumber(phone);
+    let phoneDigits = cleanPhone;
+    if (phoneDigits.startsWith('91')) {
+      phoneDigits = phoneDigits.substring(2);
+    }
 
-    // ✅ First, try MSG91 verification
-    const verifyResult = await smsService.verifyOTP(cleanPhone, otp);
+    // ✅ Verify using MSG91 Service
+    const verifyResult = await msg91Service.verifyOTP(cleanPhone, otp);
     console.log('📥 MSG91 Verify Result:', verifyResult);
 
     let otpRecord = null;
 
     if (verifyResult.success) {
-      // ✅ MSG91 verification successful
       console.log('✅ MSG91 OTP verification successful');
       
       // Update local OTP record
@@ -208,7 +212,7 @@ exports.verifyOTP = async (req, res) => {
   }
 };
 
-// ✅ Resend OTP - ONLY PHONE
+// ✅ Resend OTP
 exports.resendOTP = async (req, res) => {
   try {
     const { phone } = req.body;
@@ -222,23 +226,24 @@ exports.resendOTP = async (req, res) => {
 
     let cleanPhone = formatPhoneNumber(phone);
 
-    // ✅ Delete old OTPs
+    // Delete old OTPs
     await OTP.deleteMany({ phone: cleanPhone });
 
-    // ✅ Send OTP via SMS
+    // ✅ Resend OTP using MSG91 Service
     console.log(`📱 Resending OTP to: ${cleanPhone}`);
-    const smsResult = await smsService.sendOTP(cleanPhone, null);
+    const result = await msg91Service.resendOTP(cleanPhone);
+    console.log('📥 MSG91 Resend Result:', result);
 
-    if (!smsResult.success) {
+    if (!result.success) {
       return res.status(500).json({
         success: false,
         message: 'Failed to resend OTP. Please try again.',
-        error: smsResult.error
+        error: result.error
       });
     }
 
-    // ✅ Store OTP in database
-    const otp = smsResult.data?.otp || generateOTP();
+    // Store OTP in database
+    const otp = result.otp || generateOTP();
     const expiresAt = getOTPExpiry();
 
     await OTP.create({
@@ -246,7 +251,7 @@ exports.resendOTP = async (req, res) => {
       otp: otp,
       expiresAt: expiresAt,
       verified: false,
-      msg91OrderId: smsResult.data?.order_id || null
+      msg91OrderId: result.data?.order_id || null
     });
 
     console.log('✅ OTP resent successfully');
@@ -255,7 +260,7 @@ exports.resendOTP = async (req, res) => {
       success: true,
       message: 'OTP resent successfully',
       phone: cleanPhone,
-      orderId: smsResult.data?.order_id || null
+      orderId: result.data?.order_id || null
     });
 
   } catch (error) {
@@ -267,6 +272,3 @@ exports.resendOTP = async (req, res) => {
     });
   }
 };
-
-// ✅ For password reset - also only phone
-// But keep email for other communications

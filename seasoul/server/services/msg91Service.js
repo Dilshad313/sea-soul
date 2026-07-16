@@ -1,10 +1,10 @@
-// services/msg91Service.js
+// services/msg91Service.js - Complete Working Version
 const axios = require('axios');
 require('dotenv').config();
 
 class MSG91Service {
   constructor() {
-    this.authKey = process.env.MSG91_API_KEY;
+    this.authKey = process.env.MSG91_AUTH_KEY;
     this.senderId = process.env.MSG91_SENDER_ID;
     this.widgetId = process.env.MSG91_WIDGET_ID;
     this.tokenAuth = process.env.MSG91_TOKEN_AUTH;
@@ -12,203 +12,132 @@ class MSG91Service {
   }
 
   /**
-   * Send OTP via MSG91 Widget
-   * This uses the MSG91 OTP Widget/SDK method
+   * ✅ SEND OTP - Main method
+   * Uses MSG91 Widget API (4-digit OTP)
    */
   async sendOTP(phoneNumber) {
     try {
-      console.log(`📤 Sending OTP via MSG91 Widget to ${phoneNumber}...`);
+      console.log('========================================');
+      console.log('📤 MSG91: Sending OTP');
+      console.log(`📱 Phone: ${phoneNumber}`);
+      console.log('========================================');
 
-      // Clean phone number - remove spaces, +91, etc.
-      let mobile = phoneNumber.replace(/\s/g, '');
-      if (mobile.startsWith('+91')) {
-        mobile = mobile.substring(3);
-      } else if (mobile.startsWith('91')) {
-        mobile = mobile.substring(2);
-      }
+      // Clean phone number
+      let mobile = this._cleanPhoneNumber(phoneNumber);
       
-      // Ensure 10 digits
-      if (mobile.length !== 10) {
-        console.error(`❌ Invalid phone: ${mobile}`);
+      if (!mobile) {
         return { success: false, error: 'Invalid phone number' };
       }
 
-      // Create mobile number with country code
-      const fullMobile = `91${mobile}`;
+      // ✅ Generate 4-digit OTP
+      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      console.log(`🔑 Generated OTP: ${otp}`);
 
-      // ✅ Using MSG91 OTP Widget API
-      // Reference: https://docs.msg91.com/apis/otp/verify-otp
+      // ✅ Method 1: Try Widget API first
+      try {
+        const widgetResult = await this._sendOTPWithWidget(mobile, otp);
+        if (widgetResult.success) {
+          return {
+            success: true,
+            otp: otp,
+            data: widgetResult.data,
+            method: 'widget'
+          };
+        }
+        console.log('⚠️ Widget API failed, trying Direct SMS...');
+      } catch (widgetError) {
+        console.log('⚠️ Widget API error:', widgetError.message);
+      }
+
+      // ✅ Method 2: Fallback to Direct SMS
+      const directResult = await this._sendOTPWithDirectSMS(mobile, otp);
       
-      // Method 1: Using Widget API (Recommended - uses your widget config)
+      if (directResult.success) {
+        return {
+          success: true,
+          otp: otp,
+          data: directResult.data,
+          method: 'direct'
+        };
+      }
+
+      return {
+        success: false,
+        error: directResult.error || 'Failed to send OTP'
+      };
+
+    } catch (error) {
+      console.error('❌ MSG91 Error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * ✅ Send OTP using MSG91 Widget API
+   */
+  async _sendOTPWithWidget(mobile, otp) {
+    try {
+      const fullMobile = `91${mobile}`;
+      console.log(`📤 Sending via Widget API to: ${fullMobile}`);
+
       const response = await axios.post(
         `${this.baseUrl}/otp`,
         {
           widget_id: this.widgetId,
           token_auth: this.tokenAuth,
           identifier: fullMobile,
-          // Optional: If you want to use demo credentials
-          // is_demo: true
+          // ✅ For demo testing - uncomment if using demo
+          // is_demo: true,
+          // otp: otp // Optional: Send your own OTP
         },
         {
           headers: {
             'authkey': this.authKey,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 30000
         }
       );
 
-      console.log('📥 MSG91 Widget Response:', response.data);
+      console.log('📥 Widget Response:', response.status, response.data);
 
       if (response.data && response.data.success === true) {
-        console.log('✅ OTP sent successfully via MSG91 Widget');
         return { 
           success: true, 
           data: response.data,
-          orderId: response.data.order_id // For verification
+          orderId: response.data.order_id
         };
-      } else {
-        console.error('❌ MSG91 Widget failed:', response.data);
-        return { success: false, error: response.data.message || 'Failed to send OTP' };
       }
 
+      return { 
+        success: false, 
+        error: response.data?.message || 'Widget API failed' 
+      };
+
     } catch (error) {
-      console.error('❌ MSG91 Error:', error.message);
+      console.error('❌ Widget API Error:', error.message);
       if (error.response) {
-        console.error('   Response:', error.response.data);
+        console.error('   Status:', error.response.status);
+        console.error('   Data:', error.response.data);
       }
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.response?.data?.message || error.message 
+      };
     }
   }
 
   /**
-   * Verify OTP using MSG91 Widget
+   * ✅ Send OTP using Direct SMS API (Fallback)
    */
-  async verifyOTP(phoneNumber, otp) {
+  async _sendOTPWithDirectSMS(mobile, otp) {
     try {
-      console.log(`🔍 Verifying OTP for ${phoneNumber}...`);
+      console.log(`📤 Sending via Direct SMS to: 91${mobile}`);
 
-      let mobile = phoneNumber.replace(/\s/g, '');
-      if (mobile.startsWith('+91')) {
-        mobile = mobile.substring(3);
-      } else if (mobile.startsWith('91')) {
-        mobile = mobile.substring(2);
-      }
-      
-      if (mobile.length !== 10) {
-        return { success: false, error: 'Invalid phone number' };
-      }
-
-      const fullMobile = `91${mobile}`;
-
-      // ✅ Verify OTP using MSG91 API
-      const response = await axios.post(
-        `${this.baseUrl}/otp/verify`,
-        {
-          widget_id: this.widgetId,
-          token_auth: this.tokenAuth,
-          identifier: fullMobile,
-          otp: otp
-        },
-        {
-          headers: {
-            'authkey': this.authKey,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('📥 MSG91 Verify Response:', response.data);
-
-      if (response.data && response.data.success === true) {
-        console.log('✅ OTP verified successfully');
-        return { 
-          success: true, 
-          data: response.data,
-          verified: true
-        };
-      } else {
-        console.error('❌ OTP verification failed:', response.data);
-        return { success: false, error: response.data.message || 'Invalid OTP' };
-      }
-
-    } catch (error) {
-      console.error('❌ OTP Verify Error:', error.message);
-      if (error.response) {
-        console.error('   Response:', error.response.data);
-      }
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Resend OTP
-   */
-  async resendOTP(phoneNumber) {
-    try {
-      console.log(`📤 Resending OTP to ${phoneNumber}...`);
-
-      let mobile = phoneNumber.replace(/\s/g, '');
-      if (mobile.startsWith('+91')) {
-        mobile = mobile.substring(3);
-      } else if (mobile.startsWith('91')) {
-        mobile = mobile.substring(2);
-      }
-      
-      if (mobile.length !== 10) {
-        return { success: false, error: 'Invalid phone number' };
-      }
-
-      const fullMobile = `91${mobile}`;
-
-      const response = await axios.post(
-        `${this.baseUrl}/otp/resend`,
-        {
-          widget_id: this.widgetId,
-          token_auth: this.tokenAuth,
-          identifier: fullMobile
-        },
-        {
-          headers: {
-            'authkey': this.authKey,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('📥 MSG91 Resend Response:', response.data);
-
-      if (response.data && response.data.success === true) {
-        return { success: true, data: response.data };
-      } else {
-        return { success: false, error: response.data.message || 'Failed to resend OTP' };
-      }
-
-    } catch (error) {
-      console.error('❌ Resend Error:', error.message);
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Alternative: Use Direct SMS API (Fallback)
-   */
-  async sendSMSDirect(phoneNumber, message) {
-    try {
-      console.log(`📤 Sending SMS directly to ${phoneNumber}...`);
-
-      let mobile = phoneNumber.replace(/\s/g, '');
-      if (mobile.startsWith('+91')) {
-        mobile = mobile.substring(3);
-      } else if (mobile.startsWith('91')) {
-        mobile = mobile.substring(2);
-      }
-      
-      if (mobile.length !== 10) {
-        return { success: false, error: 'Invalid phone number' };
-      }
+      const message = `Your SeaSoul verification code is ${otp}. Valid for 10 minutes.`;
 
       const response = await axios.get(
-        `https://api.msg91.com/api/sendhttp.php`,
+        'https://api.msg91.com/api/sendhttp.php',
         {
           params: {
             authkey: this.authKey,
@@ -218,22 +147,220 @@ class MSG91Service {
             route: '1',
             country: '91',
             response: 'json'
-          }
+          },
+          timeout: 30000
         }
       );
 
-      console.log('📥 SMS Response:', response.data);
+      console.log('📥 Direct SMS Response:', response.data);
 
-      if (response.data && response.data.type === 'success') {
-        return { success: true, data: response.data };
-      } else {
-        return { success: false, error: response.data.message || 'Failed to send SMS' };
+      // ✅ Check response
+      if (response.data) {
+        if (response.data.type === 'success') {
+          return { 
+            success: true, 
+            data: response.data 
+          };
+        } else {
+          return { 
+            success: false, 
+            error: response.data.message || 'SMS sending failed' 
+          };
+        }
+      }
+
+      return { success: false, error: 'No response from MSG91' };
+
+    } catch (error) {
+      console.error('❌ Direct SMS Error:', error.message);
+      if (error.response) {
+        console.error('   Data:', error.response.data);
+      }
+      return { 
+        success: false, 
+        error: error.response?.data?.message || error.message 
+      };
+    }
+  }
+
+  /**
+   * ✅ VERIFY OTP
+   */
+  async verifyOTP(phoneNumber, otp) {
+    try {
+      console.log('========================================');
+      console.log('🔍 MSG91: Verifying OTP');
+      console.log(`📱 Phone: ${phoneNumber}`);
+      console.log(`🔑 OTP: ${otp}`);
+      console.log('========================================');
+
+      let mobile = this._cleanPhoneNumber(phoneNumber);
+      if (!mobile) {
+        return { success: false, error: 'Invalid phone number' };
+      }
+
+      const fullMobile = `91${mobile}`;
+
+      // ✅ Try Widget API verification first
+      try {
+        const response = await axios.post(
+          `${this.baseUrl}/otp/verify`,
+          {
+            widget_id: this.widgetId,
+            token_auth: this.tokenAuth,
+            identifier: fullMobile,
+            otp: otp
+          },
+          {
+            headers: {
+              'authkey': this.authKey,
+              'Content-Type': 'application/json'
+            },
+            timeout: 30000
+          }
+        );
+
+        console.log('📥 Verify Response:', response.data);
+
+        if (response.data && response.data.success === true) {
+          return { 
+            success: true, 
+            data: response.data,
+            verified: true
+          };
+        }
+
+        return { 
+          success: false, 
+          error: response.data?.message || 'Invalid OTP' 
+        };
+
+      } catch (error) {
+        console.error('❌ Verify API Error:', error.message);
+        if (error.response) {
+          console.error('   Status:', error.response.status);
+          console.error('   Data:', error.response.data);
+        }
+        return { 
+          success: false, 
+          error: error.response?.data?.message || 'Verification failed' 
+        };
       }
 
     } catch (error) {
-      console.error('❌ SMS Error:', error.message);
+      console.error('❌ Verify Error:', error.message);
       return { success: false, error: error.message };
     }
+  }
+
+  /**
+   * ✅ RESEND OTP
+   */
+  async resendOTP(phoneNumber) {
+    try {
+      console.log('========================================');
+      console.log('📤 MSG91: Resending OTP');
+      console.log(`📱 Phone: ${phoneNumber}`);
+      console.log('========================================');
+
+      let mobile = this._cleanPhoneNumber(phoneNumber);
+      if (!mobile) {
+        return { success: false, error: 'Invalid phone number' };
+      }
+
+      const fullMobile = `91${mobile}`;
+
+      // ✅ Try Widget API resend
+      try {
+        const response = await axios.post(
+          `${this.baseUrl}/otp/resend`,
+          {
+            widget_id: this.widgetId,
+            token_auth: this.tokenAuth,
+            identifier: fullMobile
+          },
+          {
+            headers: {
+              'authkey': this.authKey,
+              'Content-Type': 'application/json'
+            },
+            timeout: 30000
+          }
+        );
+
+        console.log('📥 Resend Response:', response.data);
+
+        if (response.data && response.data.success === true) {
+          // ✅ Generate new OTP for local storage
+          const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+          return { 
+            success: true, 
+            data: response.data,
+            otp: newOtp
+          };
+        }
+
+        return { 
+          success: false, 
+          error: response.data?.message || 'Failed to resend OTP' 
+        };
+
+      } catch (error) {
+        console.error('❌ Resend API Error:', error.message);
+        if (error.response) {
+          console.error('   Status:', error.response.status);
+          console.error('   Data:', error.response.data);
+        }
+
+        // ✅ Fallback: Send via Direct SMS
+        const newOtp = Math.floor(1000 + Math.random() * 9000).toString();
+        const directResult = await this._sendOTPWithDirectSMS(mobile, newOtp);
+        
+        if (directResult.success) {
+          return {
+            success: true,
+            otp: newOtp,
+            data: directResult.data,
+            method: 'direct'
+          };
+        }
+
+        return { 
+          success: false, 
+          error: error.response?.data?.message || 'Failed to resend OTP' 
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ Resend Error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * ✅ Helper: Clean phone number
+   */
+  _cleanPhoneNumber(phone) {
+    if (!phone) return null;
+    
+    let clean = phone.replace(/\s/g, '');
+    
+    // Remove +91 or 91
+    if (clean.startsWith('+91')) {
+      clean = clean.substring(3);
+    } else if (clean.startsWith('91')) {
+      clean = clean.substring(2);
+    } else if (clean.startsWith('0')) {
+      clean = clean.substring(1);
+    }
+    
+    // Validate 10 digits
+    if (!/^[0-9]{10}$/.test(clean)) {
+      console.error(`❌ Invalid phone format: ${clean}`);
+      return null;
+    }
+    
+    return clean;
   }
 }
 
