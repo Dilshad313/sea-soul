@@ -1,3 +1,4 @@
+// models/OTP.js - Add isDemo field
 const mongoose = require('mongoose');
 
 const OTPSchema = new mongoose.Schema(
@@ -22,6 +23,14 @@ const OTPSchema = new mongoose.Schema(
     verified: {
       type: Boolean,
       default: false,
+    },
+    isDemo: {
+      type: Boolean,
+      default: false,  // ✅ New field for demo OTP
+    },
+    msg91OrderId: {
+      type: String,
+      default: null,
     },
   },
   { timestamps: true }
