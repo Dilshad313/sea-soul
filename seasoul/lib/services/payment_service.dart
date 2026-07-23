@@ -1,73 +1,67 @@
+// lib/services/payment_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_constants.dart';
-import '../services/api_service.dart';
 
-class RazorpayService {
-  static final Razorpay _razorpay = Razorpay();
-  
-  // Event callbacks
-  static Function(PaymentSuccessResponse)? onSuccess;
-  static Function(PaymentFailureResponse)? onError;
-  static Function(ExternalWalletResponse)? onExternalWallet;
+class PaymentService {
+  final Razorpay _razorpay = Razorpay();
 
-  // Initialize Razorpay with callbacks
-  static void initialize({
-    required Function(PaymentSuccessResponse) successCallback,
-    required Function(PaymentFailureResponse) errorCallback,
-    Function(ExternalWalletResponse)? externalWalletCallback,
-  }) {
-    onSuccess = successCallback;
-    onError = errorCallback;
-    onExternalWallet = externalWalletCallback;
+  String? _pendingBookingId;
+  double? _pendingAmount;
 
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleError);
+  Function(Map<String, dynamic>)? _onSuccess;
+  Function(String)? _onError;
+
+  PaymentService() {
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
   }
 
-  static void _handleSuccess(PaymentSuccessResponse response) {
-    if (onSuccess != null) {
-      onSuccess!(response);
-    }
-  }
-
-  static void _handleError(PaymentFailureResponse response) {
-    if (onError != null) {
-      onError!(response);
-    }
-  }
-
-  static void _handleExternalWallet(ExternalWalletResponse response) {
-    if (onExternalWallet != null) {
-      onExternalWallet!(response);
-    }
-  }
-
-  // Create Razorpay order on backend with better error handling
-  static Future<Map<String, dynamic>> createOrder({
-    required double amount,
-    required String receipt,
-    String currency = 'INR',
-    Map<String, dynamic>? notes,
-  }) async {
+  Future<String> getRazorpayKey() async {
     try {
-      final token = await ApiService.getToken();
-      
-      if (token == null || token.isEmpty) {
-        throw Exception('User not authenticated. Please login again.');
+      final token = await _getAuthToken();
+
+      final response = await http.get(
+        Uri.parse(ApiConstants.razorpayGetKey),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to get Razorpay key');
       }
 
-      final url = ApiConstants.razorpayCreateOrder;
-      print('📤 Creating Razorpay order at: $url');
-      print('📤 Amount: $amount, Receipt: $receipt');
+      final data = jsonDecode(response.body);
+
+      if (!data['success']) {
+        throw Exception(data['message'] ?? 'Failed to get key');
+      }
+
+      return data['key_id'];
+    } catch (e) {
+      throw Exception('Error getting Razorpay key: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> createOrder({
+    required int amount,
+    required String currency,
+    required String receipt,
+    Map<String, String>? notes,
+  }) async {
+    try {
+      final token = await _getAuthToken();
 
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse(ApiConstants.razorpayCreateOrder),
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
         },
         body: jsonEncode({
           'amount': amount,
@@ -75,208 +69,169 @@ class RazorpayService {
           'receipt': receipt,
           'notes': notes ?? {},
         }),
-      ).timeout(const Duration(seconds: 30));
+      );
 
-      print('📥 Response Status: ${response.statusCode}');
-      print('📥 Response Body: ${response.body}');
-
-      if (response.body.isEmpty) {
-        throw Exception('Empty response from server');
+      if (response.statusCode != 200) {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Failed to create order');
       }
 
-      if (response.body.startsWith('<!DOCTYPE') || response.body.startsWith('<html')) {
-        throw Exception('API endpoint returned HTML. Please check backend URL.');
+      final data = jsonDecode(response.body);
+
+      if (!data['success']) {
+        throw Exception(data['message'] ?? 'Order creation failed');
       }
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        
-        // Check if we got a valid Razorpay order
-        if (responseData.containsKey('id') && responseData['id'] != null) {
-          print('✅ Order created successfully: ${responseData['id']}');
-          return responseData;
-        } else if (responseData.containsKey('success') && responseData['success'] == true) {
-          // If response is wrapped in success wrapper
-          if (responseData.containsKey('order') && responseData['order'] != null) {
-            return responseData['order'];
-          }
-        }
-        
-        throw Exception('Invalid response format: ${response.body}');
-      } else {
-        Map<String, dynamic> errorData;
-        try {
-          errorData = jsonDecode(response.body);
-        } catch (e) {
-          throw Exception('Server error: ${response.statusCode}');
-        }
-        throw Exception(errorData['error'] ?? errorData['message'] ?? 'Failed to create order');
-      }
+      return data;
     } catch (e) {
-      print('❌ Failed to create order: $e');
-      if (e is Exception) rethrow;
-      throw Exception('Failed to create order: $e');
+      throw Exception('Error creating order: $e');
     }
   }
 
-  // Open Razorpay checkout
-  static Future<void> openCheckout({
-    required String keyId,
-    required String orderId,
-    required double amount,
-    required String receipt,
-    required String itemName,
-    String? customerName,
-    String? customerEmail,
-    String? customerContact,
-    Map<String, dynamic>? prefillData,
-  }) async {
-    try {
-      var options = {
-        'key': keyId,
-        'amount': (amount * 100).toInt(), // Convert to paise
-        'name': 'Sea Soul',
-        'description': 'Payment for $itemName',
-        'order_id': orderId,
-        'prefill': {
-          'contact': customerContact ?? '9999999999',
-          'email': customerEmail ?? 'customer@example.com',
-          'name': customerName ?? 'Customer',
-        },
-        'theme': {
-          'color': '#0099CC',
-        },
-        'modal': {
-          'confirm_close': true,
-          'escape': true,
-        },
-        'notes': {
-          'receipt': receipt,
-          'order_id': orderId,
-        },
-        'retry': {
-          'enabled': true,
-          'max_count': 3,
-        },
-      };
-
-      print('📤 Opening Razorpay checkout');
-      print('📤 Key ID: $keyId');
-      print('📤 Order ID: $orderId');
-      print('📤 Amount: ${(amount * 100).toInt()} paise');
-
-      _razorpay.open(options);
-    } catch (e) {
-      print('❌ Failed to open checkout: $e');
-      throw Exception('Failed to open checkout: $e');
-    }
-  }
-
-  // Verify payment signature
-  static Future<bool> verifyPayment({
+  Future<Map<String, dynamic>> verifyPayment({
     required String orderId,
     required String paymentId,
     required String signature,
+    required String bookingId,
+    required double amount,
   }) async {
     try {
-      final token = await ApiService.getToken();
-      
-      if (token == null || token.isEmpty) {
-        throw Exception('User not authenticated');
-      }
+      final token = await _getAuthToken();
 
       final response = await http.post(
         Uri.parse(ApiConstants.razorpayVerifyPayment),
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
         },
         body: jsonEncode({
           'razorpay_order_id': orderId,
           'razorpay_payment_id': paymentId,
           'razorpay_signature': signature,
+          'bookingId': bookingId,
+          'amount': amount,
         }),
-      ).timeout(const Duration(seconds: 30));
+      );
 
-      print('📤 Verify Payment');
-      print('📥 Response Status: ${response.statusCode}');
-      print('📥 Response Body: ${response.body}');
-
-      if (response.body.isEmpty) {
-        print('❌ Empty response from server');
-        return false;
+      if (response.statusCode != 200) {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Payment verification failed');
       }
 
-      if (response.body.startsWith('<!DOCTYPE') || response.body.startsWith('<html')) {
-        print('❌ Received HTML instead of JSON');
-        return false;
+      final data = jsonDecode(response.body);
+
+      if (!data['success']) {
+        throw Exception(data['message'] ?? 'Verification failed');
       }
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        return responseData['success'] ?? false;
-      } else {
-        return false;
-      }
+      return data;
     } catch (e) {
-      print('❌ Payment verification failed: $e');
-      return false;
+      throw Exception('Error verifying payment: $e');
     }
   }
 
-  // Get Razorpay key from backend
-  static Future<String> getRazorpayKey() async {
+  Future<void> initiatePayment({
+    required int amount,
+    required String currency,
+    required String receipt,
+    required String bookingId,
+    required Function(Map<String, dynamic>) onSuccess,
+    required Function(String) onError,
+    Map<String, String>? prefill,
+  }) async {
     try {
-      final token = await ApiService.getToken();
-      
-      if (token == null || token.isEmpty) {
-        throw Exception('User not authenticated');
-      }
+      _onSuccess = onSuccess;
+      _onError = onError;
+      _pendingBookingId = bookingId;
+      _pendingAmount = amount.toDouble();
 
-      final response = await http.get(
-        Uri.parse(ApiConstants.razorpayGetKey),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+      final keyId = await getRazorpayKey();
+
+      final orderData = await createOrder(
+        amount: amount,
+        currency: currency,
+        receipt: receipt,
+      );
+
+      final options = {
+        'key': keyId,
+        'amount': amount * 100, // amount in paise
+        'name': 'SeaSoul',
+        'description': 'Payment for booking',
+        'order_id': orderData['id'],
+
+        // ✅ Add UPI Intent Flow for mobile apps
+        'method': 'upi',
+        '_[flow]': 'intent', // Critical for mobile apps
+        'upi_app_package_name':
+            'com.google.android.apps.nbu.paisa.user', // For Google Pay
+
+        'prefill': {
+          'contact': prefill?['contact'] ?? '',
+          'email': prefill?['email'] ?? '',
         },
-      ).timeout(const Duration(seconds: 30));
-
-      print('📤 Get Razorpay Key');
-      print('📥 Response Status: ${response.statusCode}');
-      print('📥 Response Body: ${response.body}');
-
-      if (response.body.isEmpty) {
-        throw Exception('Empty response from server');
-      }
-
-      if (response.body.startsWith('<!DOCTYPE') || response.body.startsWith('<html')) {
-        throw Exception('API endpoint not found. Please check your backend URL.');
-      }
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        
-        // Check for key in different response formats
-        if (responseData.containsKey('key_id')) {
-          return responseData['key_id'];
-        } else if (responseData.containsKey('key')) {
-          return responseData['key'];
-        } else if (responseData.containsKey('razorpayKeyId')) {
-          return responseData['razorpayKeyId'];
-        } else {
-          throw Exception('Key not found in response: ${response.body}');
-        }
-      } else {
-        throw Exception('Failed to get Razorpay key: ${response.statusCode}');
-      }
+        'theme': {'color': '#0099CC'},
+        'modal': {'backdrop_color': '#1A2B49'},
+      };
+      _razorpay.open(options);
     } catch (e) {
-      print('❌ Failed to get Razorpay key: $e');
-      throw Exception('Failed to get payment key: $e');
+      onError(e.toString());
     }
   }
 
-  // Dispose Razorpay
-  static void dispose() {
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    print('✅ Payment Success: ${response.paymentId}');
+
+    try {
+      if (_pendingBookingId == null) {
+        throw Exception('No pending booking found');
+      }
+
+      final verificationResult = await verifyPayment(
+        orderId: response.orderId!,
+        paymentId: response.paymentId!,
+        signature: response.signature!,
+        bookingId: _pendingBookingId!,
+        amount: _pendingAmount ?? 0,
+      );
+
+      _onSuccess?.call({
+        'paymentId': response.paymentId,
+        'orderId': response.orderId,
+        'signature': response.signature,
+        'verification': verificationResult,
+        'bookingId': _pendingBookingId,
+      });
+
+      _pendingBookingId = null;
+      _pendingAmount = null;
+    } catch (e) {
+      print('❌ Verification error: $e');
+      _onError?.call('Payment verification failed: $e');
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    print('❌ Payment Error: ${response.message}');
+    _onError?.call(response.message ?? 'Payment failed');
+    _pendingBookingId = null;
+    _pendingAmount = null;
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    print('💳 External Wallet: ${response.walletName}');
+  }
+
+  Future<String> _getAuthToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null) {
+      throw Exception('User not authenticated');
+    }
+    return token;
+  }
+
+  void dispose() {
     _razorpay.clear();
   }
 }

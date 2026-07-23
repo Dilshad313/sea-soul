@@ -45,7 +45,7 @@ app.use('/api/payments', require('../routes/paymentRoutes'));
 app.use('/api/reviews', require('../routes/reviewRoutes'));
 app.use('/api/categories', require('../routes/categoryRoutes'));
 
-// ✅ ADD THIS - Razorpay Routes
+// ✅ Razorpay Routes
 app.use('/api/razorpay', razorpayRoutes);
 
 // ✅ ADD - MSG91 Webhook Routes

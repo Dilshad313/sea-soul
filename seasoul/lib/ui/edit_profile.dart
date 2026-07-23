@@ -4,20 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
 import '../constants/api_constants.dart';
-
-// ✅ Web-specific imports
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
 
 class EditProfilePage extends StatefulWidget {
   final Map<String, dynamic> userData;
 
-  const EditProfilePage({
-    super.key,
-    required this.userData,
-  });
+  const EditProfilePage({super.key, required this.userData});
 
   @override
   State<EditProfilePage> createState() => _EditProfilePageState();
@@ -28,16 +22,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
   final _locationController = TextEditingController();
-  
+
   String _profileImage = '';
   bool _isLoading = false;
   bool _isImageLoading = false;
 
-  // ✅ Store original values to check changes
+  // Store original values to check changes
   Map<String, dynamic> _originalData = {};
 
-  // ✅ Cloudinary configuration
-  final String _cloudinaryCloudName = 'eeua8tfb'; // Replace with your cloud name
+  // Cloudinary configuration
+  final String _cloudinaryCloudName = 'eeua8tfb';
   final String _uploadPreset = 'seasoul_profiles';
 
   static const Color deepNavy = Color(0xFF1A2B49);
@@ -48,20 +42,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
-    
-    // ✅ Store original values
+
     _originalData = {
       'fullName': widget.userData['fullName'] ?? '',
       'phone': widget.userData['phone'] ?? '',
       'bio': widget.userData['bio'] ?? '',
       'location': widget.userData['location'] ?? '',
     };
-    
+
     _fullNameController.text = _originalData['fullName'];
     _phoneController.text = _originalData['phone'];
     _bioController.text = _originalData['bio'];
     _locationController.text = _originalData['location'];
-    _profileImage = widget.userData['profileImage'] ?? 
+    _profileImage =
+        widget.userData['profileImage'] ??
         'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
   }
 
@@ -74,54 +68,63 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
-  // ✅ Check if any field changed
   bool _hasChanges() {
     final currentFullName = _fullNameController.text.trim();
     final currentPhone = _phoneController.text.trim();
     final currentBio = _bioController.text.trim();
     final currentLocation = _locationController.text.trim();
-    
+
     return currentFullName != _originalData['fullName'] ||
-           currentPhone != _originalData['phone'] ||
-           currentBio != _originalData['bio'] ||
-           currentLocation != _originalData['location'];
+        currentPhone != _originalData['phone'] ||
+        currentBio != _originalData['bio'] ||
+        currentLocation != _originalData['location'];
   }
 
-  // ✅ Convert XFile to base64
-  Future<String> _fileToBase64(XFile file) async {
-    final bytes = await file.readAsBytes();
-    return base64Encode(bytes);
+  // Convert XFile to bytes
+  Future<Uint8List> _fileToBytes(XFile file) async {
+    return await file.readAsBytes();
   }
 
-  // ✅ Upload to Cloudinary
-  Future<String> _uploadToCloudinary(String base64Image) async {
+  // Upload to Cloudinary - Works on all platforms
+  Future<String> _uploadToCloudinary(Uint8List imageBytes) async {
     try {
       print('📤 Uploading to Cloudinary...');
-      
-      String cleanBase64 = base64Image;
-      if (base64Image.contains(',')) {
-        cleanBase64 = base64Image.split(',').last;
-      }
-      
-      final html.FormData formData = html.FormData();
-      formData.append('file', 'data:image/jpeg;base64,$cleanBase64');
-      formData.append('upload_preset', _uploadPreset);
-      formData.append('folder', 'seasoul/profiles');
-      
-      final html.HttpRequest request = await html.HttpRequest.request(
-        'https://api.cloudinary.com/v1_1/$_cloudinaryCloudName/image/upload',
-        method: 'POST',
-        sendData: formData,
+
+      // Create multipart request
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse(
+          'https://api.cloudinary.com/v1_1/$_cloudinaryCloudName/image/upload',
+        ),
       );
-      
-      final Map<String, dynamic> responseData = jsonDecode(request.responseText ?? '{}');
-      
-      print('📥 Cloudinary Response: $responseData');
-      
-      if (responseData['secure_url'] != null) {
-        return responseData['secure_url'];
+
+      // Add fields
+      request.fields['upload_preset'] = _uploadPreset;
+      request.fields['folder'] = 'seasoul/profiles';
+
+      // Add file
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          imageBytes,
+          filename: 'profile_image.jpg',
+          contentType: http.MediaType('image', 'jpeg'),
+        ),
+      );
+
+      // Send request
+      final response = await request.send();
+      final responseData = await response.stream.toBytes();
+      final responseString = utf8.decode(responseData);
+
+      print('📥 Cloudinary Response: $responseString');
+
+      final Map<String, dynamic> responseMap = jsonDecode(responseString);
+
+      if (responseMap['secure_url'] != null) {
+        return responseMap['secure_url'];
       } else {
-        throw Exception(responseData['error']?['message'] ?? 'Upload failed');
+        throw Exception(responseMap['error']?['message'] ?? 'Upload failed');
       }
     } catch (e) {
       print('❌ Cloudinary upload error: $e');
@@ -143,16 +146,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
         setState(() {
           _isImageLoading = true;
         });
-        
+
         print('📤 Image selected: ${image.name}');
-        
-        String base64String = await _fileToBase64(image);
-        print('📤 Base64 length: ${base64String.length}');
-        
-        final String imageUrl = await _uploadToCloudinary(base64String);
+
+        // Convert to bytes (works on all platforms)
+        Uint8List imageBytes = await _fileToBytes(image);
+        print('📤 Image size: ${imageBytes.length} bytes');
+
+        // Upload to Cloudinary
+        final String imageUrl = await _uploadToCloudinary(imageBytes);
         print('✅ Cloudinary URL: $imageUrl');
-        
-        // ✅ Save URL to backend
+
+        // Save URL to backend
         final response = await ApiService.postWithToken(
           ApiConstants.uploadProfileImage,
           {'image': imageUrl},
@@ -165,17 +170,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
             _profileImage = response['profileImage'] ?? imageUrl;
             _isImageLoading = false;
           });
-          
-          // ✅ Update user data
+
+          // Update user data
           final userData = await ApiService.getUserData();
           if (userData != null) {
             userData['profileImage'] = _profileImage;
             await ApiService.saveUserData(userData);
-            
-            // ✅ Update original data
+
+            // Update original data
             _originalData['profileImage'] = _profileImage;
           }
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('✅ Profile image updated successfully'),
@@ -200,25 +205,28 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  // ✅ Remove image
+  // Remove image
   Future<void> _removeImage() async {
     try {
       setState(() => _isImageLoading = true);
-      
-      final response = await ApiService.deleteWithToken(ApiConstants.deleteProfileImage);
-      
+
+      final response = await ApiService.deleteWithToken(
+        ApiConstants.deleteProfileImage,
+      );
+
       if (response['success'] == true) {
         setState(() {
-          _profileImage = 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
+          _profileImage =
+              'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
           _isImageLoading = false;
         });
-        
+
         final userData = await ApiService.getUserData();
         if (userData != null) {
           userData['profileImage'] = _profileImage;
           await ApiService.saveUserData(userData);
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Profile image removed'),
@@ -241,7 +249,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _saveProfile() async {
-    // ✅ Check if any changes before calling API
     if (!_hasChanges()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -264,19 +271,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
         'location': _locationController.text.trim(),
       };
 
-      final response = await ApiService.putWithToken(ApiConstants.profile, data);
-      
+      final response = await ApiService.putWithToken(
+        ApiConstants.profile,
+        data,
+      );
+
       if (response['success'] == true) {
         await ApiService.saveUserData(response['user']);
-        
-        // ✅ Update original data
+
         _originalData = {
           'fullName': response['user']['fullName'] ?? '',
           'phone': response['user']['phone'] ?? '',
           'bio': response['user']['bio'] ?? '',
           'location': response['user']['location'] ?? '',
         };
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Profile updated successfully'),
@@ -303,13 +312,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasImage = _profileImage.isNotEmpty && 
-                          _profileImage != 'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
-    final String initial = _fullNameController.text.isNotEmpty 
-        ? _fullNameController.text[0].toUpperCase() 
+    final bool hasImage =
+        _profileImage.isNotEmpty &&
+        _profileImage !=
+            'https://res.cloudinary.com/demo/image/upload/v1/default-avatar.png';
+    final String initial = _fullNameController.text.isNotEmpty
+        ? _fullNameController.text[0].toUpperCase()
         : 'U';
 
-    // ✅ Check if save button should be enabled
     final bool hasChanges = _hasChanges();
 
     return Scaffold(
@@ -366,10 +376,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             },
                           )
                         : null,
-                    border: Border.all(
-                      color: oceanBlue,
-                      width: 3,
-                    ),
+                    border: Border.all(color: oceanBlue, width: 3),
                   ),
                   child: !hasImage
                       ? Text(
@@ -393,9 +400,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         child: SizedBox(
                           width: 30,
                           height: 30,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                          ),
+                          child: CircularProgressIndicator(color: Colors.white),
                         ),
                       ),
                     ),
@@ -444,7 +449,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ],
             ),
             const SizedBox(height: 24),
-            
+
             // Full Name
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,7 +472,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: TextField(
                     controller: _fullNameController,
                     style: const TextStyle(color: deepNavy),
-                    onChanged: (_) => setState(() {}), // ✅ Update UI when text changes
+                    onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
                       hintText: 'Enter your full name',
                       hintStyle: TextStyle(color: Colors.grey),
@@ -488,7 +493,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Phone
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,7 +517,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     controller: _phoneController,
                     style: const TextStyle(color: deepNavy),
                     keyboardType: TextInputType.phone,
-                    onChanged: (_) => setState(() {}), // ✅ Update UI when text changes
+                    onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
                       hintText: 'Enter your phone number',
                       hintStyle: TextStyle(color: Colors.grey),
@@ -533,7 +538,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Location
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -556,11 +561,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: TextField(
                     controller: _locationController,
                     style: const TextStyle(color: deepNavy),
-                    onChanged: (_) => setState(() {}), // ✅ Update UI when text changes
+                    onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
                       hintText: 'Enter your location',
                       hintStyle: TextStyle(color: Colors.grey),
-                      prefixIcon: Icon(Icons.location_on_outlined, color: oceanBlue),
+                      prefixIcon: Icon(
+                        Icons.location_on_outlined,
+                        color: oceanBlue,
+                      ),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(
                         vertical: 16,
@@ -577,7 +585,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Bio
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,11 +610,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     style: const TextStyle(color: deepNavy),
                     maxLines: 4,
                     maxLength: 500,
-                    onChanged: (_) => setState(() {}), // ✅ Update UI when text changes
+                    onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
                       hintText: 'Tell us about yourself',
                       hintStyle: TextStyle(color: Colors.grey),
-                      prefixIcon: Icon(Icons.description_outlined, color: oceanBlue),
+                      prefixIcon: Icon(
+                        Icons.description_outlined,
+                        color: oceanBlue,
+                      ),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(
                         vertical: 16,
@@ -623,7 +634,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ],
             ),
             const SizedBox(height: 32),
-            
+
             // Save Button
             SizedBox(
               width: double.infinity,
@@ -656,17 +667,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
-            // ✅ Show message when no changes
+
             if (!hasChanges && !_isLoading)
               const Text(
                 'Make changes to enable save',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
           ],
         ),

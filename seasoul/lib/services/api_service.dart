@@ -184,6 +184,10 @@ class ApiService {
     try {
       final token = await getToken();
 
+      if (token == null || token.isEmpty) {
+        throw Exception('Auth token missing. Please login again.');
+      }
+
       final response = await http.post(
         Uri.parse(url),
         headers: {
@@ -214,6 +218,9 @@ class ApiService {
   static Future<Map<String, dynamic>> getWithToken(String url) async {
     try {
       final token = await getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Auth token missing. Please login again.');
+      }
 
       final response = await http.get(
         Uri.parse(url),
@@ -246,6 +253,9 @@ class ApiService {
   ) async {
     try {
       final token = await getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Auth token missing. Please login again.');
+      }
 
       final response = await http.put(
         Uri.parse(url),

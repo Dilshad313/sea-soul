@@ -1,31 +1,11 @@
+// lib/ui/splashscreen.dart
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:seasoul/ui/login.dart';
 import 'package:seasoul/ui/signup.dart';
 import 'package:seasoul/ui/user_home.dart';
 import '../services/api_service.dart';
-
-
-class splashscreen extends StatelessWidget {
-  const splashscreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SeaSoul Holidays',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'PlusJakartaSans',
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0099CC),
-          primary: const Color(0xFF0099CC),
-        ),
-      ),
-      home:  SplashScreen(),
-    );
-  }
-}
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -45,6 +25,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   double _mouseX = 0.0;
   double _mouseY = 0.0;
+
+  bool _isNavigating = false; // ✅ Prevent multiple navigations
 
   static const Color deepNavy = Color.fromARGB(255, 3, 28, 48);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -77,26 +59,54 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeController.forward();
     _loadingController.forward();
 
-    _checkLoginStatus();
+    // ✅ Check login status after widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkLoginStatus();
+    });
   }
 
   Future<void> _checkLoginStatus() async {
-    // Wait for splash screen animation
-    await Future.delayed(const Duration(milliseconds: 2000));
+    // ✅ Prevent multiple navigations
+    if (_isNavigating) return;
 
-    // Check if user is logged in
-    final isLoggedIn = await ApiService.isLoggedIn();
-    
-    if (mounted) {
+    try {
+      // Wait for splash screen animation
+      await Future.delayed(const Duration(milliseconds: 2500));
+
+      if (!mounted) return;
+
+      // Check if user is logged in
+      final isLoggedIn = await ApiService.isLoggedIn();
+
+      if (!mounted) return;
+
+      _isNavigating = true;
+
       if (isLoggedIn) {
+        print('✅ User is logged in, navigating to Home');
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const UserHome()),
         );
       } else {
+        print('❌ User not logged in, navigating to Login');
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) =>  SignupPage()),
+
+         
+          MaterialPageRoute(
+            builder: (context) => login(),
+          ), // ✅ Fixed: Use LoginScreen
+        );
+      }
+    } catch (e) { 
+      print('❌ Error checking login status: $e');
+      if (mounted) {
+        // On error, navigate to login as fallback
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const login()),
+
         );
       }
     }
@@ -129,6 +139,7 @@ class _SplashScreenState extends State<SplashScreen>
         },
         child: Stack(
           children: [
+            // Background Image with Parallax Effect
             AnimatedPositioned(
               duration: const Duration(milliseconds: 100),
               curve: Curves.easeOut,
@@ -147,6 +158,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
             ),
+            // Overlay Gradient
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -165,6 +177,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
             ),
+            // Content
             SafeArea(
               child: Center(
                 child: FadeTransition(
@@ -181,20 +194,23 @@ class _SplashScreenState extends State<SplashScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const SizedBox(height: 1),
+                        // Logo and Title
                         Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            // Logo
                             Container(
                               height: 100,
                               width: 100,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(80),
                                 image: const DecorationImage(
-                                  image: AssetImage('assets/images/image.png'),
+                                  image: AssetImage('assets/images/logo.png'),
                                   fit: BoxFit.contain,
                                 ),
                               ),
                             ),
+                            // App Name
                             ScaleTransition(
                               scale: _pulseAnimation,
                               child: Text(
@@ -238,6 +254,7 @@ class _SplashScreenState extends State<SplashScreen>
                               ),
                             ),
                             const SizedBox(height: 48),
+                            // Loading Bar
                             Container(
                               width: 192,
                               height: 2,
@@ -271,6 +288,7 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                           ],
                         ),
+                        // Footer
                         Padding(
                           padding: const EdgeInsets.only(bottom: 18.0),
                           child: Column(
@@ -287,6 +305,7 @@ class _SplashScreenState extends State<SplashScreen>
                                 ),
                               ),
                               const SizedBox(height: 16),
+                              // Loading Dots
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [

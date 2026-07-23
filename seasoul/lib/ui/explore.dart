@@ -31,11 +31,14 @@ class _ExplorePageState extends State<ExplorePage> {
   // ✅ Package Categories (Same as Admin)
   final List<String> _categories = [
     'All',
-    'Resorts',
-    'Activities',
-    'Scuba',
-    'Honeymoon',
-    'Dining',
+    'Premium Cottage Rooms',
+    'Cottage Rooms',
+    'Home Stay Rooms',
+    'Packages',
+    'Rent a Bike',
+    'Water Sports Activity',
+    'Lakshadweep Traditional Products',
+    'Event Program',
   ];
 
   @override
