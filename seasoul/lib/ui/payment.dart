@@ -1,9 +1,10 @@
+// lib/ui/payment.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:seasoul/services/api_service.dart';
 import 'package:seasoul/services/auth_services.dart';
-import 'package:seasoul/services/payment_service.dart';
 import 'package:seasoul/constants/api_constants.dart';
+import 'package:seasoul/services/razorpay_services.dart';
 import 'package:seasoul/ui/payment_succes.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
@@ -37,6 +38,7 @@ class _paymentState extends State<payment> {
   String? _razorpayOrderId;
   String? _createdBookingId;
   String? _paymentId;
+  String? _errorMessage;
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -61,25 +63,34 @@ class _paymentState extends State<payment> {
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     print('✅ Payment Success: ${response.paymentId}');
-    
+
     setState(() {
       _isProcessing = false;
       _paymentId = response.paymentId;
     });
 
+    // Retrieve stored bookingId from service static fields
+    final String? bookingId =
+        _createdBookingId ?? RazorpayService.pendingBookingId ?? widget.bookingId;
+    final double? amount = RazorpayService.pendingAmount ?? widget.amount;
+
     try {
-      // Verify payment on backend
+      // Verify payment on backend — pass bookingId + amount
       final isVerified = await RazorpayService.verifyPayment(
         orderId: response.orderId!,
         paymentId: response.paymentId!,
         signature: response.signature!,
+        bookingId: bookingId,
+        amount: amount,
       );
 
       if (isVerified) {
-        // Create booking and complete
-        await _createBookingAndComplete(response.paymentId!);
+        // Update booking with payment
+        await _updateBookingWithPayment(response.paymentId!);
       } else {
-        _showErrorDialog('Payment verification failed. Please contact support.');
+        _showErrorDialog(
+          'Payment verification failed. Please contact support.',
+        );
         setState(() => _isProcessing = false);
       }
     } catch (e) {
@@ -93,6 +104,7 @@ class _paymentState extends State<payment> {
     print('❌ Payment Error: ${response.message}');
     setState(() {
       _isProcessing = false;
+      _errorMessage = response.message ?? 'Payment failed';
     });
     _showErrorDialog('Payment failed: ${response.message}');
   }
@@ -101,33 +113,23 @@ class _paymentState extends State<payment> {
     print('External Wallet: ${response.walletName}');
   }
 
-  Future<void> _createBookingAndComplete(String paymentId) async {
+  Future<void> _updateBookingWithPayment(String paymentId) async {
     try {
-      String? bookingId = widget.bookingId;
+      String? bookingId = _createdBookingId ?? widget.bookingId;
 
-      if (bookingId == null) {
-        // Create booking with payment ID
-        final bookingResponse = await ApiService.postWithToken(
-          '${ApiConstants.baseUrl}/api/bookings',
+      if (bookingId != null) {
+        // Update booking with payment ID
+        final updateResponse = await ApiService.putWithToken(
+          '${ApiConstants.baseUrl}/api/bookings/$bookingId',
           {
-            'productId': widget.productId,
-            'activityId': widget.activityId,
-            'totalAmount': widget.amount,
-            'guests': 1,
             'paymentId': paymentId,
             'paymentStatus': 'completed',
-            'checkIn': DateTime.now().toIso8601String(),
-            'checkOut': DateTime.now()
-                .add(const Duration(days: 3))
-                .toIso8601String(),
+            'status': 'confirmed',
           },
         );
 
-        if (bookingResponse['success'] == true) {
-          bookingId = bookingResponse['booking']['_id'];
-          _createdBookingId = bookingId;
-        } else {
-          throw Exception('Booking creation failed');
+        if (updateResponse['success'] != true) {
+          print('⚠️ Warning: Could not update booking payment status');
         }
       }
 
@@ -136,13 +138,13 @@ class _paymentState extends State<payment> {
         _isProcessing = false;
       });
 
-      // Navigate to success screen with payment ID
+      // Navigate to success screen
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => payment_success(
-              bookingId: bookingId!,
+              bookingId: bookingId ?? '',
               productId: widget.productId,
               activityId: widget.activityId,
               itemName: widget.itemName,
@@ -154,9 +156,24 @@ class _paymentState extends State<payment> {
         );
       }
     } catch (e) {
-      print('❌ Booking creation error: $e');
-      _showErrorDialog('Payment successful but booking creation failed: $e');
-      setState(() => _isProcessing = false);
+      print('❌ Booking update error: $e');
+      // Still show success since payment was successful
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => payment_success(
+              bookingId: _createdBookingId ?? widget.bookingId ?? '',
+              productId: widget.productId,
+              activityId: widget.activityId,
+              itemName: widget.itemName,
+              itemType: widget.itemType,
+              amount: widget.amount,
+              paymentId: paymentId,
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -181,45 +198,80 @@ class _paymentState extends State<payment> {
 
     setState(() {
       _isProcessing = true;
+      _errorMessage = null;
     });
 
     try {
       // 1. First, create a booking (if not exists)
       String? bookingId = widget.bookingId;
 
-      if (bookingId == null) {
+      if (bookingId == null || bookingId.isEmpty) {
+        print('📝 Creating new booking...');
+
+        final bookingData = {
+          'productId': widget.productId,
+          'activityId': widget.activityId,
+          'totalAmount': widget.amount,
+          'guests': 1,
+          'paymentStatus': 'pending',
+          'status': 'pending',
+          'checkIn': DateTime.now().toIso8601String(),
+          'checkOut': DateTime.now()
+              .add(const Duration(days: 3))
+              .toIso8601String(),
+        };
+
         final bookingResponse = await ApiService.postWithToken(
-          '${ApiConstants.baseUrl}/api/bookings',
-          {
-            'productId': widget.productId,
-            'activityId': widget.activityId,
-            'totalAmount': widget.amount,
-            'guests': 1,
-            'paymentStatus': 'pending',
-            'checkIn': DateTime.now().toIso8601String(),
-            'checkOut': DateTime.now()
-                .add(const Duration(days: 3))
-                .toIso8601String(),
-          },
+          ApiConstants.createBooking,
+          bookingData,
         );
 
+        print('📥 Booking Response: $bookingResponse');
+
         if (bookingResponse['success'] == true) {
-          bookingId = bookingResponse['booking']['_id'];
-          _createdBookingId = bookingId;
+          // Extract booking ID from response
+          if (bookingResponse['booking'] != null) {
+            bookingId =
+                bookingResponse['booking']['_id'] ??
+                bookingResponse['booking']['id'];
+          } else if (bookingResponse['data'] != null) {
+            bookingId =
+                bookingResponse['data']['_id'] ?? bookingResponse['data']['id'];
+          } else if (bookingResponse['_id'] != null) {
+            bookingId = bookingResponse['_id'];
+          } else {
+            throw Exception('Could not extract booking ID from response');
+          }
+
+          setState(() {
+            _createdBookingId = bookingId;
+          });
+          print('✅ Booking created: $bookingId');
         } else {
-          throw Exception('Booking creation failed');
+          throw Exception(
+            bookingResponse['message'] ?? 'Booking creation failed',
+          );
         }
       }
 
-      // 2. Create Razorpay order
-      final receipt = 'BOOKING_${bookingId}_${DateTime.now().millisecondsSinceEpoch}';
+      if (bookingId == null || bookingId.isEmpty) {
+        throw Exception('Booking ID is null or empty');
+      }
+
+      // 2. Build a safe receipt string — Razorpay max is 40 chars
+      final rawReceipt = 'BK_${bookingId}';
+      final receipt = rawReceipt.length > 40
+          ? rawReceipt.substring(0, 40)
+          : rawReceipt;
+
+      // 3. Create Razorpay order
       final orderResponse = await RazorpayService.createOrder(
         amount: widget.amount,
         receipt: receipt,
         notes: {
           'booking_id': bookingId,
-          'product_id': widget.productId,
-          'activity_id': widget.activityId,
+          'product_id': widget.productId ?? '',
+          'activity_id': widget.activityId ?? '',
           'item_name': widget.itemName,
           'item_type': widget.itemType,
         },
@@ -228,14 +280,14 @@ class _paymentState extends State<payment> {
       _razorpayOrderId = orderResponse['id'];
       print('✅ Razorpay order created: $_razorpayOrderId');
 
-      // 3. Get user details
+      // 4. Get user details
       final user = await AuthService.getCurrentUser();
 
-      // 4. Get Razorpay key
+      // 5. Get Razorpay key
       final keyId = await RazorpayService.getRazorpayKey();
-      print('✅ Razorpay key: $keyId');
+      print('✅ Razorpay key obtained');
 
-      // 5. Open Razorpay checkout
+      // 6. Open Razorpay checkout — pass bookingId so callback can use it
       await RazorpayService.openCheckout(
         keyId: keyId,
         orderId: _razorpayOrderId!,
@@ -245,19 +297,22 @@ class _paymentState extends State<payment> {
         customerName: user?['fullName'] ?? user?['name'] ?? 'Customer',
         customerEmail: user?['email'] ?? 'customer@example.com',
         customerContact: user?['phone'] ?? '9999999999',
+        bookingId: bookingId,
       );
-      
+
       // Success/Error handled in callbacks above
     } catch (e) {
       print('❌ Payment processing error: $e');
       setState(() {
         _isProcessing = false;
+        _errorMessage = e.toString();
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Payment Failed: ${e.toString()}'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -278,7 +333,11 @@ class _paymentState extends State<payment> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: deepNavy),
-          onPressed: () => Navigator.maybePop(context),
+          onPressed: () {
+            if (!_isProcessing) {
+              Navigator.maybePop(context);
+            }
+          },
         ),
         title: const Text(
           'Secure Payment',
@@ -336,6 +395,10 @@ class _paymentState extends State<payment> {
             _buildTrustBadgeMetrics(),
             const SizedBox(height: 24),
             _buildPayButton(),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              _buildErrorMessage(),
+            ],
             const SizedBox(height: 24),
             _buildContextualHelpCard(),
           ],
@@ -350,6 +413,12 @@ class _paymentState extends State<payment> {
         : (widget.itemType == 'product'
               ? 'https://images.unsplash.com/photo-1573843981267-be1999ff37cd?w=600'
               : 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600');
+
+    final String displayBookingId =
+        _createdBookingId ?? widget.bookingId ?? 'New Booking';
+    final String shortBookingId = displayBookingId.length > 12
+        ? '${displayBookingId.substring(0, 12)}...'
+        : displayBookingId;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -393,6 +462,7 @@ class _paymentState extends State<payment> {
                   image: DecorationImage(
                     image: NetworkImage(imageUrl),
                     fit: BoxFit.cover,
+                    onError: (_, __) => const Icon(Icons.image, size: 40),
                   ),
                 ),
               ),
@@ -408,6 +478,8 @@ class _paymentState extends State<payment> {
                         fontWeight: FontWeight.bold,
                         color: deepNavy,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -453,10 +525,7 @@ class _paymentState extends State<payment> {
             widget.itemType == 'product' ? 'Package' : 'Activity',
           ),
           const SizedBox(height: 12),
-          _buildSummaryItemRow(
-            'Booking ID',
-            _createdBookingId ?? widget.bookingId ?? 'New Booking',
-          ),
+          _buildSummaryItemRow('Booking ID', shortBookingId),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16.0),
             child: Divider(color: Color(0xFFE8EDFF), thickness: 1.5, height: 1),
@@ -584,6 +653,29 @@ class _paymentState extends State<payment> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildErrorMessage() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _errorMessage ?? 'Payment failed',
+              style: const TextStyle(color: Colors.red, fontSize: 14),
+            ),
+          ),
+        ],
       ),
     );
   }

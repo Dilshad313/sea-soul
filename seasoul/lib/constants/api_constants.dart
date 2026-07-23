@@ -21,6 +21,11 @@ class ApiConstants {
   static String get resetPassword => '$baseUrl/api/auth/reset-password';
   static String get changePassword => '$baseUrl/api/auth/change-password';
   static String get logout => '$baseUrl/api/auth/logout';
+  
+  // ✅ ADD THESE - Email verification endpoints
+  static String get verifyEmail => '$baseUrl/api/auth/verify-email';
+  static String get resendVerification => '$baseUrl/api/auth/resend-verification';
+  
   static String get googleAuth => '$baseUrl/api/auth/google';
   
   // ==================== PROFILE ====================
@@ -75,10 +80,11 @@ class ApiConstants {
   static String get createPayment => '$baseUrl/api/payments';
   static String get paymentStatus => '$baseUrl/api/payments/status';
   
-  // ==================== ✅ RAZORPAY ====================
+  // ==================== RAZORPAY ====================
   static String get razorpayCreateOrder => '$baseUrl/api/razorpay/create-order';
   static String get razorpayVerifyPayment => '$baseUrl/api/razorpay/verify';
   static String get razorpayGetKey => '$baseUrl/api/razorpay/key';
+  static String get razorpayTest => '$baseUrl/api/razorpay/test';
   static String get razorpayWebhook => '$baseUrl/api/razorpay/webhook';
   
   // ==================== RAZORPAY CONSTANTS ====================

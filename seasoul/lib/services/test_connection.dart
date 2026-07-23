@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:seasoul/constants/api_constants.dart';
+import 'dart:convert';
 import 'dart:io';
 
 class TestConnectionScreen extends StatefulWidget {
@@ -66,6 +67,28 @@ class _TestConnectionScreenState extends State<TestConnectionScreen> {
       _responseTime = '${endTime.difference(startTime).inMilliseconds} ms';
       _statusCode = response.statusCode;
 
+      String razorpayDetails = '';
+      try {
+        final razorpayResponse = await http
+            .get(Uri.parse(ApiConstants.razorpayTest), headers: {
+              'Content-Type': 'application/json',
+            }).timeout(const Duration(seconds: 10));
+
+        if (razorpayResponse.statusCode == 200) {
+          final razorpayBody = jsonDecode(razorpayResponse.body);
+          razorpayDetails =
+              '\n🧾 Razorpay test endpoint: ${razorpayBody['success'] == true ? 'working' : 'error'}\n'
+              '🧾 Mode: ${razorpayBody['mode'] ?? 'unknown'}\n'
+              '🧾 Configured: ${razorpayBody['configured'] == true ? 'yes' : 'no'}\n'
+              '🧾 Message: ${razorpayBody['message'] ?? 'n/a'}';
+        } else {
+          razorpayDetails =
+              '\n🧾 Razorpay test endpoint returned ${razorpayResponse.statusCode}';
+        }
+      } catch (e) {
+        razorpayDetails = '\n🧾 Razorpay test endpoint error: $e';
+      }
+
       _isConnected = true;
 
       setState(() {
@@ -74,7 +97,8 @@ class _TestConnectionScreenState extends State<TestConnectionScreen> {
             '✓ Server is reachable\n'
             '✓ URL: $url\n'
             '✓ Status Code: ${response.statusCode}\n'
-            '✓ Response Time: $_responseTime\n\n'
+            '✓ Response Time: $_responseTime\n'
+            '$razorpayDetails\n\n'
             '🎉 Your backend is working!\n'
             'You can now use all API features.';
         _isLoading = false;

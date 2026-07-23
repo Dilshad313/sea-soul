@@ -265,3 +265,42 @@ exports.getAllBookings = async (req, res) => {
     });
   }
 };
+
+// ✅ User: Update booking (owner) - allows updating payment info and status
+exports.updateBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const booking = await Booking.findOne({ _id: id, userId });
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    // Only allow a limited set of fields to be updated by the user
+    const allowed = ['paymentId', 'paymentStatus', 'status', 'specialRequests'];
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        booking[key] = req.body[key];
+      }
+    }
+
+    await booking.save();
+
+    // Create notification for booking update
+    await createNotification(
+      userId,
+      '📅 Booking Updated',
+      `Your booking ${booking.bookingReference} has been updated.`,
+      'booking',
+      booking._id,
+      null,
+      { bookingId: booking._id, status: booking.status, paymentStatus: booking.paymentStatus }
+    );
+
+    res.status(200).json({ success: true, message: 'Booking updated', booking });
+  } catch (error) {
+    console.error('❌ Booking update error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+};

@@ -58,6 +58,10 @@ const BookingSchema = new mongoose.Schema(
       enum: ['pending', 'paid', 'failed', 'refunded'],
       default: 'pending',
     },
+    paymentId: {
+      type: String,
+      default: null,
+    },
     specialRequests: {
       type: String,
       default: '',

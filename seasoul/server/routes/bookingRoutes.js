@@ -7,6 +7,7 @@ const {
   getBookingById,
   cancelBooking,
   updateBookingStatus,
+  updateBooking,
 } = require('../controllers/bookingController');
 
 // All booking routes require authentication
@@ -15,8 +16,11 @@ router.use(protect);
 // Create booking
 router.post('/', createBooking);
 
-// Get all bookings
+// Get all bookings (for current user)
 router.get('/', getBookings);
+
+// Alias: GET /user -> same as GET /
+router.get('/user', getBookings);
 
 // Get single booking
 router.get('/:id', getBookingById);
@@ -26,5 +30,8 @@ router.put('/:id/cancel', cancelBooking);
 
 // Admin: Update booking status
 router.put('/:id/status', updateBookingStatus);
+
+// User: Update booking (e.g., paymentId, paymentStatus, status)
+router.put('/:id', updateBooking);
 
 module.exports = router;

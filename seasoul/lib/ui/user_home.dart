@@ -30,7 +30,8 @@ class UserHome extends StatefulWidget {
   State<UserHome> createState() => _UserHomeState();
 }
 
-class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin {
+class _UserHomeState extends State<UserHome>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -148,7 +149,7 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
             .where((r) => r is Map<String, dynamic>)
             .map((r) => ReviewModel.fromJson(r as Map<String, dynamic>))
             .toList();
-        
+
         if (mounted) {
           setState(() {
             _recentReviews = reviews;
@@ -405,9 +406,14 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
   }
 
   // ✅ Helper method to build network image with error handling
-  Widget buildNetworkImage(String imageUrl, {double? height, double? width, BoxFit fit = BoxFit.cover}) {
+  Widget buildNetworkImage(
+    String imageUrl, {
+    double? height,
+    double? width,
+    BoxFit fit = BoxFit.cover,
+  }) {
     final cleanUrl = ImageUtils.getCleanImageUrl(imageUrl);
-    
+
     if (!ImageUtils.isValidImage(cleanUrl)) {
       return Container(
         height: height,
@@ -416,44 +422,55 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
         child: const Icon(Icons.broken_image, color: Colors.grey, size: 30),
       );
     }
-    
+
     return Image.network(
       cleanUrl,
       height: height,
       width: width,
       fit: fit,
-      loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(
-          height: height,
-          width: width,
-          color: Colors.grey[200],
-          child: Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                  : null,
-              color: oceanBlue,
-            ),
-          ),
-        );
-      },
-      errorBuilder: (BuildContext context, Object error, StackTrace? stackTrace) {
-        print('❌ Image error: $error');
-        return Container(
-          height: height,
-          width: width,
-          color: Colors.grey[200],
-          child: const Icon(Icons.broken_image, color: Colors.grey, size: 30),
-        );
-      },
+      loadingBuilder:
+          (
+            BuildContext context,
+            Widget child,
+            ImageChunkEvent? loadingProgress,
+          ) {
+            if (loadingProgress == null) return child;
+            return Container(
+              height: height,
+              width: width,
+              color: Colors.grey[200],
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                      : null,
+                  color: oceanBlue,
+                ),
+              ),
+            );
+          },
+      errorBuilder:
+          (BuildContext context, Object error, StackTrace? stackTrace) {
+            print('❌ Image error: $error');
+            return Container(
+              height: height,
+              width: width,
+              color: Colors.grey[200],
+              child: const Icon(
+                Icons.broken_image,
+                color: Colors.grey,
+                size: 30,
+              ),
+            );
+          },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
+
     final List<Widget> pages = [
       _buildHomeBody(),
       const ExplorePage(),
@@ -791,27 +808,50 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
 
   Widget _buildCategoriesSection() {
     final categories = [
-      {'icon': Icons.domain, 'label': 'Resorts', 'color': oceanBlue},
       {
-        'icon': Icons.kayaking,
-        'label': 'Activities',
+        'icon': Icons.home_work_outlined,
+        'label': 'Premiuim Cottage\n       Rooms',
+        'color': const Color.fromARGB(255, 44, 204, 0),
+      },
+      {
+        'icon': Icons.cottage_outlined,
+        'label': ' Cottage Rooms',
+        'color': oceanBlue,
+      },
+
+      {
+        'icon': Icons.home,
+        'label': 'Home Stay Rooms',
         'color': const Color(0xFF006B5C),
       },
       {
-        'icon': Icons.scuba_diving,
-        'label': 'Scuba',
+        'icon': Icons.wallet_giftcard,
+        'label': 'Package',
         'color': const Color(0xFF7F5300),
       },
       {
-        'icon': Icons.favorite_border,
-        'label': 'Honeymoon',
+        'icon': Icons.car_rental_outlined,
+        'label': '    Rent a Bike\n (car,bike,cycle)',
         'color': const Color(0xFFBA1A1A),
       },
-      {'icon': Icons.restaurant, 'label': 'Dining', 'color': outline},
+      {
+        'icon': Icons.scuba_diving,
+        'label': 'Water Sports \n   activities',
+        'color': outline,
+      },d
+      {
+        'icon': Icons.water_rounded,
+        'label': 'Lakshadweep Traditional \n               product',
+        'color': const Color.fromARGB(255, 158, 15, 169),
+      },{
+        'icon': Icons.event,
+        'label': 'Event  Program',
+        'color': const Color.fromARGB(255, 15, 169, 36),
+      },
     ];
 
     return SizedBox(
-      height: 95,
+      height: 110,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
@@ -945,7 +985,9 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(20),
                             image: DecorationImage(
-                              image: NetworkImage(ImageUtils.getCleanImageUrl(imageUrl)),
+                              image: NetworkImage(
+                                ImageUtils.getCleanImageUrl(imageUrl),
+                              ),
                               fit: BoxFit.cover,
                               onError: (exception, stackTrace) {
                                 print('❌ Package image error: $exception');
@@ -1135,21 +1177,24 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
       {
         'name': 'Agatti Island',
         'desc': 'The gateway to Lakshadweep with pristine beaches',
-        'image': 'https://images.unsplash.com/photo-1573843981267-be1999ff37cd?w=600',
+        'image':
+            'https://images.unsplash.com/photo-1573843981267-be1999ff37cd?w=600',
         'color': oceanBlue,
         'emoji': '🏝️',
       },
       {
         'name': 'Kavaratti Island',
         'desc': 'Famous for its turquoise lagoon and coral reefs',
-        'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
+        'image':
+            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
         'color': turquoise,
         'emoji': '🌊',
       },
       {
         'name': 'Minicoy Island',
         'desc': 'Known for its unique culture and lighthouse',
-        'image': 'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=600',
+        'image':
+            'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=600',
         'color': sunsetOrange,
         'emoji': '🗼',
       },
@@ -1254,7 +1299,9 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: (island['color'] as Color).withOpacity(0.8),
+                              color: (island['color'] as Color).withOpacity(
+                                0.8,
+                              ),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
@@ -1325,7 +1372,9 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
                       latestProducts[0]['images'].isNotEmpty
                   ? DecorationImage(
                       image: NetworkImage(
-                        ImageUtils.getCleanImageUrl(latestProducts[0]['images'][0]),
+                        ImageUtils.getCleanImageUrl(
+                          latestProducts[0]['images'][0],
+                        ),
                       ),
                       fit: BoxFit.cover,
                       onError: (exception, stackTrace) {
@@ -1465,7 +1514,9 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
                               latestProducts[1]['images'].isNotEmpty
                           ? DecorationImage(
                               image: NetworkImage(
-                                ImageUtils.getCleanImageUrl(latestProducts[1]['images'][0]),
+                                ImageUtils.getCleanImageUrl(
+                                  latestProducts[1]['images'][0],
+                                ),
                               ),
                               fit: BoxFit.cover,
                               onError: (exception, stackTrace) {
@@ -1577,7 +1628,9 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
                               latestProducts[2]['images'].isNotEmpty
                           ? DecorationImage(
                               image: NetworkImage(
-                                ImageUtils.getCleanImageUrl(latestProducts[2]['images'][0]),
+                                ImageUtils.getCleanImageUrl(
+                                  latestProducts[2]['images'][0],
+                                ),
                               ),
                               fit: BoxFit.cover,
                               onError: (exception, stackTrace) {
@@ -1679,9 +1732,7 @@ class _UserHomeState extends State<UserHome> with AutomaticKeepAliveClientMixin 
           child: SizedBox(
             height: 30,
             width: 30,
-            child: CircularProgressIndicator(
-              color: Color(0xFF0099CC),
-            ),
+            child: CircularProgressIndicator(color: Color(0xFF0099CC)),
           ),
         ),
       );
