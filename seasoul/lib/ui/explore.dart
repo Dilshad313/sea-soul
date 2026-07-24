@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:seasoul/services/product_service.dart';
 import 'package:seasoul/services/activity_service.dart';
+import 'package:seasoul/services/category_service.dart';
 import 'package:seasoul/ui/activity_details.dart';
 import 'package:seasoul/ui/product_details.dart';
 import 'package:seasoul/widgets/star_rating.dart';
@@ -16,11 +17,12 @@ class ExplorePage extends StatefulWidget {
 class _ExplorePageState extends State<ExplorePage> {
   int _activeCategoryIndex = 0;
   String _searchQuery = '';
-  List<dynamic> _products = [];
-  List<dynamic> _activities = [];
-  bool _isLoadingProducts = true;
-  bool _isLoadingActivities = true;
-  bool _showProducts = true;
+  List<dynamic> _allItems = []; // Combined list of products and activities
+  bool _isLoading = true;
+  bool _isLoadingCategories = true;
+
+  // ✅ Categories from backend
+  List<String> _categories = ['All'];
 
   static const Color deepNavy = Color(0xFF1A2B49);
   static const Color oceanBlue = Color(0xFF0099CC);
@@ -28,63 +30,89 @@ class _ExplorePageState extends State<ExplorePage> {
   static const Color outline = Color(0xFF6E7880);
   static const Color sandWhite = Color(0xFFF8FBFF);
 
-  // ✅ Package Categories (Same as Admin)
-  final List<String> _categories = [
-    'All',
-    'Premium Cottage Rooms',
-    'Cottage Rooms',
-    'Home Stay Rooms',
-    'Packages',
-    'Rent a Bike',
-    'Water Sports Activity',
-    'Lakshadweep Traditional Products',
-    'Event Program',
-  ];
-
   @override
   void initState() {
     super.initState();
-    _loadProducts();
-    _loadActivities();
+    _loadCategories();
+    _loadAllItems();
   }
 
-  Future<void> _loadProducts() async {
-    setState(() => _isLoadingProducts = true);
+  // ✅ Load categories from backend
+  Future<void> _loadCategories() async {
+    setState(() => _isLoadingCategories = true);
     try {
-      final response = await ProductService.getProducts();
-      if (response['success'] == true) {
-        setState(() {
-          _products = response['products'] ?? [];
-          _isLoadingProducts = false;
-        });
-      }
+      final categories = await CategoryService.getCategories();
+      final categoryNames = categories.map((cat) => cat.name).toList();
+      setState(() {
+        _categories = ['All', ...categoryNames];
+        _isLoadingCategories = false;
+      });
+      print('✅ Loaded ${_categories.length} categories in explore');
     } catch (e) {
-      setState(() => _isLoadingProducts = false);
-      print('❌ Error loading products: $e');
+      print('❌ Error loading categories: $e');
+      _setFallbackCategories();
     }
   }
 
-  Future<void> _loadActivities() async {
-    setState(() => _isLoadingActivities = true);
+  // ✅ Fallback categories
+  void _setFallbackCategories() {
+    setState(() {
+      _categories = [
+        'All',
+        'Premium Cottage Rooms',
+        'Cottage Rooms',
+        'Home Stay Rooms',
+        'Packages',
+        'Rent a Bike',
+        'Water Sports Activity',
+        'Lakshadweep Traditional Products',
+        'Event Program',
+      ];
+      _isLoadingCategories = false;
+    });
+  }
+
+  // ✅ Load both products and activities and combine them
+  Future<void> _loadAllItems() async {
+    setState(() => _isLoading = true);
     try {
-      final response = await ActivityService.getActivities();
-      if (response['success'] == true) {
-        setState(() {
-          _activities = response['activities'] ?? [];
-          _isLoadingActivities = false;
-        });
+      final productsResponse = await ProductService.getProducts();
+      final activitiesResponse = await ActivityService.getActivities();
+
+      List<dynamic> products = [];
+      List<dynamic> activities = [];
+
+      if (productsResponse['success'] == true) {
+        products = productsResponse['products'] ?? [];
       }
+      if (activitiesResponse['success'] == true) {
+        activities = activitiesResponse['activities'] ?? [];
+      }
+
+      // ✅ Combine and add type field for identification
+      final combined = <dynamic>[
+        ...products.map((p) => {...p, '_type': 'product'}),
+        ...activities.map((a) => {...a, '_type': 'activity'}),
+      ];
+
+      setState(() {
+        _allItems = combined;
+        _isLoading = false;
+      });
     } catch (e) {
-      setState(() => _isLoadingActivities = false);
-      print('❌ Error loading activities: $e');
+      setState(() => _isLoading = false);
+      print('❌ Error loading items: $e');
     }
   }
 
   List<dynamic> _getFilteredItems() {
-    final items = _showProducts ? _products : _activities;
+    if (_categories.isEmpty || _activeCategoryIndex >= _categories.length) {
+      return _allItems;
+    }
+
     final category = _categories[_activeCategoryIndex];
 
-    return items.where((item) {
+    return _allItems.where((item) {
       // Category filter
       if (category != 'All' && item['category'] != category) {
         return false;
@@ -105,10 +133,16 @@ class _ExplorePageState extends State<ExplorePage> {
   @override
   Widget build(BuildContext context) {
     final filteredItems = _getFilteredItems();
-    final isLoading = _showProducts ? _isLoadingProducts : _isLoadingActivities;
-    final emptyMessage = _showProducts
-        ? 'No packages found'
-        : 'No activities found';
+    final emptyMessage = 'No items found';
+
+    if (_isLoadingCategories || _isLoading) {
+      return Container(
+        color: sandWhite,
+        child: const Center(
+          child: CircularProgressIndicator(color: oceanBlue),
+        ),
+      );
+    }
 
     return Container(
       color: sandWhite,
@@ -140,9 +174,8 @@ class _ExplorePageState extends State<ExplorePage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildToggleButtons(),
-                  const SizedBox(height: 12),
                   _buildSearchBar(),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
@@ -154,82 +187,12 @@ class _ExplorePageState extends State<ExplorePage> {
             const SizedBox(height: 16),
             // Content
             Expanded(
-              child: isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: oceanBlue),
-                    )
-                  : filteredItems.isEmpty
+              child: filteredItems.isEmpty
                   ? _buildEmptyState(emptyMessage)
                   : _buildItemGrid(filteredItems),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildToggleButtons() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _showProducts = true;
-                  _activeCategoryIndex = 0;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _showProducts ? oceanBlue : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  'Packages',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _showProducts ? Colors.white : deepNavy,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _showProducts = false;
-                  _activeCategoryIndex = 0;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: !_showProducts ? oceanBlue : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  'Activities',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: !_showProducts ? Colors.white : deepNavy,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -283,6 +246,10 @@ class _ExplorePageState extends State<ExplorePage> {
   }
 
   Widget _buildCategoryChips() {
+    if (_categories.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return SizedBox(
       height: 42,
       child: ListView.builder(
@@ -344,7 +311,7 @@ class _ExplorePageState extends State<ExplorePage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            _showProducts ? Icons.inventory : Icons.kayaking,
+            Icons.search_off,
             size: 64,
             color: Colors.grey[300],
           ),
@@ -355,13 +322,7 @@ class _ExplorePageState extends State<ExplorePage> {
           ),
           const SizedBox(height: 8),
           TextButton(
-            onPressed: () {
-              if (_showProducts) {
-                _loadProducts();
-              } else {
-                _loadActivities();
-              }
-            },
+            onPressed: _loadAllItems,
             child: const Text('Retry'),
           ),
         ],
@@ -388,11 +349,11 @@ class _ExplorePageState extends State<ExplorePage> {
           final imageUrl = images.isNotEmpty
               ? images[0]
               : 'https://via.placeholder.com/300x200';
-          final isProduct = _showProducts;
           final itemId = item['_id'];
           final itemName = item['name'] ?? 'Item';
           final itemTagline = item['location'] ?? 'Location';
           final itemPrice = item['price'] ?? 0;
+          final itemType = item['_type'] ?? 'product'; // 'product' or 'activity'
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,7 +363,7 @@ class _ExplorePageState extends State<ExplorePage> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        if (isProduct) {
+                        if (itemType == 'product') {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -431,7 +392,9 @@ class _ExplorePageState extends State<ExplorePage> {
                             ),
                           ],
                           image: DecorationImage(
-                            image: NetworkImage(ImageUtils.getCleanImageUrl(imageUrl)),
+                            image: NetworkImage(
+                              ImageUtils.getCleanImageUrl(imageUrl),
+                            ),
                             fit: BoxFit.cover,
                             onError: (exception, stackTrace) {
                               print('❌ Explore image error: $exception');
@@ -462,9 +425,33 @@ class _ExplorePageState extends State<ExplorePage> {
                         ),
                       ),
                     ),
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: itemType == 'product'
+                              ? oceanBlue.withOpacity(0.9)
+                              : Colors.green.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          itemType == 'product' ? 'PACKAGE' : 'ACTIVITY',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                     if (item['isFeatured'] == true)
                       Positioned(
-                        top: 12,
+                        top: 50,
                         left: 12,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -536,7 +523,7 @@ class _ExplorePageState extends State<ExplorePage> {
                       width: double.infinity,
                       child: OutlinedButton(
                         onPressed: () {
-                          if (isProduct) {
+                          if (itemType == 'product') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(

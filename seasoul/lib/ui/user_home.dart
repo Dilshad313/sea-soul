@@ -16,11 +16,14 @@ import 'package:seasoul/services/product_service.dart';
 import 'package:seasoul/services/activity_service.dart';
 import 'package:seasoul/services/wishlist_service.dart';
 import 'package:seasoul/services/review_service.dart';
+import 'package:seasoul/services/category_service.dart';
 import 'package:seasoul/models/review_model.dart';
+import 'package:seasoul/models/category_model.dart';
 import 'package:seasoul/widgets/review_card.dart';
 import 'package:seasoul/widgets/star_rating.dart';
 import 'package:seasoul/providers/notification_provider.dart';
 import 'package:seasoul/utils/image_utils.dart';
+import 'package:seasoul/utils/icon_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UserHome extends StatefulWidget {
@@ -49,14 +52,18 @@ class _UserHomeState extends State<UserHome>
   List<dynamic> _featuredActivities = [];
   List<dynamic> _allProducts = [];
 
-  // ✅ Store ratings for products and activities
+  // ✅ Categories from backend
+  List<CategoryModel> _categories = [];
+  bool _isLoadingCategories = true;
+
+  // Store ratings for products and activities
   Map<String, double> _productRatings = {};
   Map<String, int> _productReviewCounts = {};
   Map<String, double> _activityRatings = {};
   Map<String, int> _activityReviewCounts = {};
   bool _isLoadingRatings = true;
 
-  // ✅ Recent Reviews
+  // Recent Reviews
   List<ReviewModel> _recentReviews = [];
   bool _isLoadingReviews = true;
   Timer? _reviewRefreshTimer;
@@ -106,10 +113,10 @@ class _UserHomeState extends State<UserHome>
     super.initState();
     _packagePageController = PageController();
     _activityPageController = PageController();
+    _loadCategories();
     _loadAllData();
     _loadRecentReviews();
 
-    // ✅ Auto-refresh reviews every 30 seconds
     _reviewRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
         _loadRecentReviews();
@@ -139,7 +146,119 @@ class _UserHomeState extends State<UserHome>
     super.dispose();
   }
 
-  // ✅ Load Recent Reviews
+  // ✅ Load categories from backend with fallback
+  Future<void> _loadCategories() async {
+    setState(() => _isLoadingCategories = true);
+    try {
+      final categories = await CategoryService.getCategories();
+      setState(() {
+        _categories = categories;
+        _isLoadingCategories = false;
+      });
+      print('✅ Loaded ${_categories.length} categories from backend');
+    } catch (e) {
+      print('❌ Error loading categories: $e');
+      _loadFallbackCategories();
+    }
+  }
+
+  // ✅ Fallback categories with Material Icons (No Emojis)
+  void _loadFallbackCategories() {
+    setState(() {
+      _categories = [
+        CategoryModel(
+          id: '1',
+          name: 'Premium Cottage Rooms',
+          slug: 'premium-cottage-rooms',
+          description: '',
+          icon: 'home_work',
+          iconType: 'material',
+          color: '#2ECC71',
+          sortOrder: 1,
+          isActive: true,
+        ),
+        CategoryModel(
+          id: '2',
+          name: 'Cottage Rooms',
+          slug: 'cottage-rooms',
+          description: '',
+          icon: 'cottage',
+          iconType: 'material',
+          color: '#0099CC',
+          sortOrder: 2,
+          isActive: true,
+        ),
+        CategoryModel(
+          id: '3',
+          name: 'Home Stay Rooms',
+          slug: 'home-stay-rooms',
+          description: '',
+          icon: 'house',
+          iconType: 'material',
+          color: '#006B5C',
+          sortOrder: 3,
+          isActive: true,
+        ),
+        CategoryModel(
+          id: '4',
+          name: 'Packages',
+          slug: 'packages',
+          description: '',
+          icon: 'package',
+          iconType: 'material',
+          color: '#7F5300',
+          sortOrder: 4,
+          isActive: true,
+        ),
+        CategoryModel(
+          id: '5',
+          name: 'Rent a Bike',
+          slug: 'rent-a-bike',
+          description: '',
+          icon: 'directions_bike',
+          iconType: 'material',
+          color: '#BA1A1A',
+          sortOrder: 5,
+          isActive: true,
+        ),
+        CategoryModel(
+          id: '6',
+          name: 'Water Sports Activity',
+          slug: 'water-sports-activity',
+          description: '',
+          icon: 'scuba_diving',
+          iconType: 'material',
+          color: '#6E7880',
+          sortOrder: 6,
+          isActive: true,
+        ),
+        CategoryModel(
+          id: '7',
+          name: 'Lakshadweep Traditional Products',
+          slug: 'lakshadweep-traditional-products',
+          description: '',
+          icon: 'handmade',
+          iconType: 'material',
+          color: '#9E0FA9',
+          sortOrder: 7,
+          isActive: true,
+        ),
+        CategoryModel(
+          id: '8',
+          name: 'Event Program',
+          slug: 'event-program',
+          description: '',
+          icon: 'event',
+          iconType: 'material',
+          color: '#0FA924',
+          sortOrder: 8,
+          isActive: true,
+        ),
+      ];
+      _isLoadingCategories = false;
+    });
+  }
+
   Future<void> _loadRecentReviews() async {
     try {
       final response = await ReviewService.getRecentReviews(limit: 3);
@@ -405,7 +524,7 @@ class _UserHomeState extends State<UserHome>
     }
   }
 
-  // ✅ Helper method to build network image with error handling
+  // Helper method to build network image with error handling
   Widget buildNetworkImage(
     String imageUrl, {
     double? height,
@@ -640,11 +759,11 @@ class _UserHomeState extends State<UserHome>
           const SizedBox(height: 32),
           _buildPackagesSection(),
           const SizedBox(height: 32),
-          _buildIslandHighlightsSection(), // ✅ NEW: Replaced Trending Activities
+          _buildIslandHighlightsSection(),
           const SizedBox(height: 32),
           _buildBentoGridSection(),
           const SizedBox(height: 32),
-          _buildRecentReviewsSection(), // ✅ Fixed: No auto-reload
+          _buildRecentReviewsSection(),
           const SizedBox(height: 100),
         ],
       ),
@@ -664,6 +783,31 @@ class _UserHomeState extends State<UserHome>
             offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: TextField(
+        onChanged: _handleSearch,
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.search, color: outline),
+          hintText: 'Search packages...',
+          hintStyle: const TextStyle(
+            color: outline,
+            fontFamily: 'Inter',
+            fontSize: 15,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 14,
+            horizontal: 16,
+          ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, color: outline, size: 18),
+                  onPressed: () {
+                    _handleSearch('');
+                  },
+                )
+              : null,
+        ),
       ),
     );
   }
@@ -806,57 +950,38 @@ class _UserHomeState extends State<UserHome>
     );
   }
 
+  // ✅ DYNAMIC CATEGORIES SECTION - Uses Material Icons (No Emojis)
   Widget _buildCategoriesSection() {
-    final categories = [
-      {
-        'icon': Icons.home_work_outlined,
-        'label': 'Premiuim Cottage\n       Rooms',
-        'color': const Color.fromARGB(255, 44, 204, 0),
-      },
-      {
-        'icon': Icons.cottage_outlined,
-        'label': ' Cottage Rooms',
-        'color': oceanBlue,
-      },
+    if (_isLoadingCategories) {
+      return const SizedBox(
+        height: 110,
+        child: Center(
+          child: CircularProgressIndicator(color: oceanBlue),
+        ),
+      );
+    }
 
-      {
-        'icon': Icons.home,
-        'label': 'Home Stay Rooms',
-        'color': const Color(0xFF006B5C),
-      },
-      {
-        'icon': Icons.wallet_giftcard,
-        'label': 'Package',
-        'color': const Color(0xFF7F5300),
-      },
-      {
-        'icon': Icons.car_rental_outlined,
-        'label': '    Rent a Bike\n (car,bike,cycle)',
-        'color': const Color(0xFFBA1A1A),
-      },
-      {
-        'icon': Icons.scuba_diving,
-        'label': 'Water Sports \n   activities',
-        'color': outline,
-      },
-      {
-        'icon': Icons.water_rounded,
-        'label': 'Lakshadweep Traditional \n               product',
-        'color': const Color.fromARGB(255, 158, 15, 169),
-      },{
-        'icon': Icons.event,
-        'label': 'Event  Program',
-        'color': const Color.fromARGB(255, 15, 169, 36),
-      },
-    ];
+    if (_categories.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return SizedBox(
       height: 110,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
+        itemCount: _categories.length,
         itemBuilder: (context, index) {
-          final cat = categories[index];
+          final category = _categories[index];
+          
+          // Parse color from hex string
+          Color color = oceanBlue;
+          try {
+            final hexColor = category.color.replaceFirst('#', '0xFF');
+            color = Color(int.parse(hexColor));
+          } catch (_) {
+            color = oceanBlue;
+          }
+
           return Padding(
             padding: const EdgeInsets.only(right: 20.0),
             child: GestureDetector(
@@ -871,23 +996,29 @@ class _UserHomeState extends State<UserHome>
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: (cat['color'] as Color).withOpacity(0.12),
+                      color: color.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Icon(
-                      cat['icon'] as IconData,
-                      color: cat['color'] as Color,
+                    child: IconHelper.buildIcon(
+                      category.icon, // ✅ Uses icon name from backend
                       size: 28,
+                      color: color,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    cat['label'] as String,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: deepNavy,
-                      fontFamily: 'Inter',
+                  SizedBox(
+                    width: 70,
+                    child: Text(
+                      category.name,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: deepNavy,
+                        fontFamily: 'Inter',
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -1171,7 +1302,6 @@ class _UserHomeState extends State<UserHome>
     );
   }
 
-  // ✅ NEW: Island Highlights Section (Replaced Trending Activities)
   Widget _buildIslandHighlightsSection() {
     final islands = [
       {
@@ -1723,7 +1853,6 @@ class _UserHomeState extends State<UserHome>
     );
   }
 
-  // ✅ Fixed Recent Reviews Section - No auto-reload
   Widget _buildRecentReviewsSection() {
     if (_isLoadingReviews) {
       return const Padding(
@@ -1756,7 +1885,6 @@ class _UserHomeState extends State<UserHome>
                 color: Color(0xFF1A2B49),
               ),
             ),
-            // ✅ Refresh button - only when user taps
             TextButton(
               onPressed: () {
                 setState(() {
@@ -1798,7 +1926,6 @@ class _UserHomeState extends State<UserHome>
                     duration: Duration(seconds: 2),
                   ),
                 );
-                // ✅ Refresh reviews after helpful tap
                 _loadRecentReviews();
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(

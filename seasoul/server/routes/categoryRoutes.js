@@ -19,7 +19,7 @@ router.get('/active', async (req, res) => {
   try {
     const categories = await Category.find({ isActive: true })
       .sort({ sortOrder: 1, name: 1 })
-      .select('name slug color icon');
+      .select('name slug color icon iconType description sortOrder');
     res.json({ success: true, categories });
   } catch (error) {
     console.error('❌ Error fetching active categories:', error);
@@ -44,7 +44,7 @@ router.get('/:id', isAdmin, async (req, res) => {
 // ✅ Create category
 router.post('/', isAdmin, async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, icon, iconType, color, sortOrder } = req.body;
 
     if (!name) {
       return res.status(400).json({ success: false, message: 'Category name is required' });
@@ -61,6 +61,10 @@ router.post('/', isAdmin, async (req, res) => {
     const category = new Category({
       name: name.trim(),
       description: description || '',
+      icon: icon || 'category',
+      iconType: iconType || 'material',
+      color: color || '#00E5FF',
+      sortOrder: sortOrder || 0,
     });
 
     await category.save();
@@ -74,7 +78,7 @@ router.post('/', isAdmin, async (req, res) => {
 // ✅ Update category
 router.put('/:id', isAdmin, async (req, res) => {
   try {
-    const { name, description, isActive } = req.body;
+    const { name, description, icon, iconType, color, sortOrder, isActive } = req.body;
 
     const category = await Category.findById(req.params.id);
     if (!category) {
@@ -92,6 +96,10 @@ router.put('/:id', isAdmin, async (req, res) => {
     }
 
     if (description !== undefined) category.description = description;
+    if (icon !== undefined) category.icon = icon;
+    if (iconType !== undefined) category.iconType = iconType;
+    if (color !== undefined) category.color = color;
+    if (sortOrder !== undefined) category.sortOrder = sortOrder;
     if (isActive !== undefined) category.isActive = isActive;
 
     await category.save();
