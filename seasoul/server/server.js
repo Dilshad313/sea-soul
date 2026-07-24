@@ -105,10 +105,10 @@ app.use('/api/categories', categoryRoutes);
 // ✅ Razorpay Routes
 app.use('/api/razorpay', razorpayRoutes);
 
-<<<<<<< HEAD
+
 // ✅ ADD - MSG91 Webhook Routes
 app.use('/api', otpWebhookRoutes);
-=======
+
 // ==================== HEALTH CHECK ENDPOINTS ====================
 
 // ✅ Health check
@@ -136,7 +136,7 @@ app.get('/api/env-check', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
->>>>>>> 20118d2f7ead10431f1fad1f412ccabe7fabab18
+
 
 // ==================== ERROR HANDLING ====================
 

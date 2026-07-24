@@ -1,14 +1,20 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
-// ✅ Import email service
 const { sendWelcomeEmail } = require('../services/emailService');
 require('dotenv').config();
 
-// ✅ Initialize Google OAuth Client
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_ANDROID_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET
+// ✅ Initialize Google OAuth Client with proper configuration
+const androidClient = new OAuth2Client(
+  process.env.GOOGLE_ANDROID_CLIENT_ID
+);
+
+const webClient = new OAuth2Client(
+  process.env.GOOGLE_WEB_CLIENT_ID
+);
+
+const iosClient = new OAuth2Client(
+  process.env.GOOGLE_IOS_CLIENT_ID || process.env.GOOGLE_ANDROID_CLIENT_ID
 );
 
 // ✅ Google Login
@@ -28,23 +34,32 @@ exports.googleLogin = async (req, res) => {
       });
     }
 
+    // Select the appropriate client based on platform
+    let client;
     let clientId;
+    
     if (platform === 'web') {
+      client = webClient;
       clientId = process.env.GOOGLE_WEB_CLIENT_ID;
+    } else if (platform === 'ios') {
+      client = iosClient;
+      clientId = process.env.GOOGLE_IOS_CLIENT_ID || process.env.GOOGLE_ANDROID_CLIENT_ID;
     } else {
+      client = androidClient;
       clientId = process.env.GOOGLE_ANDROID_CLIENT_ID;
     }
 
-    console.log(`🔑 Using Client ID: ${clientId ? 'Present' : 'Missing'}`);
+    console.log(`🔑 Using Client ID for ${platform}: ${clientId ? 'Present' : 'Missing'}`);
 
     if (!clientId) {
       return res.status(500).json({
         success: false,
-        message: 'Google Client ID not configured for this platform'
+        message: `Google Client ID not configured for platform: ${platform}`
       });
     }
 
-    const ticket = await googleClient.verifyIdToken({
+    // Verify the ID token
+    const ticket = await client.verifyIdToken({
       idToken: idToken,
       audience: clientId,
     });
@@ -55,7 +70,9 @@ exports.googleLogin = async (req, res) => {
     console.log('✅ Google ID Token verified successfully!');
     console.log(`📧 Email: ${email}`);
     console.log(`👤 Name: ${name}`);
+    console.log(`🆔 Google Sub: ${sub}`);
 
+    // Check if user exists
     let user = await User.findOne({ email });
 
     if (!user) {
@@ -65,7 +82,7 @@ exports.googleLogin = async (req, res) => {
         fullName: name || 'User',
         email: email,
         phone: '',
-        password: '',
+        password: '', // No password for Google users
         profileImage: picture || '',
         bio: '',
         location: '',
@@ -77,7 +94,7 @@ exports.googleLogin = async (req, res) => {
       await user.save();
       console.log('✅ New Google user created successfully!');
 
-      // ✅ Send welcome email using email service
+      // Send welcome email
       try {
         await sendWelcomeEmail(user);
         console.log('✅ Welcome email sent to:', email);
@@ -88,17 +105,22 @@ exports.googleLogin = async (req, res) => {
     } else {
       console.log('📝 Existing user found. Updating Google data...');
 
+      // Update Google info if needed
       if (!user.isGoogleUser) {
         user.isGoogleUser = true;
-        user.googleId = sub;
-        if (!user.profileImage && picture) {
-          user.profileImage = picture;
-        }
-        await user.save();
-        console.log('✅ Existing user updated with Google data');
       }
+      if (!user.googleId) {
+        user.googleId = sub;
+      }
+      if (!user.profileImage && picture) {
+        user.profileImage = picture;
+      }
+      
+      await user.save();
+      console.log('✅ Existing user updated with Google data');
     }
 
+    // Generate JWT token
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET,
@@ -107,6 +129,7 @@ exports.googleLogin = async (req, res) => {
 
     console.log('✅ Google Login successful!');
     console.log(`🆔 User ID: ${user._id}`);
+    console.log('========================================\n');
 
     res.status(200).json({
       success: true,
@@ -127,6 +150,8 @@ exports.googleLogin = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Google Login error:', error);
+    console.error('Error stack:', error.stack);
+    
     res.status(500).json({
       success: false,
       message: 'Google authentication failed',

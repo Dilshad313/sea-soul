@@ -20,15 +20,21 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
 
-   <!-- ✅ Google Identity Services - Required for Web -->
+  <!-- ✅ Google Identity Services - Required for Web -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  
+  <!-- ✅ Google Sign-In Configuration Meta Tag -->
+  <meta name="google-signin-client_id" content="982762507474-6blv3lmb1s32akhth9fv3kg2fa38betr.apps.googleusercontent.com">
 
-   <!-- ✅ Google One Tap Script -->
- <script>
+  <!-- ✅ Google One Tap Script -->
+  <script>
     window.addEventListener('load', function() {
       if (typeof google !== 'undefined' && google.accounts) {
         console.log('✅ Google Identity Services loaded');
         console.log('📍 Current URL:', window.location.origin);
+        console.log('🔑 Client ID configured: 982762507474-6blv3lmb1s32akhth9fv3kg2fa38betr.apps.googleusercontent.com');
+      } else {
+        console.warn('⚠️ Google Identity Services not loaded yet');
       }
     });
   </script>

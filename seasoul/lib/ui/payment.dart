@@ -65,28 +65,50 @@ class _paymentState extends State<payment> {
     print('✅ Payment Success: ${response.paymentId}');
 
     setState(() {
-      _isProcessing = false;
+      _isProcessing = true;
       _paymentId = response.paymentId;
     });
 
-    // Retrieve stored bookingId from service static fields
-    final String? bookingId =
-        _createdBookingId ?? RazorpayService.pendingBookingId ?? widget.bookingId;
-    final double? amount = RazorpayService.pendingAmount ?? widget.amount;
-
     try {
-      // Verify payment on backend — pass bookingId + amount
-      final isVerified = await RazorpayService.verifyPayment(
+      // ✅ Verify payment on backend — backend will create booking after verification
+      final verifyResponse = await RazorpayService.verifyPaymentWithBooking(
         orderId: response.orderId!,
         paymentId: response.paymentId!,
         signature: response.signature!,
-        bookingId: bookingId,
-        amount: amount,
+        productId: widget.productId,
+        activityId: widget.activityId,
+        amount: widget.amount,
+        guests: 1,
       );
 
-      if (isVerified) {
-        // Update booking with payment
-        await _updateBookingWithPayment(response.paymentId!);
+      if (verifyResponse['success'] == true) {
+        // Extract booking ID from verification response
+        final bookingId = verifyResponse['booking']?['id'] ?? 
+                         verifyResponse['booking']?['_id'];
+        
+        setState(() {
+          _createdBookingId = bookingId;
+          _isSuccess = true;
+          _isProcessing = false;
+        });
+
+        // Navigate to success screen
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => payment_success(
+                bookingId: bookingId ?? '',
+                productId: widget.productId,
+                activityId: widget.activityId,
+                itemName: widget.itemName,
+                itemType: widget.itemType,
+                amount: widget.amount,
+                paymentId: response.paymentId!,
+              ),
+            ),
+          );
+        }
       } else {
         _showErrorDialog(
           'Payment verification failed. Please contact support.',
@@ -111,70 +133,6 @@ class _paymentState extends State<payment> {
 
   void _handleExternalWallet(ExternalWalletResponse response) {
     print('External Wallet: ${response.walletName}');
-  }
-
-  Future<void> _updateBookingWithPayment(String paymentId) async {
-    try {
-      String? bookingId = _createdBookingId ?? widget.bookingId;
-
-      if (bookingId != null) {
-        // Update booking with payment ID
-        final updateResponse = await ApiService.putWithToken(
-          '${ApiConstants.baseUrl}/api/bookings/$bookingId',
-          {
-            'paymentId': paymentId,
-            'paymentStatus': 'completed',
-            'status': 'confirmed',
-          },
-        );
-
-        if (updateResponse['success'] != true) {
-          print('⚠️ Warning: Could not update booking payment status');
-        }
-      }
-
-      setState(() {
-        _isSuccess = true;
-        _isProcessing = false;
-      });
-
-      // Navigate to success screen
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => payment_success(
-              bookingId: bookingId ?? '',
-              productId: widget.productId,
-              activityId: widget.activityId,
-              itemName: widget.itemName,
-              itemType: widget.itemType,
-              amount: widget.amount,
-              paymentId: paymentId,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      print('❌ Booking update error: $e');
-      // Still show success since payment was successful
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => payment_success(
-              bookingId: _createdBookingId ?? widget.bookingId ?? '',
-              productId: widget.productId,
-              activityId: widget.activityId,
-              itemName: widget.itemName,
-              itemType: widget.itemType,
-              amount: widget.amount,
-              paymentId: paymentId,
-            ),
-          ),
-        );
-      }
-    }
   }
 
   void _showErrorDialog(String message) {
@@ -202,92 +160,40 @@ class _paymentState extends State<payment> {
     });
 
     try {
-      // 1. First, create a booking (if not exists)
-      String? bookingId = widget.bookingId;
-
-      if (bookingId == null || bookingId.isEmpty) {
-        print('📝 Creating new booking...');
-
-        final bookingData = {
-          'productId': widget.productId,
-          'activityId': widget.activityId,
-          'totalAmount': widget.amount,
-          'guests': 1,
-          'paymentStatus': 'pending',
-          'status': 'pending',
-          'checkIn': DateTime.now().toIso8601String(),
-          'checkOut': DateTime.now()
-              .add(const Duration(days: 3))
-              .toIso8601String(),
-        };
-
-        final bookingResponse = await ApiService.postWithToken(
-          ApiConstants.createBooking,
-          bookingData,
-        );
-
-        print('📥 Booking Response: $bookingResponse');
-
-        if (bookingResponse['success'] == true) {
-          // Extract booking ID from response
-          if (bookingResponse['booking'] != null) {
-            bookingId =
-                bookingResponse['booking']['_id'] ??
-                bookingResponse['booking']['id'];
-          } else if (bookingResponse['data'] != null) {
-            bookingId =
-                bookingResponse['data']['_id'] ?? bookingResponse['data']['id'];
-          } else if (bookingResponse['_id'] != null) {
-            bookingId = bookingResponse['_id'];
-          } else {
-            throw Exception('Could not extract booking ID from response');
-          }
-
-          setState(() {
-            _createdBookingId = bookingId;
-          });
-          print('✅ Booking created: $bookingId');
-        } else {
-          throw Exception(
-            bookingResponse['message'] ?? 'Booking creation failed',
-          );
-        }
-      }
-
-      if (bookingId == null || bookingId.isEmpty) {
-        throw Exception('Booking ID is null or empty');
-      }
-
-      // 2. Build a safe receipt string — Razorpay max is 40 chars
-      final rawReceipt = 'BK_${bookingId}';
+      // ✅ NEW FLOW: Don't create booking yet, just prepare payment
+      // Booking will be created on backend after successful payment
+      
+      // 1. Build receipt with timestamp (no bookingId needed)
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final rawReceipt = 'PAY_$timestamp';
       final receipt = rawReceipt.length > 40
           ? rawReceipt.substring(0, 40)
           : rawReceipt;
 
-      // 3. Create Razorpay order
+      // 2. Create Razorpay order with item details in notes
       final orderResponse = await RazorpayService.createOrder(
         amount: widget.amount,
         receipt: receipt,
         notes: {
-          'booking_id': bookingId,
           'product_id': widget.productId ?? '',
           'activity_id': widget.activityId ?? '',
           'item_name': widget.itemName,
           'item_type': widget.itemType,
+          'amount': widget.amount.toString(),
         },
       );
 
       _razorpayOrderId = orderResponse['id'];
       print('✅ Razorpay order created: $_razorpayOrderId');
 
-      // 4. Get user details
+      // 3. Get user details
       final user = await AuthService.getCurrentUser();
 
-      // 5. Get Razorpay key
+      // 4. Get Razorpay key
       final keyId = await RazorpayService.getRazorpayKey();
       print('✅ Razorpay key obtained');
 
-      // 6. Open Razorpay checkout — pass bookingId so callback can use it
+      // 5. Open Razorpay checkout
       await RazorpayService.openCheckout(
         keyId: keyId,
         orderId: _razorpayOrderId!,
@@ -297,7 +203,7 @@ class _paymentState extends State<payment> {
         customerName: user?['fullName'] ?? user?['name'] ?? 'Customer',
         customerEmail: user?['email'] ?? 'customer@example.com',
         customerContact: user?['phone'] ?? '9999999999',
-        bookingId: bookingId,
+        bookingId: null, // No booking ID yet
       );
 
       // Success/Error handled in callbacks above

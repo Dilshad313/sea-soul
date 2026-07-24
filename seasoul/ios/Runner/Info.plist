@@ -32,6 +32,23 @@
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>SeaSoul needs your location to show real distances to destinations in Lakshadweep</string>
 
+	<!-- ✅ Google Sign-In Configuration for iOS -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- TODO: Replace with your reversed client ID from Google Console -->
+				<string>com.googleusercontent.apps.218977812664-unsu8t9u9orr7bicqstbsdssue7qckkq</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>GIDClientID</key>
+	<string>982762507474-cns94029a218jbghi6sagk118igk49pr.apps.googleusercontent.com</string>
+
 
 	<key>UIApplicationSceneManifest</key>
 	<dict>

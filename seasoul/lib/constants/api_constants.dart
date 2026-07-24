@@ -103,4 +103,8 @@ class ApiConstants {
   static const String bookingStatusConfirmed = 'confirmed';
   static const String bookingStatusCompleted = 'completed';
   static const String bookingStatusCancelled = 'cancelled';
+
+  // ==================== CATEGORIES ====================
+  static String get categories => '$baseUrl/api/categories';
+  static String get activeCategories => '$baseUrl/api/categories/active';
 }

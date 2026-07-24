@@ -105,11 +105,15 @@ exports.createBooking = async (req, res) => {
   }
 };
 
-// ✅ Get all bookings for user
+// ✅ Get all bookings for user (ONLY PAID BOOKINGS)
 exports.getBookings = async (req, res) => {
   try {
     const userId = req.user.id;
-    const bookings = await Booking.find({ userId })
+    // ✅ Only return bookings that are paid
+    const bookings = await Booking.find({ 
+      userId,
+      paymentStatus: 'paid' // Only show paid bookings
+    })
       .sort({ createdAt: -1 })
       .populate('productId')
       .populate('activityId');
@@ -243,10 +247,11 @@ exports.updateBookingStatus = async (req, res) => {
   }
 };
 
-// ✅ Admin: Get all bookings
+// ✅ Admin: Get all bookings (ONLY PAID BOOKINGS)
 exports.getAllBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find()
+    // ✅ Only return bookings that are paid
+    const bookings = await Booking.find({ paymentStatus: 'paid' })
       .populate('userId', 'fullName email phone')
       .populate('productId', 'name price')
       .populate('activityId', 'name price')

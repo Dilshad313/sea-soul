@@ -8,8 +8,11 @@ import '../constants/api_constants.dart';
 import 'origin_helper.dart' if (dart.library.html) 'origin_helper_web.dart';
 
 class GoogleSignInService {
-  // ✅ Your Actual Client IDs - Replace with yours
+  // ✅ Your Actual Client IDs from Google Cloud Console
   static const String _androidClientId =
+      '982762507474-cns94029a218jbghi6sagk118igk49pr.apps.googleusercontent.com';
+
+  static const String _iosClientId =
       '982762507474-cns94029a218jbghi6sagk118igk49pr.apps.googleusercontent.com';
 
   static const String _webClientId =
@@ -19,6 +22,7 @@ class GoogleSignInService {
     if (kIsWeb) {
       return _webClientId;
     } else {
+      // Both Android and iOS use the same client ID in this case
       return _androidClientId;
     }
   }

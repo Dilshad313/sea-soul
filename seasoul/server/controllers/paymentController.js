@@ -223,22 +223,23 @@ exports.createRazorpayOrder = async (req, res) => {
   }
 };
 
-// ✅ 4. Verify Razorpay Payment (FIXED)
+// ✅ 4. Verify Razorpay Payment and Create Booking (FIXED)
 exports.verifyRazorpayPayment = async (req, res) => {
   try {
     const {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
-      bookingId,
+      productId,
+      activityId,
       amount,
+      guests = 1,
     } = req.body;
     const userId = req.user && req.user.id ? req.user.id : null;
 
     console.log('🔐 Verifying Razorpay payment for user:', userId || 'anonymous');
     console.log('🔐 Order ID:', razorpay_order_id);
     console.log('🔐 Payment ID:', razorpay_payment_id);
-    console.log('🔐 Booking ID:', bookingId);
 
     // Validate required fields
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -279,11 +280,81 @@ exports.verifyRazorpayPayment = async (req, res) => {
 
     console.log('✅ Signature verified successfully');
 
+    // ✅ Create booking ONLY after successful payment verification
+    let booking = null;
+    let itemName = 'Package';
+    let itemImage = null;
+    let itemLocation = '';
+
+    if (!productId && !activityId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product ID or Activity ID is required',
+        error: 'Cannot create booking without item reference',
+      });
+    }
+
+    try {
+      const Booking = require('../models/Booking');
+      const Product = require('../models/Product');
+      const Activity = require('../models/Activity');
+
+      // Get item details
+      let item = null;
+      if (productId) {
+        item = await Product.findById(productId);
+        if (item) {
+          itemName = item.name || 'Package';
+          itemLocation = item.location || '';
+          itemImage = item.images && item.images.length > 0 ? item.images[0] : null;
+        }
+      } else if (activityId) {
+        item = await Activity.findById(activityId);
+        if (item) {
+          itemName = item.name || 'Activity';
+          itemLocation = item.location || '';
+          itemImage = item.images && item.images.length > 0 ? item.images[0] : null;
+        }
+      }
+
+      // Create booking with confirmed status
+      booking = new Booking({
+        userId,
+        productId: productId || null,
+        activityId: activityId || null,
+        guests: guests || 1,
+        checkIn: new Date(),
+        checkOut: new Date(Date.now() + 86400000 * 3), // 3 days from now
+        totalAmount: amount || 0,
+        status: 'confirmed', // ✅ Confirmed from the start
+        paymentStatus: 'paid', // ✅ Paid from the start
+        itemType: productId ? 'product' : 'activity',
+      });
+
+      await booking.save();
+      console.log('✅ Booking created after payment:', booking._id);
+
+    } catch (bookingError) {
+      console.error('❌ Error creating booking:', bookingError);
+      // Payment is valid but booking failed - still return success for payment
+      // but notify about booking issue
+      return res.status(500).json({
+        success: false,
+        message: 'Payment successful but booking creation failed',
+        error: bookingError.message,
+        payment: {
+          transactionId: razorpay_payment_id,
+          amount: amount,
+          status: 'completed',
+        },
+      });
+    }
+
     // Save payment record
     const Payment = require('../models/Payment');
     const payment = new Payment({
       userId,
-      bookingId: bookingId || null,
+      bookingId: booking._id,
       amount: amount || 0,
       currency: 'INR',
       method: 'razorpay',
@@ -300,54 +371,9 @@ exports.verifyRazorpayPayment = async (req, res) => {
     await payment.save();
     console.log('✅ Payment saved:', payment._id);
 
-    // Update booking if bookingId provided
-    let booking = null;
-    let itemName = 'Package';
-    let itemImage = null;
-
-    if (bookingId) {
-      try {
-        const Booking = require('../models/Booking');
-        booking = await Booking.findById(bookingId);
-
-        if (booking) {
-          // Get item details
-          if (booking.productId) {
-            const Product = require('../models/Product');
-            const product = await Product.findById(booking.productId);
-            if (product) {
-              itemName = product.name || 'Package';
-              itemImage =
-                product.images && product.images.length > 0
-                  ? product.images[0]
-                  : null;
-            }
-          } else if (booking.activityId) {
-            const Activity = require('../models/Activity');
-            const activity = await Activity.findById(booking.activityId);
-            if (activity) {
-              itemName = activity.name || 'Activity';
-              itemImage =
-                activity.images && activity.images.length > 0
-                  ? activity.images[0]
-                  : null;
-            }
-          }
-
-          // Update booking status
-          booking.status = 'confirmed';
-          booking.paymentStatus = 'paid';
-          booking.paymentId = payment._id;
-          await booking.save();
-          console.log('✅ Booking updated:', bookingId);
-        } else {
-          console.warn('⚠️ Booking not found for ID:', bookingId);
-        }
-      } catch (bookingError) {
-        console.error('⚠️ Error updating booking (non-fatal):', bookingError);
-        // Don't fail the payment if booking update fails
-      }
-    }
+    // Update booking with payment ID
+    booking.paymentId = payment._id;
+    await booking.save();
 
     // Create payment notification
     try {
@@ -361,7 +387,7 @@ exports.verifyRazorpayPayment = async (req, res) => {
         itemImage,
         {
           paymentId: payment._id,
-          bookingId: bookingId || null,
+          bookingId: booking._id,
           amount: amount || 0,
           method: 'razorpay',
           itemName,
@@ -372,12 +398,27 @@ exports.verifyRazorpayPayment = async (req, res) => {
       console.log('✅ Payment notification created');
     } catch (notifError) {
       console.error('⚠️ Notification error (non-fatal):', notifError);
-      // Don't fail the payment if notification fails
+    }
+
+    // Send booking confirmation email
+    try {
+      const User = require('../models/User');
+      const { sendBookingConfirmationEmail } = require('../services/emailService');
+      const user = await User.findById(userId);
+      if (user) {
+        await sendBookingConfirmationEmail(user, booking, { 
+          name: itemName, 
+          location: itemLocation 
+        });
+        console.log('✅ Booking confirmation email sent');
+      }
+    } catch (emailError) {
+      console.error('⚠️ Email error (non-fatal):', emailError);
     }
 
     res.status(200).json({
       success: true,
-      message: 'Payment verified and processed successfully',
+      message: 'Payment verified and booking created successfully',
       payment: {
         id: payment._id,
         transactionId: payment.transactionId,
@@ -386,13 +427,12 @@ exports.verifyRazorpayPayment = async (req, res) => {
         razorpayPaymentId: razorpay_payment_id,
         razorpayOrderId: razorpay_order_id,
       },
-      booking: booking
-        ? {
-            id: booking._id,
-            status: booking.status,
-            paymentStatus: booking.paymentStatus,
-          }
-        : null,
+      booking: {
+        id: booking._id,
+        status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        bookingReference: booking.bookingReference,
+      },
     });
     
   } catch (error) {

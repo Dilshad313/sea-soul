@@ -21,7 +21,13 @@ const CategorySchema = new mongoose.Schema(
     },
     icon: {
       type: String,
-      default: '🏝️',
+      default: 'category', // ✅ Changed from emoji to Material Icon name
+      trim: true,
+    },
+    iconType: {
+      type: String,
+      enum: ['material', 'lucide', 'emoji'],
+      default: 'material', // ✅ Store icon type
     },
     color: {
       type: String,
@@ -39,7 +45,7 @@ const CategorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ Auto-generate slug before saving (Async version - No next parameter)
+// Auto-generate slug before saving
 CategorySchema.pre('save', async function() {
   if (this.isModified('name') || !this.slug) {
     let slug = this.name

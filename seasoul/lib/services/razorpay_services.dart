@@ -115,7 +115,58 @@ class RazorpayService {
     }
   }
 
-  // Verify payment on backend
+  // Verify payment with booking creation on backend
+  static Future<Map<String, dynamic>> verifyPaymentWithBooking({
+    required String orderId,
+    required String paymentId,
+    required String signature,
+    String? productId,
+    String? activityId,
+    required double amount,
+    required int guests,
+  }) async {
+    try {
+      final token = await _getAuthToken();
+
+      final response = await http.post(
+        Uri.parse(ApiConstants.razorpayVerifyPayment),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'razorpay_order_id': orderId,
+          'razorpay_payment_id': paymentId,
+          'razorpay_signature': signature,
+          if (productId != null && productId.isNotEmpty) 'productId': productId,
+          if (activityId != null && activityId.isNotEmpty) 'activityId': activityId,
+          'amount': amount,
+          'guests': guests,
+        }),
+      );
+
+      print('📥 Verify Response Status: ${response.statusCode}');
+      print('📥 Verify Response Body: ${response.body}');
+
+      if (response.statusCode != 200) {
+        final responseData = jsonDecode(response.body);
+        final message = responseData['message'] ?? responseData['error'] ?? 'Payment verification failed';
+        throw Exception(message);
+      }
+
+      final data = jsonDecode(response.body);
+      if (data['success'] != true) {
+        throw Exception(data['message'] ?? data['error'] ?? 'Payment verification failed');
+      }
+
+      return data;
+    } catch (e) {
+      print('❌ Verification error: $e');
+      throw Exception('Error verifying payment: $e');
+    }
+  }
+
+  // Verify payment on backend (legacy method - kept for compatibility)
   static Future<bool> verifyPayment({
     required String orderId,
     required String paymentId,
